@@ -11,7 +11,12 @@ import {
   Loader2,
   Sparkles,
 } from "lucide-react";
-import type { ExplanationStatus, SolutionExplanation } from "@motive/shared";
+import type {
+  ExplanationStatus,
+  ImagePolicy,
+  QuestionAsset,
+  SolutionExplanation,
+} from "@motive/shared";
 import { useUiStore } from "@/stores/ui";
 import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -24,6 +29,12 @@ import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StepCard } from "./step-card";
 import { RevisionHistoryDialog } from "./revision-history-dialog";
+
+const policyLabels: Record<ImagePolicy, string> = {
+  auto: "自动（按模型能力）",
+  always: "始终附带",
+  never: "不附带",
+};
 
 const statusMeta: Record<ExplanationStatus, { label: string; tone: "neutral" | "brand" | "success" | "danger" | "warning" }> = {
   pending: { label: "等待执行", tone: "neutral" },
@@ -108,12 +119,15 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
     pendingProposal,
     openArchiveDialog,
     exportQuestionMarkdown,
+    providerSupportsVision,
+    setQuestionImagePolicy,
   } = workspace;
   const activeStepId = useUiStore((state) => state.activeStepId);
   const openDiscussion = useUiStore((state) => state.openDiscussion);
   const openSettings = useUiStore((state) => state.openSettings);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [revisionOpen, setRevisionOpen] = useState(false);
+  const [previewAsset, setPreviewAsset] = useState<QuestionAsset | null>(null);
 
   if (loading) {
     return (
@@ -159,6 +173,59 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
       </div>
 
       <Markdown content={question.content} className="md-question-title mt-2.5" />
+
+      {question.assets.length > 0 ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {question.assets.map((asset) => (
+            <button
+              key={asset.id}
+              type="button"
+              onClick={() => setPreviewAsset(asset)}
+              title="查看原图"
+              className="h-16 w-16 overflow-hidden rounded-md border border-line bg-field transition-colors hover:border-brand/50"
+            >
+              <img
+                src={asset.url}
+                alt="题目原图"
+                loading="lazy"
+                className="h-full w-full object-cover"
+              />
+            </button>
+          ))}
+          <label className="ml-auto inline-flex items-center gap-1.5 text-[11.5px] text-ink-faint">
+            图片
+            <select
+              value={question.imagePolicy}
+              onChange={(event) =>
+                setQuestionImagePolicy(question.id, event.target.value as ImagePolicy)
+              }
+              className="h-7 rounded-md border border-line bg-field px-1.5 text-[11.5px] text-ink-soft outline-none focus:border-brand/50"
+            >
+              {(Object.keys(policyLabels) as ImagePolicy[]).map((policy) => (
+                <option key={policy} value={policy}>
+                  {policyLabels[policy]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
+
+      {question.imagePolicy === "always" && providerSupportsVision === false ? (
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-[11.5px] text-warning">
+          <AlertCircle size={13} className="shrink-0" />
+          <span className="min-w-0 flex-1">
+            当前模型未声明支持图片输入，「始终附带」会直接报错。
+          </span>
+          <button
+            type="button"
+            onClick={openSettings}
+            className="shrink-0 font-medium underline underline-offset-2 transition-opacity hover:opacity-80"
+          >
+            去设置
+          </button>
+        </div>
+      ) : null}
 
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11.5px] text-ink-faint">
         <span>{steps.length > 0 ? `${steps.length} 个步骤` : "尚无步骤"}</span>
@@ -343,6 +410,21 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
         <p className="text-[12px] leading-relaxed text-ink-soft">
           生成过程会调用当前配置的模型，完成后正式题解将被新步骤替换。
         </p>
+      </Dialog>
+
+      <Dialog
+        open={previewAsset !== null}
+        onClose={() => setPreviewAsset(null)}
+        title="题目原图"
+        className="max-w-[820px]"
+      >
+        {previewAsset ? (
+          <img
+            src={previewAsset.url}
+            alt="题目原图"
+            className="mx-auto max-h-[70vh] w-auto rounded-lg border border-line"
+          />
+        ) : null}
       </Dialog>
 
       <RevisionHistoryDialog

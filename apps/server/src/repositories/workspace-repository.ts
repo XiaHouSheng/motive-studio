@@ -9,8 +9,10 @@ import type {
   ConversationTurn,
   ConversationView,
   ExplanationStatus,
+  ImagePolicy,
   PromptLogEntry,
   Question,
+  QuestionAsset,
   QuestionGroup,
   SolutionExplanation,
   SolutionGenerationResult,
@@ -55,8 +57,49 @@ interface QuestionRow {
   group_id: string;
   content: string;
   position: number;
+  image_policy: string;
   created_at: number;
   updated_at: number;
+}
+
+interface AssetRow {
+  id: string;
+  storage_path: string;
+  mime_type: string;
+  file_size: number;
+  sha256: string;
+  width: number | null;
+  height: number | null;
+  status: string;
+  created_at: number;
+}
+
+interface NewAsset {
+  storagePath: string;
+  mimeType: string;
+  fileSize: number;
+  sha256: string;
+}
+
+export interface QuestionAssetContext {
+  id: string;
+  mimeType: string;
+  storagePath: string;
+}
+
+export interface QuestionContextSource {
+  content: string;
+  imagePolicy: ImagePolicy;
+  assets: QuestionAssetContext[];
+}
+
+export interface ContextSnapshotInput {
+  questionId: string;
+  taskType: "solution_generation";
+  imagePolicy: ImagePolicy;
+  includedAssetIds: string[];
+  selectionReason: string;
+  model: string;
 }
 
 interface StepRow {
@@ -226,14 +269,35 @@ function toGroup(row: GroupRow, questionIds: string[]): QuestionGroup {
   };
 }
 
-function toQuestion(row: QuestionRow, solutionStepIds: string[]): Question {
+function toQuestion(
+  row: QuestionRow,
+  solutionStepIds: string[],
+  assets: QuestionAsset[] = [],
+): Question {
   return {
     id: row.id,
     groupId: row.group_id,
     content: row.content,
     solutionStepIds,
+    imagePolicy: row.image_policy as ImagePolicy,
+    assets,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function toQuestionAsset(row: {
+  id: string;
+  mime_type: string;
+  file_size: number;
+  created_at: number;
+}): QuestionAsset {
+  return {
+    id: row.id,
+    mimeType: row.mime_type,
+    fileSize: row.file_size,
+    createdAt: row.created_at,
+    url: `/api/assets/${row.id}`,
   };
 }
 
@@ -369,6 +433,21 @@ export class WorkspaceRepository {
     const explanationTurnRows = this.db
       .prepare("SELECT explanation_id, turn_id FROM explanation_turns ORDER BY rowid")
       .all() as unknown as Array<{ explanation_id: string; turn_id: string }>;
+    const questionAssetRows = this.db
+      .prepare(
+        `SELECT links.question_id, assets.id, assets.mime_type, assets.file_size,
+                assets.created_at
+         FROM question_assets links
+         JOIN assets ON assets.id = links.asset_id
+         ORDER BY links.question_id, links.position, links.created_at`,
+      )
+      .all() as unknown as Array<{
+      question_id: string;
+      id: string;
+      mime_type: string;
+      file_size: number;
+      created_at: number;
+    }>;
 
     const questionIdsByGroup = new Map<string, string[]>();
     for (const row of questionRows) {
@@ -398,10 +477,21 @@ export class WorkspaceRepository {
       turnIdsByExplanation.set(row.explanation_id, list);
     }
 
+    const assetsByQuestion = new Map<string, QuestionAsset[]>();
+    for (const row of questionAssetRows) {
+      const list = assetsByQuestion.get(row.question_id) ?? [];
+      list.push(toQuestionAsset(row));
+      assetsByQuestion.set(row.question_id, list);
+    }
+
     return {
       groups: groupRows.map((row) => toGroup(row, questionIdsByGroup.get(row.id) ?? [])),
       questions: questionRows.map((row) =>
-        toQuestion(row, stepIdsByQuestion.get(row.id) ?? []),
+        toQuestion(
+          row,
+          stepIdsByQuestion.get(row.id) ?? [],
+          assetsByQuestion.get(row.id) ?? [],
+        ),
       ),
       steps: stepRows.map(toStep),
       subs: subRows.map((row) => toSub(row, turnIdsBySub.get(row.id) ?? [])),
@@ -453,7 +543,11 @@ export class WorkspaceRepository {
     const stepIds = this.db
       .prepare("SELECT id FROM solution_steps WHERE question_id = ? ORDER BY step_order")
       .all(questionId) as unknown as Array<{ id: string }>;
-    return toQuestion(row, stepIds.map((item) => item.id));
+    return toQuestion(
+      row,
+      stepIds.map((item) => item.id),
+      this.listQuestionAssets(questionId),
+    );
   }
 
   createQuestion(groupId: string, content: string): Question {
@@ -481,6 +575,8 @@ export class WorkspaceRepository {
       groupId,
       content,
       solutionStepIds: [],
+      imagePolicy: "auto",
+      assets: [],
       createdAt: now,
       updatedAt: now,
     };
@@ -570,6 +666,7 @@ export class WorkspaceRepository {
         updated_at: now,
       },
       stepIds.map((item) => item.id),
+      this.listQuestionAssets(questionId),
     );
   }
 
@@ -857,6 +954,7 @@ export class WorkspaceRepository {
       question: toQuestion(
         questionRow,
         steps.map((step) => step.id),
+        this.listQuestionAssets(questionRow.id),
       ),
       steps,
       entryStep,
@@ -892,6 +990,7 @@ export class WorkspaceRepository {
       question: toQuestion(
         questionRow,
         steps.map((step) => step.id),
+        this.listQuestionAssets(questionRow.id),
       ),
       steps,
       entryStep: steps.find((step) => step.id === entryRow.id) ?? toStep(entryRow),
@@ -1235,7 +1334,11 @@ export class WorkspaceRepository {
 
     return {
       groupTitle,
-      question: toQuestion(row, stepRows.map((step) => step.id)),
+      question: toQuestion(
+        row,
+        stepRows.map((step) => step.id),
+        this.listQuestionAssets(row.id),
+      ),
       steps: stepRows.map(toStep),
       explanations: explanationRows.map((explanation) =>
         toExplanation(explanation, turnIdsByExplanation.get(explanation.id) ?? []),
@@ -1265,6 +1368,143 @@ export class WorkspaceRepository {
     });
 
     return this.getWorkspace();
+  }
+
+  // ---------- 题目图片资源 ----------
+
+  findAssetBySha256(sha256: string): AssetRow | undefined {
+    return this.db
+      .prepare("SELECT * FROM assets WHERE sha256 = ? LIMIT 1")
+      .get(sha256) as unknown as AssetRow | undefined;
+  }
+
+  getAsset(assetId: string): AssetRow | undefined {
+    return this.db
+      .prepare("SELECT * FROM assets WHERE id = ?")
+      .get(assetId) as unknown as AssetRow | undefined;
+  }
+
+  createAsset(input: NewAsset): AssetRow {
+    const id = randomUUID();
+    const now = Date.now();
+    this.db
+      .prepare(
+        `INSERT INTO assets (
+           id, storage_path, mime_type, file_size, sha256, status, created_at
+         ) VALUES (?, ?, ?, ?, ?, 'ready', ?)`,
+      )
+      .run(id, input.storagePath, input.mimeType, input.fileSize, input.sha256, now);
+    return this.getAsset(id) as AssetRow;
+  }
+
+  deleteAssetRecord(assetId: string): void {
+    this.db.prepare("DELETE FROM assets WHERE id = ?").run(assetId);
+  }
+
+  listQuestionAssets(questionId: string): QuestionAsset[] {
+    const rows = this.db
+      .prepare(
+        `SELECT assets.id, assets.mime_type, assets.file_size, assets.created_at
+         FROM question_assets links
+         JOIN assets ON assets.id = links.asset_id
+         WHERE links.question_id = ?
+         ORDER BY links.position, links.created_at`,
+      )
+      .all(questionId) as unknown as Array<{
+      id: string;
+      mime_type: string;
+      file_size: number;
+      created_at: number;
+    }>;
+    return rows.map(toQuestionAsset);
+  }
+
+  linkAssets(questionId: string, assetIds: string[]): void {
+    if (assetIds.length === 0) return;
+    this.requireQuestion(questionId);
+    const now = Date.now();
+    const { next } = this.db
+      .prepare(
+        "SELECT COALESCE(MAX(position), -1) + 1 AS next FROM question_assets WHERE question_id = ?",
+      )
+      .get(questionId) as { next: number };
+    const insert = this.db.prepare(
+      `INSERT OR IGNORE INTO question_assets (question_id, asset_id, position, role, created_at)
+       VALUES (?, ?, ?, 'original', ?)`,
+    );
+    assetIds.forEach((assetId, index) => {
+      insert.run(questionId, assetId, next + index, now);
+    });
+  }
+
+  /** 解除关联并返回该资源剩余被引用的次数 */
+  unlinkQuestionAsset(questionId: string, assetId: string): number {
+    const result = this.db
+      .prepare("DELETE FROM question_assets WHERE question_id = ? AND asset_id = ?")
+      .run(questionId, assetId);
+    if (Number(result.changes) === 0) {
+      throw new HttpError(404, "NOT_FOUND", "题目图片不存在");
+    }
+    const { count } = this.db
+      .prepare("SELECT COUNT(*) AS count FROM question_assets WHERE asset_id = ?")
+      .get(assetId) as { count: number };
+    return count;
+  }
+
+  setQuestionImagePolicy(questionId: string, imagePolicy: ImagePolicy): Question {
+    this.requireQuestion(questionId);
+    this.db
+      .prepare("UPDATE questions SET image_policy = ?, updated_at = ? WHERE id = ?")
+      .run(imagePolicy, Date.now(), questionId);
+    return this.getQuestion(questionId);
+  }
+
+  /** 题解生成所需的题目文本、图片策略与原图清单 */
+  getQuestionContext(questionId: string): QuestionContextSource {
+    const row = this.requireQuestion(questionId);
+    const assets = this.db
+      .prepare(
+        `SELECT assets.id, assets.mime_type, assets.storage_path
+         FROM question_assets links
+         JOIN assets ON assets.id = links.asset_id
+         WHERE links.question_id = ?
+         ORDER BY links.position, links.created_at`,
+      )
+      .all(questionId) as unknown as Array<{
+      id: string;
+      mime_type: string;
+      storage_path: string;
+    }>;
+
+    return {
+      content: row.content,
+      imagePolicy: row.image_policy as ImagePolicy,
+      assets: assets.map((asset) => ({
+        id: asset.id,
+        mimeType: asset.mime_type,
+        storagePath: asset.storage_path,
+      })),
+    };
+  }
+
+  recordContextSnapshot(input: ContextSnapshotInput): void {
+    this.db
+      .prepare(
+        `INSERT INTO ai_context_snapshots (
+           id, question_id, task_type, image_policy, included_asset_ids,
+           selection_reason, model, created_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        randomUUID(),
+        input.questionId,
+        input.taskType,
+        input.imagePolicy,
+        JSON.stringify(input.includedAssetIds),
+        input.selectionReason,
+        input.model,
+        Date.now(),
+      );
   }
 
   private requireGroup(groupId: string): GroupRow {

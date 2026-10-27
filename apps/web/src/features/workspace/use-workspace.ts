@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ArchiveProposal,
+  ImagePolicy,
   Question,
   SolutionRevision,
   SolutionStep,
@@ -88,6 +89,7 @@ export function useWorkspace() {
   const [mobileLinkLoading, setMobileLinkLoading] = useState(false);
   const [mobileLinkError, setMobileLinkError] = useState<string | null>(null);
   const [mobileLinkUrls, setMobileLinkUrls] = useState<string[]>([]);
+  const [providerSupportsVision, setProviderSupportsVision] = useState<boolean | null>(null);
   const controllers = useRef<Map<string, AbortController>>(new Map());
   const lastLoadAt = useRef(0);
 
@@ -119,6 +121,20 @@ export function useWorkspace() {
   useEffect(() => {
     void load(true).catch(() => undefined);
   }, [load]);
+
+  // 图片策略 always 且模型不支持视觉时需要提示用户
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .getProviderSettings()
+      .then((view) => {
+        if (!cancelled) setProviderSupportsVision(view.provider.supportsVision !== false);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 手机导入弹窗打开期间，窗口重新聚焦或切回标签页时静默刷新，让手机提交的结果及时出现
   useEffect(() => {
@@ -747,6 +763,42 @@ export function useWorkspace() {
     [load, run],
   );
 
+  const setQuestionImagePolicy = useCallback(
+    (questionId: string, imagePolicy: ImagePolicy) => {
+      void run(async () => {
+        await api.setQuestionImagePolicy(questionId, imagePolicy);
+        await load();
+      });
+    },
+    [load, run],
+  );
+
+  const uploadQuestionAssets = useCallback(
+    async (
+      questionId: string,
+      images: Array<{ mediaType: string; data: string }>,
+    ): Promise<string | null> => {
+      try {
+        await api.uploadQuestionAssets(questionId, images);
+        await load();
+        return null;
+      } catch (uploadError) {
+        return toMessage(uploadError);
+      }
+    },
+    [load],
+  );
+
+  const deleteQuestionAsset = useCallback(
+    (questionId: string, assetId: string) => {
+      void run(async () => {
+        await api.deleteQuestionAsset(questionId, assetId);
+        await load();
+      });
+    },
+    [load, run],
+  );
+
   const deleteGroup = useCallback(
     (id: string) => {
       void run(async () => {
@@ -871,6 +923,10 @@ export function useWorkspace() {
     closeMobileLink,
     deleteGroup,
     deleteQuestion,
+    providerSupportsVision,
+    setQuestionImagePolicy,
+    uploadQuestionAssets,
+    deleteQuestionAsset,
     sendMessage,
     generatingSolution: generatingSolutionFor !== null,
     solutionError,

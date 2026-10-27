@@ -11,16 +11,14 @@ import { toHttpError } from "../services/ai/errors.js";
 import type { ProviderSettingsStore } from "../services/ai/provider-settings-store.js";
 import { getLanAddresses, isAllowedQrUrl } from "../services/lan.js";
 import type { MobileSessionStore } from "../services/mobile-session.js";
+import { attachImages } from "../services/question-image.js";
+import type { AssetStore } from "../services/asset-store.js";
 import { readImages } from "./image-input.js";
+import { isLoopbackRequest } from "./loopback.js";
 import { readBody } from "./validation.js";
 
 const MAX_QUESTIONS = 30;
 const MAX_QUESTION_LENGTH = 40_000;
-
-function isLoopbackRequest(req: Request): boolean {
-  const address = req.socket.remoteAddress ?? "";
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
-}
 
 /** 二维码地址必须指向本服务实际监听的端口（测试环境使用随机端口） */
 function resolvePort(req: Request): number {
@@ -89,6 +87,7 @@ export function createMobileRouter(
   repository: WorkspaceRepository,
   settingsStore: ProviderSettingsStore,
   sessions: MobileSessionStore,
+  assetStore: AssetStore,
 ): Router {
   const router = Router();
 
@@ -182,7 +181,15 @@ export function createMobileRouter(
         const body = readBody(req.body);
         const target = readCommitTarget(body);
         const questions = readQuestions(body);
+        const images = body.images === undefined ? [] : readImages(body);
         const result = repository.importQuestions(target, questions);
+        // 一次提交的整页图关联到本次新建的每道题，保证桌面端能看到原图
+        attachImages(
+          repository,
+          assetStore,
+          result.questions.map((question) => question.id),
+          images,
+        );
         res.json(result);
       } catch (error) {
         next(error instanceof HttpError ? error : toHttpError(error));

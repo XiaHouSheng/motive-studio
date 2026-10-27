@@ -8,6 +8,8 @@ export interface ProviderConfig {
   protocol: ProviderProtocol;
   temperature?: number;
   maxTokens?: number;
+  /** 是否支持图片输入，默认 true */
+  supportsVision?: boolean;
 }
 
 export interface ProviderSettingsView {

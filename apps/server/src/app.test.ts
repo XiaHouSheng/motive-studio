@@ -27,7 +27,7 @@ interface ApiResult<T> {
 }
 
 async function start(dbPath: string): Promise<RunningApp> {
-  const app = createApp({ dbPath });
+  const app = createApp({ dbPath, uploadsDir: path.join(path.dirname(dbPath), "uploads") });
   const server: Server = app.listen(0, "127.0.0.1");
   await new Promise<void>((resolve) => server.once("listening", resolve));
 

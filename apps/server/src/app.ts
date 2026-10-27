@@ -2,7 +2,7 @@ import express from "express";
 import type { Request, Response } from "express";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { DB_FILE, WEB_DIST, isProduction } from "./config.js";
+import { DB_FILE, UPLOADS_DIR, WEB_DIST, isProduction } from "./config.js";
 import { openDatabase } from "./db/client.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { WorkspaceRepository } from "./repositories/workspace-repository.js";
@@ -15,15 +15,18 @@ import { createExportRouter } from "./routes/exports.js";
 import { healthRouter } from "./routes/health.js";
 import { createImageImportRouter } from "./routes/image-import.js";
 import { createMobileRouter } from "./routes/mobile.js";
+import { createQuestionAssetsRouter } from "./routes/question-assets.js";
 import { createQuestionGroupsRouter } from "./routes/question-groups.js";
 import { createQuestionsRouter } from "./routes/questions.js";
 import { createSettingsRouter } from "./routes/settings.js";
 import { createSolutionRouter } from "./routes/solution.js";
 import { createStepsRouter } from "./routes/steps.js";
+import { AssetStore } from "./services/asset-store.js";
 import { MobileSessionStore } from "./services/mobile-session.js";
 
 export interface CreateAppOptions {
   dbPath?: string;
+  uploadsDir?: string;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -31,6 +34,7 @@ export function createApp(options: CreateAppOptions = {}) {
   const repository = new WorkspaceRepository(db);
   const settingsStore = new ProviderSettingsStore(db);
   const mobileSessions = new MobileSessionStore();
+  const assetStore = new AssetStore(options.uploadsDir ?? UPLOADS_DIR);
 
   const app = express();
 
@@ -43,14 +47,15 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use("/api", createQuestionGroupsRouter(repository));
   app.use("/api", createImageImportRouter(repository, settingsStore));
   app.use("/api", createQuestionsRouter(repository));
-  app.use("/api", createSolutionRouter(repository, settingsStore));
+  app.use("/api", createQuestionAssetsRouter(repository, assetStore));
+  app.use("/api", createSolutionRouter(repository, settingsStore, assetStore));
   app.use("/api", createArchiveRouter(repository, settingsStore));
   app.use("/api", createStepsRouter(repository, settingsStore));
   app.use("/api", createExplanationsRouter(repository));
   app.use("/api", createExportRouter(repository));
   app.use("/api", createBackupRouter(repository));
   app.use("/api", createSettingsRouter(settingsStore));
-  app.use(createMobileRouter(repository, settingsStore, mobileSessions));
+  app.use(createMobileRouter(repository, settingsStore, mobileSessions, assetStore));
 
   app.use("/api", (_req: Request, res: Response) => {
     res.status(404).json({ code: "NOT_FOUND", message: "接口不存在" });

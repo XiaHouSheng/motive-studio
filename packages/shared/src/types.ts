@@ -8,11 +8,25 @@ export interface QuestionGroup {
   updatedAt: number;
 }
 
+/** 题目图片策略：auto 按模型能力决定，always 强制附带，never 不附带 */
+export type ImagePolicy = "auto" | "always" | "never";
+
+export interface QuestionAsset {
+  id: ID;
+  mimeType: string;
+  fileSize: number;
+  createdAt: number;
+  /** 浏览器可用的读取地址：/api/assets/<id> */
+  url: string;
+}
+
 export interface Question {
   id: ID;
   groupId: ID;
   content: string;
   solutionStepIds: ID[];
+  imagePolicy: ImagePolicy;
+  assets: QuestionAsset[];
   createdAt: number;
   updatedAt: number;
 }

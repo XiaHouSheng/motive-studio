@@ -56,7 +56,7 @@ async function listen(server: Server): Promise<number> {
 }
 
 async function startApp(dbPath: string): Promise<RunningApp> {
-  const app = createApp({ dbPath });
+  const app = createApp({ dbPath, uploadsDir: path.join(path.dirname(dbPath), "uploads") });
   const server = app.listen(0, "127.0.0.1");
   const port = await listen(server);
 

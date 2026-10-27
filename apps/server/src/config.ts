@@ -9,3 +9,4 @@ export const PORT = Number(process.env.PORT ?? 3001);
 export const WEB_DIST = path.resolve(here, "../../web/dist");
 export const DATA_DIR = path.resolve(here, "../../../data");
 export const DB_FILE = path.join(DATA_DIR, "motive.db");
+export const UPLOADS_DIR = path.join(DATA_DIR, "uploads");

@@ -14,6 +14,7 @@ export const DEFAULT_PROVIDER_CONFIG: ProviderConfig = {
   model: "gpt-4o-mini",
   protocol: "openai-chat-completions",
   temperature: 0.5,
+  supportsVision: true,
 };
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
@@ -99,6 +100,8 @@ function normalizeConfig(input: Record<string, unknown>): ProviderConfig {
     protocol: "openai-chat-completions",
     temperature: readOptionalTemperature(input.temperature),
     maxTokens: readOptionalMaxTokens(input.maxTokens),
+    // 兼容服务多数支持视觉；显式传 false 才视为不支持
+    supportsVision: input.supportsVision !== false,
   };
 }
 

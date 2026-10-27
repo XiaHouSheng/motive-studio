@@ -21,8 +21,9 @@ export function insertWorkspaceData(db: DatabaseSync, data: WorkspaceData): void
   }
 
   const questionStmt = db.prepare(
-    `INSERT INTO questions (id, group_id, content, position, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO questions (
+       id, group_id, content, position, image_policy, created_at, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const question of data.questions) {
     questionStmt.run(
@@ -30,6 +31,7 @@ export function insertWorkspaceData(db: DatabaseSync, data: WorkspaceData): void
       question.groupId,
       question.content,
       questionPosition.get(question.id) ?? 0,
+      question.imagePolicy ?? "auto",
       question.createdAt,
       question.updatedAt,
     );

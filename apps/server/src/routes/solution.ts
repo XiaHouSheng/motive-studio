@@ -5,12 +5,15 @@ import { HttpError } from "../http-error.js";
 import { readParam } from "./validation.js";
 import { toHttpError } from "../services/ai/errors.js";
 import { OpenAIProvider } from "../services/ai/openai-provider.js";
-import type { ProviderSettingsStore } from "../services/ai/provider-settings-store.js";
+import { buildQuestionContext } from "../services/ai/question-context.js";
 import { generateSolution } from "../services/ai/solution-generator.js";
+import type { ProviderSettingsStore } from "../services/ai/provider-settings-store.js";
+import type { AssetStore } from "../services/asset-store.js";
 
 export function createSolutionRouter(
   repository: WorkspaceRepository,
   settingsStore: ProviderSettingsStore,
+  assetStore: AssetStore,
 ): Router {
   const router = Router();
 
@@ -24,8 +27,30 @@ export function createSolutionRouter(
           throw new HttpError(400, "INVALID_CONFIG", "请先在模型设置中配置 API Key");
         }
 
-        const question = repository.getQuestion(questionId);
-        const provider = new OpenAIProvider(settingsStore.getConfig(), apiKey);
+        const config = settingsStore.getConfig();
+        const provider = new OpenAIProvider(config, apiKey);
+        const context = buildQuestionContext({
+          question: repository.getQuestionContext(questionId),
+          provider: {
+            supportsVision: config.supportsVision !== false,
+            model: config.model,
+          },
+          store: assetStore,
+        });
+
+        // 快照只用于追溯，写入失败不影响题解生成
+        try {
+          repository.recordContextSnapshot({
+            questionId,
+            taskType: "solution_generation",
+            imagePolicy: context.imagePolicy,
+            includedAssetIds: context.includedAssetIds,
+            selectionReason: [...context.reasons, ...context.warnings].join(","),
+            model: config.model,
+          });
+        } catch (snapshotError) {
+          console.warn("[solution] 记录上下文快照失败", snapshotError);
+        }
 
         const controller = new AbortController();
         let settled = false;
@@ -37,11 +62,7 @@ export function createSolutionRouter(
         res.on("close", onClose);
 
         try {
-          const drafts = await generateSolution(
-            provider,
-            question.content,
-            controller.signal,
-          );
+          const drafts = await generateSolution(provider, context.messages, controller.signal);
           settled = true;
           res.off("close", onClose);
           res.status(201).json(repository.replaceSteps(questionId, drafts));

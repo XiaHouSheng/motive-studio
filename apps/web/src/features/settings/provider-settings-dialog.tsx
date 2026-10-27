@@ -23,6 +23,7 @@ interface FormState {
   model: string;
   temperature: string;
   maxTokens: string;
+  supportsVision: boolean;
 }
 
 interface ProviderPreset {
@@ -39,6 +40,7 @@ const EMPTY_FORM: FormState = {
   model: "",
   temperature: "",
   maxTokens: "",
+  supportsVision: true,
 };
 
 /** 常用服务商预设：仅填入名称/地址/模型，API Key 需用户自行填写 */
@@ -72,6 +74,7 @@ function toForm(provider: ProviderConfig): FormState {
     temperature:
       provider.temperature === undefined ? "" : String(provider.temperature),
     maxTokens: provider.maxTokens === undefined ? "" : String(provider.maxTokens),
+    supportsVision: provider.supportsVision !== false,
   };
 }
 
@@ -144,6 +147,7 @@ export function ProviderSettingsDialog() {
       name: preset.name,
       baseUrl: preset.baseUrl,
       model: preset.model,
+      supportsVision: preset.vision === true,
     }));
     setActivePreset(preset.name);
     setNotice(null);
@@ -191,6 +195,7 @@ export function ProviderSettingsDialog() {
       protocol: "openai-chat-completions",
       temperature,
       maxTokens,
+      supportsVision: form.supportsVision,
     };
   }, [form, view]);
 
@@ -388,6 +393,26 @@ export function ProviderSettingsDialog() {
               />
             </label>
           </div>
+
+          <label className="flex items-start gap-2.5 rounded-md border border-line bg-field px-3 py-2.5">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-3.5 w-3.5 accent-brand"
+              checked={form.supportsVision}
+              onChange={(event) => {
+                setForm((prev) => ({ ...prev, supportsVision: event.target.checked }));
+                setNotice(null);
+                setError(null);
+                setTestResult(null);
+              }}
+            />
+            <span className="space-y-0.5">
+              <span className={labelClass}>支持图片输入</span>
+              <span className="block text-[11px] leading-relaxed text-ink-faint">
+                关闭后题目图片不会发送给模型：「始终附带」策略会直接报错，「自动」策略降级为纯文本。
+              </span>
+            </span>
+          </label>
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">

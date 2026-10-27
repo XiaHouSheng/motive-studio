@@ -416,9 +416,16 @@ export function renderMobilePage(): string {
       target = { type: 'existing', groupId: groupId };
     }
     setStatus('committing');
+    var payload = { target: target, questions: checked };
+    // 原图一并提交，桌面端可核对识别结果
+    if (state.images.length > 0) {
+      payload.images = state.images.map(function (img) {
+        return { mediaType: img.mediaType, data: img.data };
+      });
+    }
     api('/api/mobile/commit', {
       method: 'POST',
-      body: JSON.stringify({ target: target, questions: checked })
+      body: JSON.stringify(payload)
     })
       .then(function (body) {
         el('done-msg').textContent = '已导入 ' + body.questions.length + ' 道题目到「' + body.groupTitle + '」，回到桌面端即可查看';

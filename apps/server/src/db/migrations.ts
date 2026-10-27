@@ -143,4 +143,47 @@ export const migrations: Migration[] = [
         ON archive_proposals(question_id, created_at)`,
     ],
   },
+  {
+    version: 5,
+    statements: [
+      `CREATE TABLE assets (
+        id TEXT PRIMARY KEY,
+        storage_path TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        file_size INTEGER NOT NULL,
+        sha256 TEXT NOT NULL,
+        width INTEGER,
+        height INTEGER,
+        status TEXT NOT NULL DEFAULT 'ready',
+        created_at INTEGER NOT NULL
+      )`,
+      `CREATE INDEX idx_assets_sha256 ON assets(sha256)`,
+
+      `CREATE TABLE question_assets (
+        question_id TEXT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+        asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL,
+        role TEXT NOT NULL DEFAULT 'original',
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (question_id, asset_id)
+      )`,
+      `CREATE INDEX idx_question_assets_question
+        ON question_assets(question_id, position)`,
+
+      `ALTER TABLE questions ADD COLUMN image_policy TEXT NOT NULL DEFAULT 'auto'`,
+
+      `CREATE TABLE ai_context_snapshots (
+        id TEXT PRIMARY KEY,
+        question_id TEXT NOT NULL,
+        task_type TEXT NOT NULL,
+        image_policy TEXT NOT NULL,
+        included_asset_ids TEXT NOT NULL,
+        selection_reason TEXT NOT NULL,
+        model TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )`,
+      `CREATE INDEX idx_ai_context_snapshots_question
+        ON ai_context_snapshots(question_id, created_at)`,
+    ],
+  },
 ];

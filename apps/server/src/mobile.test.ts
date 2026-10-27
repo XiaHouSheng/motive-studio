@@ -30,7 +30,7 @@ async function listen(server: Server): Promise<number> {
 }
 
 async function startApp(dbPath: string): Promise<RunningApp> {
-  const app = createApp({ dbPath });
+  const app = createApp({ dbPath, uploadsDir: path.join(path.dirname(dbPath), "uploads") });
   const server = app.listen(0, "127.0.0.1");
   const port = await listen(server);
 
@@ -291,6 +291,25 @@ describe("手机拍照导入（凭证机制）", () => {
     for (const created of result.questions) {
       expect(beforeIds.has(created.id)).toBe(false);
       expect(after.questions.find((item) => item.id === created.id)?.groupId).toBe(GROUP_ID);
+    }
+  });
+
+  it("提交时保存原图并关联到本次新建的每道题", async () => {
+    const token = await registerLink(app);
+
+    const response = await mobileApi(app, token, "/api/mobile/commit", {
+      target: { type: "existing", groupId: GROUP_ID },
+      questions: ["带图题一", "带图题二"],
+      images: [IMAGE],
+    });
+    expect(response.status).toBe(200);
+    const result = (await response.json()) as { questions: Array<{ id: string }> };
+
+    const after = await bootstrap(app);
+    for (const created of result.questions) {
+      const question = after.questions.find((item) => item.id === created.id);
+      expect(question?.assets).toHaveLength(1);
+      expect(question?.assets[0]?.mimeType).toBe("image/png");
     }
   });
 

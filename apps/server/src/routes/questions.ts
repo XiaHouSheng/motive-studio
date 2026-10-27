@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import type { ExplanationStatus } from "@motive/shared";
+import type { ExplanationStatus, ImagePolicy } from "@motive/shared";
 import type { WorkspaceRepository } from "../repositories/workspace-repository.js";
 import { HttpError } from "../http-error.js";
 import {
@@ -11,6 +11,8 @@ import {
   readString,
   readStringArray,
 } from "./validation.js";
+
+const imagePolicies: ImagePolicy[] = ["auto", "always", "never"];
 
 const explanationStatuses: ExplanationStatus[] = [
   "pending",
@@ -43,6 +45,17 @@ export function createQuestionsRouter(repository: WorkspaceRepository): Router {
 
     res.json(
       repository.updateQuestion(readParam(req.params, "id"), { content, groupId }),
+    );
+  });
+
+  router.patch("/questions/:id/image-policy", (req: Request, res: Response) => {
+    const body = readBody(req.body);
+    const policy = readString(body, "imagePolicy", { max: 20, label: "图片策略" });
+    if (!imagePolicies.includes(policy as ImagePolicy)) {
+      throw new HttpError(400, "INVALID_FIELD", "图片策略只能是 auto、always 或 never");
+    }
+    res.json(
+      repository.setQuestionImagePolicy(readParam(req.params, "id"), policy as ImagePolicy),
     );
   });
 

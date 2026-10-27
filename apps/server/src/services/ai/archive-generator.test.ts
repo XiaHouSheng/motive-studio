@@ -155,6 +155,8 @@ describe("buildArchiveMessages", () => {
         groupId: "g-1",
         content: "已知函数 f(x)=x²-6x+5",
         solutionStepIds: ["s-1"],
+        imagePolicy: "auto",
+        assets: [],
         createdAt: 1,
         updatedAt: 1,
       },

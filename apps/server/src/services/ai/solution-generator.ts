@@ -96,10 +96,9 @@ async function collectResponse(
 
 export async function generateSolution(
   provider: AIProvider,
-  questionContent: string,
+  messages: ChatMessage[],
   signal?: AbortSignal,
 ): Promise<SolutionStepDraft[]> {
-  const messages = buildSolutionMessages(questionContent);
   let lastError: AIError | undefined;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
