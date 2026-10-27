@@ -187,6 +187,7 @@ describe("手机拍照导入（凭证机制）", () => {
     const html = await response.text();
     expect(html).toContain("拍照导入题目");
     expect(html).toContain('capture="environment"');
+    expect(html).toContain('id="step-target"');
   });
 
   it("注册接口校验 key 必须为 UUID", async () => {

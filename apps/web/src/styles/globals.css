@@ -222,6 +222,13 @@
   padding: 0.12em 0.35em;
 }
 
+/* 行内变量（非代码块）：提亮背景与正文色，突出变量记号 */
+.md :not(pre) > code {
+  color: var(--ink);
+  background: color-mix(in oklab, var(--brand) 12%, var(--line));
+  font-weight: 500;
+}
+
 .md pre {
   overflow-x: auto;
   border: 1px solid var(--line);
@@ -315,15 +322,21 @@
   margin: 1.5em 0;
 }
 
+/* 块级公式：面板化强调，与正文区分 */
 .md .katex-display {
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 0.25rem 0;
-  margin: 0.6rem 0;
+  margin: 0.9rem 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid color-mix(in oklab, var(--brand) 22%, var(--line));
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--brand) 5%, transparent);
 }
 
+/* 行内公式：放大并与正文拉开层次 */
 .md .katex {
-  font-size: 1.02em;
+  font-size: 1.08em;
+  color: var(--ink);
 }
 
 /* 用户原始问题强调块：整行粗体段落 */

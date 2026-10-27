@@ -116,15 +116,7 @@ export function renderMobilePage(): string {
   <p class="hint" id="count-hint">已选 0 / 4 张，自动压缩后识别</p>
 </section>
 
-<section id="step-progress" class="progress hidden">
-  <div class="spinner"></div>
-  <p id="progress-text">AI 识别中…</p>
-</section>
-
-<section id="step-preview" class="hidden">
-  <h2>识别结果 <span id="q-count" class="mono"></span></h2>
-  <p class="sub">勾选需要导入的题目，内容可直接编辑</p>
-  <div id="questions" style="margin-top: 12px;"></div>
+<section id="step-target">
   <h2>导入位置</h2>
   <div class="target">
     <label class="radio"><input type="radio" name="target" value="existing" checked>加入已有题组</label>
@@ -136,6 +128,17 @@ export function renderMobilePage(): string {
       <input type="text" id="group-title" placeholder="题组名称（留空自动命名）">
     </div>
   </div>
+</section>
+
+<section id="step-progress" class="progress hidden">
+  <div class="spinner"></div>
+  <p id="progress-text">AI 识别中…</p>
+</section>
+
+<section id="step-preview" class="hidden">
+  <h2>识别结果 <span id="q-count" class="mono"></span></h2>
+  <p class="sub">勾选需要导入的题目，内容可直接编辑</p>
+  <div id="questions" style="margin-top: 12px;"></div>
 </section>
 
 <section id="step-done" class="done hidden">
@@ -182,6 +185,7 @@ export function renderMobilePage(): string {
   function setStatus(next) {
     state.status = next;
     el('step-capture').classList.toggle('hidden', next !== 'idle');
+    el('step-target').classList.toggle('hidden', next !== 'idle' && next !== 'preview');
     el('step-progress').classList.toggle('hidden', next !== 'recognizing' && next !== 'committing');
     el('step-preview').classList.toggle('hidden', next !== 'preview');
     el('step-done').classList.toggle('hidden', next !== 'done');
@@ -286,17 +290,35 @@ export function renderMobilePage(): string {
     el('count-hint').textContent = '已选 ' + state.images.length + ' / ' + MAX_IMAGES + ' 张，自动压缩后识别';
   }
 
+  function applyTargetMode(useNew) {
+    document.querySelector('input[name="target"][value="existing"]').checked = !useNew;
+    document.querySelector('input[name="target"][value="new"]').checked = useNew;
+    el('existing-wrap').classList.toggle('hidden', useNew);
+    el('new-wrap').classList.toggle('hidden', !useNew);
+  }
+
   function loadGroups() {
     return api('/api/mobile/groups').then(function (body) {
       state.groups = body.groups || [];
       var select = el('group-select');
+      var existingRadio = document.querySelector('input[name="target"][value="existing"]');
+      var wasDisabled = existingRadio.disabled;
       select.innerHTML = '';
+      if (state.groups.length === 0) {
+        existingRadio.disabled = true;
+        applyTargetMode(true);
+        return;
+      }
       state.groups.forEach(function (group) {
         var option = document.createElement('option');
         option.value = group.id;
         option.textContent = group.title + '（' + group.questionCount + ' 题）';
         select.appendChild(option);
       });
+      existingRadio.disabled = false;
+      select.selectedIndex = 0;
+      // 从「暂无题组」恢复为有题组时，切回加入已有题组
+      if (wasDisabled) applyTargetMode(false);
     });
   }
 
@@ -345,9 +367,7 @@ export function renderMobilePage(): string {
 
   Array.prototype.forEach.call(document.querySelectorAll('input[name="target"]'), function (radio) {
     radio.onchange = function () {
-      var useNew = document.querySelector('input[name="target"]:checked').value === 'new';
-      el('existing-wrap').classList.toggle('hidden', useNew);
-      el('new-wrap').classList.toggle('hidden', !useNew);
+      applyTargetMode(document.querySelector('input[name="target"]:checked').value === 'new');
     };
   });
 
@@ -367,10 +387,12 @@ export function renderMobilePage(): string {
           setStatus('idle');
           return null;
         }
-        return loadGroups().then(function () {
-          renderQuestions();
-          setStatus('preview');
-        });
+        return loadGroups()
+          .catch(function () { /* 题组刷新失败不阻塞预览 */ })
+          .then(function () {
+            renderQuestions();
+            setStatus('preview');
+          });
       })
       .catch(function (err) {
         handleErr(err);
@@ -413,9 +435,12 @@ export function renderMobilePage(): string {
     state.questions = [];
     renderThumbs();
     setStatus('idle');
+    loadGroups().catch(function () { /* 保持当前列表 */ });
   };
 
   renderThumbs();
+  // 进入页面即加载当前题组，拍照前就能看到导入位置
+  loadGroups().catch(handleErr);
 })();
 </script>
 </body>

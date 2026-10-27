@@ -101,6 +101,16 @@ const components: Components = {
   },
 };
 
+/**
+ * 兼容 AI 常见的 LaTeX 分隔符：\(…\) 行内、\[…\] 块级。
+ * remark-math 只识别 $…$ / $$…$$，模型不守约定时公式会原样显示，这里统一归一化。
+ */
+function normalizeMath(content: string): string {
+  return content
+    .replace(/\\\(([\s\S]+?)\\\)/g, (_match, inner: string) => `$${inner}$`)
+    .replace(/\\\[([\s\S]+?)\\\]/g, (_match, inner: string) => `$$${inner}$$`);
+}
+
 interface MarkdownProps {
   content: string;
   className?: string;
@@ -114,7 +124,7 @@ export function Markdown({ content, className }: MarkdownProps) {
         rehypePlugins={[rehypeKatex]}
         components={components}
       >
-        {content}
+        {normalizeMath(content)}
       </ReactMarkdown>
     </div>
   );
