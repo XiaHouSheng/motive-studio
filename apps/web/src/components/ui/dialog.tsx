@@ -1,6 +1,9 @@
-import { useEffect, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+/** 退场动画时长，与 --motion-fast 保持一致 */
+const EXIT_DURATION = 120;
 
 interface DialogProps {
   open: boolean;
@@ -21,10 +24,32 @@ export function Dialog({
   footer,
   className,
 }: DialogProps) {
+  const [closing, setClosing] = useState(false);
+  const closeTimerRef = useRef<number | null>(null);
+
+  // 先播放 120ms 淡出，卸载前保证动效完成；重复触发不叠加定时器
+  const requestClose = useCallback(() => {
+    setClosing((value) => {
+      if (value) return value;
+      closeTimerRef.current = window.setTimeout(() => {
+        closeTimerRef.current = null;
+        setClosing(false);
+        onClose();
+      }, EXIT_DURATION);
+      return true;
+    });
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setClosing(false);
+
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") requestClose();
     };
     window.addEventListener("keydown", onKeyDown);
     const previousOverflow = document.body.style.overflow;
@@ -33,15 +58,25 @@ export function Dialog({
       window.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [open, onClose]);
+  }, [open, requestClose]);
+
+  useEffect(
+    () => () => {
+      if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
+    },
+    [],
+  );
 
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
+        className={cn(
+          "absolute inset-0 bg-black/40",
+          closing ? "animate-fade-out" : "animate-fade-in",
+        )}
+        onClick={requestClose}
         aria-hidden="true"
       />
       <div
@@ -50,6 +85,7 @@ export function Dialog({
         aria-label={title}
         className={cn(
           "relative z-10 flex max-h-[86vh] w-full max-w-[560px] flex-col overflow-hidden rounded-xl border border-line bg-panel shadow-soft",
+          closing ? "animate-dialog-out" : "animate-dialog-in",
           className,
         )}
       >
@@ -64,9 +100,9 @@ export function Dialog({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             aria-label="关闭"
-            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-ink"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-faint transition-colors duration-(--duration-fast) hover:bg-selection hover:text-ink"
           >
             <X size={15} />
           </button>

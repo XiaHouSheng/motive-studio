@@ -38,7 +38,7 @@ export function Button({
     <button
       type={type}
       className={cn(
-        "inline-flex shrink-0 items-center justify-center font-medium transition-colors duration-150 select-none disabled:cursor-not-allowed",
+        "inline-flex shrink-0 items-center justify-center font-medium transition-colors duration-(--duration-fast) select-none disabled:cursor-not-allowed",
         variantClasses[variant],
         sizeClasses[size],
         className,

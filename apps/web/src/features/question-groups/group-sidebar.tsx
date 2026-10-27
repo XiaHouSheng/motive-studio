@@ -78,7 +78,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
       </div>
 
       {addingGroup ? (
-        <div className="px-2 pb-2">
+        <div className="animate-fade-in px-2 pb-2">
           <input
             autoFocus
             value={groupDraft}
@@ -259,7 +259,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
 
       <div className="border-t border-line p-2.5">
         {addingQuestion ? (
-          <div className="space-y-2">
+          <div className="animate-fade-in space-y-2">
             <textarea
               autoFocus
               value={questionDraft}

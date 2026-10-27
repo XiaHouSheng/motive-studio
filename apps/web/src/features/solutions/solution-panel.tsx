@@ -172,7 +172,9 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
         ) : null}
       </div>
 
-      <Markdown content={question.content} className="md-question-title mt-2.5" />
+      <div key={question.id} className="animate-fade-in">
+        <Markdown content={question.content} className="md-question-title mt-2.5" />
+      </div>
 
       {question.assets.length > 0 ? (
         <div className="mt-3 flex flex-wrap items-center gap-2">
