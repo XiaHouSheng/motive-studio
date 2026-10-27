@@ -4,8 +4,14 @@ import type {
   ProviderSettingsView,
 } from "@motive/shared";
 import { HttpError } from "../../http-error.js";
+import type { CredentialStore } from "../credentials/credential-store.js";
 
 const SETTINGS_KEY = "provider_config";
+/**
+ * 凭据存储键：P0 为单配置（default），后续多 profile 时扩展为 profileId 维度。
+ * 该键只作为凭据存储的索引，不是密钥本身，也不会出现在任何 API 响应中。
+ */
+const CREDENTIAL_KEY = "provider:default";
 
 export const DEFAULT_PROVIDER_CONFIG: ProviderConfig = {
   id: "default",
@@ -107,10 +113,34 @@ function normalizeConfig(input: Record<string, unknown>): ProviderConfig {
 
 export class ProviderSettingsStore {
   private readonly db: DatabaseSync;
+  private readonly credentials: CredentialStore;
   private apiKey: string | null = null;
+  private credentialIssue: string | null = null;
+  private restorePromise: Promise<void> | null = null;
 
-  constructor(db: DatabaseSync) {
+  constructor(db: DatabaseSync, credentials: CredentialStore) {
     this.db = db;
+    this.credentials = credentials;
+  }
+
+  /**
+   * 启动时把已保存的密钥恢复进内存缓存（幂等，仅执行一次）。
+   * 恢复失败不使用损坏数据：apiKey 置空并记录 credentialIssue，向用户明确警示。
+   */
+  restore(): Promise<void> {
+    this.restorePromise ??= this.restoreInternal();
+    return this.restorePromise;
+  }
+
+  private async restoreInternal(): Promise<void> {
+    try {
+      const stored = await this.credentials.get(CREDENTIAL_KEY);
+      this.apiKey = stored && stored.trim().length > 0 ? stored : null;
+      this.credentialIssue = null;
+    } catch {
+      this.apiKey = null;
+      this.credentialIssue = "本机已保存的 API Key 无法解密，请重新保存密钥";
+    }
   }
 
   getConfig(): ProviderConfig {
@@ -128,9 +158,15 @@ export class ProviderSettingsStore {
   }
 
   getView(): ProviderSettingsView {
-    return { provider: this.getConfig(), hasApiKey: this.apiKey !== null };
+    return {
+      provider: this.getConfig(),
+      hasApiKey: this.apiKey !== null,
+      credentialStorage: this.credentials.mode,
+      credentialIssue: this.credentialIssue,
+    };
   }
 
+  /** 同步读取内存缓存中的密钥，供 AI 路由在请求期使用 */
   getApiKey(): string | null {
     return this.apiKey;
   }
@@ -139,20 +175,11 @@ export class ProviderSettingsStore {
     return this.apiKey !== null;
   }
 
-  setApiKey(value: string): void {
-    const trimmed = value.trim();
-    this.apiKey = trimmed.length > 0 ? trimmed : null;
-  }
-
-  clearApiKey(): void {
-    this.apiKey = null;
-  }
-
-  save(input: {
+  async save(input: {
     provider: unknown;
     apiKey?: string;
     clearApiKey?: boolean;
-  }): ProviderSettingsView {
+  }): Promise<ProviderSettingsView> {
     if (typeof input.provider !== "object" || input.provider === null) {
       throw new HttpError(400, "INVALID_CONFIG", "Provider 配置必须是对象");
     }
@@ -167,10 +194,28 @@ export class ProviderSettingsStore {
       )
       .run(SETTINGS_KEY, JSON.stringify(provider), updatedAt);
 
-    if (input.clearApiKey) {
-      this.apiKey = null;
-    } else if (typeof input.apiKey === "string" && input.apiKey.trim().length > 0) {
-      this.apiKey = input.apiKey.trim();
+    const nextApiKey =
+      typeof input.apiKey === "string" && input.apiKey.trim().length > 0
+        ? input.apiKey.trim()
+        : undefined;
+
+    try {
+      if (input.clearApiKey) {
+        // 删除失败必须报错，不谎报成功（内存状态保持不变）
+        await this.credentials.delete(CREDENTIAL_KEY);
+        this.apiKey = null;
+        this.credentialIssue = null;
+      } else if (nextApiKey) {
+        await this.credentials.set(CREDENTIAL_KEY, nextApiKey);
+        this.apiKey = nextApiKey;
+        this.credentialIssue = null;
+      }
+    } catch {
+      throw new HttpError(
+        500,
+        "CREDENTIAL_STORE_FAILED",
+        "API Key 写入本机凭据存储失败，请检查系统凭据服务后重试（配置本身未受影响）",
+      );
     }
 
     return this.getView();

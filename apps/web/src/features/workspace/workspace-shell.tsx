@@ -122,25 +122,48 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
           <SolutionPanel workspace={workspace} />
         </main>
 
-        {chatVisible ? (
-          <>
-            <ResizeHandle
-              width={chatWidth}
-              min={CHAT_WIDTH_LIMITS.min}
-              max={CHAT_WIDTH_LIMITS.max}
-              anchor="right"
-              label="调整讨论栏宽度"
-              onResize={setChatWidth}
-              className="border-l border-line bg-line/40 xl:block"
-            />
-            <aside
-              className="hidden shrink-0 border-l border-line bg-panel xl:flex xl:flex-col"
-              style={{ width: chatWidth }}
-            >
-              <ChatPanel workspace={workspace} onClose={toggleChat} />
-            </aside>
-          </>
-        ) : null}
+        {/* 讨论面板：常驻挂载，靠宽度与位移过渡实现展开/收起，避免收起时突然消失 */}
+        <div
+          className={cn(
+            "hidden h-full shrink-0 transition-opacity duration-(--duration-normal) ease-(--ease-standard) xl:block",
+            chatVisible ? "opacity-100" : "pointer-events-none opacity-0",
+          )}
+          aria-hidden={!chatVisible}
+          inert={!chatVisible}
+        >
+          <ResizeHandle
+            width={chatWidth}
+            min={CHAT_WIDTH_LIMITS.min}
+            max={CHAT_WIDTH_LIMITS.max}
+            anchor="right"
+            label="调整讨论栏宽度"
+            onResize={setChatWidth}
+            onDraggingChange={setResizing}
+            className="xl:block"
+          />
+        </div>
+        <aside
+          className={cn(
+            "hidden shrink-0 overflow-hidden bg-panel transition-[width,border-color] duration-(--duration-normal) ease-(--ease-standard) xl:flex xl:flex-col",
+            chatVisible ? "border-l border-line" : "border-l border-transparent",
+          )}
+          style={{
+            width: chatVisible ? chatWidth : 0,
+            transition: resizing ? "none" : undefined,
+          }}
+          aria-hidden={!chatVisible}
+          inert={!chatVisible}
+        >
+          <div
+            className={cn(
+              "h-full shrink-0 transition-[opacity,transform] duration-(--duration-normal) ease-(--ease-standard)",
+              chatVisible ? "translate-x-0 opacity-100" : "translate-x-4 opacity-0",
+            )}
+            style={{ width: chatWidth }}
+          >
+            <ChatPanel workspace={workspace} onClose={toggleChat} />
+          </div>
+        </aside>
       </div>
 
       {/* 移动端题组抽屉 */}

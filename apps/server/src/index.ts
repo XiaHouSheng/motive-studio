@@ -2,9 +2,14 @@ import type { DatabaseSync } from "node:sqlite";
 import { createApp } from "./app.js";
 import { HOST, PORT, isProduction } from "./config.js";
 import { getLanAddresses } from "./services/lan.js";
+import type { ProviderSettingsStore } from "./services/ai/provider-settings-store.js";
 
 const app = createApp();
 const db = app.locals.db as DatabaseSync;
+const settingsStore = app.locals.settingsStore as ProviderSettingsStore;
+
+// 监听前恢复已保存的 API Key（凭据存储 → 内存缓存），避免恢复完成前的请求窗口期
+await settingsStore.restore();
 
 const server = app.listen(PORT, HOST, () => {
   const mode = isProduction ? "production" : "development";

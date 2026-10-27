@@ -16,7 +16,7 @@ export function createSettingsRouter(store: ProviderSettingsStore): Router {
     res.json(store.getView());
   });
 
-  router.put("/settings/provider", (req: Request, res: Response) => {
+  router.put("/settings/provider", async (req: Request, res: Response) => {
     const body = readBody(req.body);
     const provider = readBody(body.provider);
 
@@ -36,7 +36,7 @@ export function createSettingsRouter(store: ProviderSettingsStore): Router {
         : undefined;
 
     res.json(
-      store.save({
+      await store.save({
         provider,
         apiKey,
         clearApiKey: clearApiKeyRaw === true,

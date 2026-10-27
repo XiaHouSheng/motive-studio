@@ -1,8 +1,9 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { AlertCircle, ImagePlus, Loader2, ScanLine, Trash2, Upload } from "lucide-react";
+import { AlertCircle, Crop, ImagePlus, Loader2, ScanLine, Trash2, Upload } from "lucide-react";
 import type { WorkspaceApi } from "@/features/workspace/use-workspace";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { ImageCropEditor } from "./image-crop-editor";
 import { cn } from "@/lib/utils";
 
 const MAX_IMAGES = 4;
@@ -100,6 +101,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
   const [drafts, setDrafts] = useState<QuestionDraft[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [croppingId, setCroppingId] = useState<string | null>(null);
 
   const open = imageImportGroupId !== null;
   const groupTitle =
@@ -111,6 +113,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
       setDrafts([]);
       setLocalError(null);
       setDragging(false);
+      setCroppingId(null);
     }
   }, [open]);
 
@@ -126,6 +129,27 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
 
   const error = localError ?? imageImportError;
   const busy = imageImportAnalyzing || imageImportCreating;
+  const croppingImage = images.find((image) => image.id === croppingId) ?? null;
+
+  const handleCropApplied = (dataUrl: string) => {
+    const base64 = dataUrl.split(",")[1] ?? "";
+    if (Math.ceil((base64.length * 3) / 4) > MAX_IMAGE_BYTES) {
+      setLocalError("裁剪结果仍超过 6MB，请缩小选区后重试");
+      return;
+    }
+    setImages((current) =>
+      current.map((item) =>
+        item.id === croppingId
+          ? {
+              ...item,
+              mediaType: /^data:([^;]+)/.exec(dataUrl)?.[1] ?? item.mediaType,
+              dataUrl,
+            }
+          : item,
+      ),
+    );
+    setCroppingId(null);
+  };
 
   const addFiles = async (files: FileList | File[]) => {
     setLocalError(null);
@@ -154,6 +178,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
   useEffect(() => {
     if (!open) return;
     const onPaste = (event: ClipboardEvent) => {
+      if (croppingId) return; // 裁剪中不响应粘贴
       const files = Array.from(event.clipboardData?.files ?? []);
       if (files.length === 0) return;
       event.preventDefault();
@@ -194,7 +219,8 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
     if (message) setLocalError(message);
   };
 
-  return (
+  // 裁剪编辑器渲染在 Dialog 之外，避免被面板 overflow-hidden 裁剪或压低层级
+  const dialog = (
     <Dialog
       open={open}
       onClose={() => {
@@ -303,8 +329,20 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
                 <img
                   src={image.dataUrl}
                   alt={image.filename}
-                  className="h-24 w-full object-cover"
+                  className={cn("h-24 w-full object-cover", !busy && "cursor-pointer")}
+                  onClick={() => {
+                    if (!busy) setCroppingId(image.id);
+                  }}
                 />
+                <button
+                  type="button"
+                  aria-label={`裁剪 ${image.filename}`}
+                  disabled={busy}
+                  onClick={() => setCroppingId(image.id)}
+                  className="absolute top-1 left-1 inline-flex h-6 w-6 items-center justify-center rounded-md bg-black/55 text-white transition-colors hover:bg-brand/80"
+                >
+                  <Crop size={12} />
+                </button>
                 <button
                   type="button"
                   aria-label={`移除 ${image.filename}`}
@@ -401,5 +439,20 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
         ) : null}
       </div>
     </Dialog>
+  );
+
+  return (
+    <>
+      {dialog}
+      {croppingImage ? (
+        <ImageCropEditor
+          key={croppingImage.id}
+          dataUrl={croppingImage.dataUrl}
+          filename={croppingImage.filename}
+          onCancel={() => setCroppingId(null)}
+          onApply={handleCropApplied}
+        />
+      ) : null}
+    </>
   );
 }

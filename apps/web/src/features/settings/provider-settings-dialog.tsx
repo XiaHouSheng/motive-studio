@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   KeyRound,
   Loader2,
 } from "lucide-react";
 import type {
+  CredentialStorageMode,
   ProviderConfig,
   ProviderSettingsView,
   ProviderTestResult,
@@ -61,6 +63,14 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   },
   { name: "OpenAI", baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini", vision: true },
 ];
+
+/** 密钥在本机的存储方式（服务端按平台选择，仅展示名称、不含路径） */
+const STORAGE_LABELS: Record<CredentialStorageMode, string> = {
+  dpapi: "Windows 凭据保护（DPAPI）",
+  keychain: "macOS 钥匙串",
+  "secret-service": "系统密钥服务",
+  "encrypted-file": "本机加密文件（AES-256-GCM）",
+};
 
 const inputClass =
   "h-8 w-full rounded-md border border-line bg-field px-2.5 text-[12.5px] text-ink outline-none placeholder:text-ink-faint focus:border-brand/50";
@@ -270,11 +280,13 @@ export function ProviderSettingsDialog() {
       open={open}
       onClose={closeSettings}
       title="模型设置"
-      description="仅支持 OpenAI Chat Completions 兼容接口。API Key 只保存在本地服务进程内存中，不写入数据库与备份。"
+      description="仅支持 OpenAI Chat Completions 兼容接口。API Key 加密保存在本机凭据存储中，不写入数据库与备份，重启后自动恢复。"
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-[11px] text-ink-faint">
-            重启服务后需重新输入 API Key
+            {view
+              ? `密钥存储：${STORAGE_LABELS[view.credentialStorage]}`
+              : "API Key 加密保存在本机，重启后自动恢复"}
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -451,6 +463,13 @@ export function ProviderSettingsDialog() {
               </button>
             ) : null}
           </div>
+
+          {view?.credentialIssue ? (
+            <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-[11.5px] text-warning">
+              <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+              <span>{view.credentialIssue}</span>
+            </div>
+          ) : null}
 
           {error ? (
             <div className="flex items-start gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-[11.5px] text-danger">

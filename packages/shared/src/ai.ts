@@ -12,9 +12,24 @@ export interface ProviderConfig {
   supportsVision?: boolean;
 }
 
+/**
+ * 凭据存储模式：
+ * - dpapi / keychain / secret-service：操作系统级凭据保护
+ * - encrypted-file：本机 AES-256-GCM 加密文件（系统凭据库不可用时的显式降级方案）
+ */
+export type CredentialStorageMode =
+  | "dpapi"
+  | "keychain"
+  | "secret-service"
+  | "encrypted-file";
+
 export interface ProviderSettingsView {
   provider: ProviderConfig;
   hasApiKey: boolean;
+  /** 密钥在本机的存储方式（脱敏，不含任何路径） */
+  credentialStorage: CredentialStorageMode;
+  /** 凭据存储异常提示（如解密失败需要重新配置）；正常为 null */
+  credentialIssue: string | null;
 }
 
 export interface ProviderSettingsUpdate {

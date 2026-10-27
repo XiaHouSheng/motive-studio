@@ -36,13 +36,61 @@ export function renderMobilePage(): string {
   .hidden { display: none !important; }
   .thumbs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
   .thumb { position: relative; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--panel); }
-  .thumb img { display: block; width: 100%; height: 130px; object-fit: cover; }
+  .thumb img { display: block; width: 100%; height: 130px; object-fit: cover; cursor: pointer; }
   .thumb-del {
     position: absolute; top: 6px; right: 6px;
     width: 30px; height: 30px; border-radius: 8px;
     border: none; background: rgba(15, 21, 19, 0.8); color: var(--text);
     font-size: 16px; line-height: 1;
   }
+  .thumb-crop {
+    position: absolute; top: 6px; left: 6px;
+    width: 30px; height: 30px; border-radius: 8px;
+    border: none; background: rgba(15, 21, 19, 0.8); color: var(--text);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #crop-overlay {
+    position: fixed; inset: 0; z-index: 50;
+    display: flex; flex-direction: column;
+    background: rgba(11, 16, 15, 0.94);
+  }
+  .crop-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 12px 14px;
+  }
+  .crop-title { font-size: 15px; font-weight: 600; }
+  .crop-cancel {
+    border: 1px solid var(--border); background: transparent; color: var(--text);
+    border-radius: 8px; padding: 8px 12px; font-size: 13px;
+  }
+  .crop-done {
+    border: none; background: var(--primary); color: #0f1513;
+    border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 600;
+  }
+  .crop-done:disabled { opacity: 0.45; }
+  .crop-stage {
+    position: relative; flex: 1; min-height: 0; overflow: hidden;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  .crop-stage img { position: absolute; display: block; pointer-events: none; }
+  #crop-box {
+    position: absolute; border: 1px solid var(--primary);
+    box-shadow: 0 0 0 9999px rgba(11, 16, 15, 0.62);
+    cursor: move;
+  }
+  .crop-handle {
+    position: absolute; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--primary); border: 2px solid rgba(11, 16, 15, 0.55);
+  }
+  .crop-handle[data-h="nw"] { top: -11px; left: -11px; cursor: nwse-resize; }
+  .crop-handle[data-h="n"] { top: -11px; left: 50%; margin-left: -11px; cursor: ns-resize; }
+  .crop-handle[data-h="ne"] { top: -11px; right: -11px; cursor: nesw-resize; }
+  .crop-handle[data-h="e"] { top: 50%; right: -11px; margin-top: -11px; cursor: ew-resize; }
+  .crop-handle[data-h="se"] { bottom: -11px; right: -11px; cursor: nwse-resize; }
+  .crop-handle[data-h="s"] { bottom: -11px; left: 50%; margin-left: -11px; cursor: ns-resize; }
+  .crop-handle[data-h="sw"] { bottom: -11px; left: -11px; cursor: nesw-resize; }
+  .crop-handle[data-h="w"] { top: 50%; left: -11px; margin-top: -11px; cursor: ew-resize; }
+  .crop-hint { font-size: 12px; color: var(--muted); text-align: center; padding: 10px 14px 18px; }
   .pick-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
   button { font-family: inherit; cursor: pointer; }
   .pick {
@@ -156,6 +204,28 @@ export function renderMobilePage(): string {
   <button type="button" class="primary" id="btn-commit">导入 0 道题目</button>
 </div>
 
+<div id="crop-overlay" class="hidden">
+  <div class="crop-head">
+    <button type="button" class="crop-cancel" id="crop-cancel">取消</button>
+    <span class="crop-title">裁剪图片</span>
+    <button type="button" class="crop-done" id="crop-done" disabled>完成</button>
+  </div>
+  <div class="crop-stage" id="crop-stage">
+    <img id="crop-img" alt="待裁剪图片">
+    <div id="crop-box">
+      <span class="crop-handle" data-h="nw"></span>
+      <span class="crop-handle" data-h="n"></span>
+      <span class="crop-handle" data-h="ne"></span>
+      <span class="crop-handle" data-h="e"></span>
+      <span class="crop-handle" data-h="se"></span>
+      <span class="crop-handle" data-h="s"></span>
+      <span class="crop-handle" data-h="sw"></span>
+      <span class="crop-handle" data-h="w"></span>
+    </div>
+  </div>
+  <p class="crop-hint" id="crop-hint">拖动选框调整区域，拖动圆点缩放，完成后替换原图</p>
+</div>
+
 <input type="file" id="file-camera" accept="image/*" capture="environment" multiple hidden>
 <input type="file" id="file-gallery" accept="image/*" multiple hidden>
 
@@ -165,6 +235,8 @@ export function renderMobilePage(): string {
   var MAX_IMAGES = 4;
   var MAX_EDGE = 1600;
   var MAX_BYTES = 4 * 1024 * 1024;
+  var CROP_MIN = 48;
+  var CROP_PAD = 16;
   var token = new URLSearchParams(location.search).get('t') || '';
   var state = {
     status: 'idle',
@@ -172,6 +244,7 @@ export function renderMobilePage(): string {
     questions: [],
     groups: []
   };
+  var crop = null; // 当前裁剪会话：{ index, initialized, rect, bounds, drag }
 
   function el(id) { return document.getElementById(id); }
 
@@ -272,6 +345,13 @@ export function renderMobilePage(): string {
       var image = document.createElement('img');
       image.src = img.preview;
       image.alt = '第 ' + (index + 1) + ' 张图片';
+      image.onclick = function () { openCrop(index); };
+      var cropBtn = document.createElement('button');
+      cropBtn.type = 'button';
+      cropBtn.className = 'thumb-crop';
+      cropBtn.setAttribute('aria-label', '裁剪第 ' + (index + 1) + ' 张图片');
+      cropBtn.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>';
+      cropBtn.onclick = function () { openCrop(index); };
       var del = document.createElement('button');
       del.type = 'button';
       del.className = 'thumb-del';
@@ -282,12 +362,13 @@ export function renderMobilePage(): string {
         renderThumbs();
       };
       cell.appendChild(image);
+      cell.appendChild(cropBtn);
       cell.appendChild(del);
       wrap.appendChild(cell);
     });
     el('btn-extract').disabled = state.images.length === 0;
     el('pick-row').classList.toggle('hidden', state.images.length >= MAX_IMAGES);
-    el('count-hint').textContent = '已选 ' + state.images.length + ' / ' + MAX_IMAGES + ' 张，自动压缩后识别';
+    el('count-hint').textContent = '已选 ' + state.images.length + ' / ' + MAX_IMAGES + ' 张，点击缩略图可裁剪';
   }
 
   function applyTargetMode(useNew) {
@@ -443,6 +524,188 @@ export function renderMobilePage(): string {
     renderThumbs();
     setStatus('idle');
     loadGroups().catch(function () { /* 保持当前列表 */ });
+  };
+
+  // ---- 裁剪编辑器 ----
+  var CROP_HINT = '拖动选框调整区域，拖动圆点缩放，完成后替换原图';
+
+  function clampNum(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  function resetCropHint() {
+    var hint = el('crop-hint');
+    hint.textContent = CROP_HINT;
+    hint.style.color = '';
+  }
+
+  function showCropError(message) {
+    var hint = el('crop-hint');
+    hint.textContent = message;
+    hint.style.color = 'var(--danger)';
+  }
+
+  function positionCropBox() {
+    var box = el('crop-box');
+    box.style.left = crop.rect.x + 'px';
+    box.style.top = crop.rect.y + 'px';
+    box.style.width = crop.rect.w + 'px';
+    box.style.height = crop.rect.h + 'px';
+  }
+
+  function layoutCrop() {
+    var img = el('crop-img');
+    var stage = el('crop-stage');
+    if (!crop || !img.naturalWidth || !stage.clientWidth) return;
+    var availW = Math.max(stage.clientWidth - CROP_PAD * 2, CROP_MIN);
+    var availH = Math.max(stage.clientHeight - CROP_PAD * 2, CROP_MIN);
+    var scale = Math.min(availW / img.naturalWidth, availH / img.naturalHeight);
+    crop.bounds = {
+      left: (stage.clientWidth - img.naturalWidth * scale) / 2,
+      top: (stage.clientHeight - img.naturalHeight * scale) / 2,
+      width: img.naturalWidth * scale,
+      height: img.naturalHeight * scale
+    };
+    img.style.left = crop.bounds.left + 'px';
+    img.style.top = crop.bounds.top + 'px';
+    img.style.width = crop.bounds.width + 'px';
+    img.style.height = crop.bounds.height + 'px';
+    var b = crop.bounds;
+    if (!crop.initialized) {
+      // 首次布局：居中放置 86% 的初始选框
+      crop.initialized = true;
+      crop.rect = {
+        x: b.left + b.width * 0.07,
+        y: b.top + b.height * 0.07,
+        w: b.width * 0.86,
+        h: b.height * 0.86
+      };
+    } else {
+      // 窗口尺寸变化：把既有选框夹回图片区域
+      crop.rect.w = clampNum(crop.rect.w, CROP_MIN, b.width);
+      crop.rect.h = clampNum(crop.rect.h, CROP_MIN, b.height);
+      crop.rect.x = clampNum(crop.rect.x, b.left, b.left + b.width - crop.rect.w);
+      crop.rect.y = clampNum(crop.rect.y, b.top, b.top + b.height - crop.rect.h);
+    }
+    positionCropBox();
+    el('crop-done').disabled = false;
+  }
+
+  function openCrop(index) {
+    crop = { index: index, initialized: false, rect: null, bounds: null, drag: null };
+    var img = el('crop-img');
+    img.src = state.images[index].preview;
+    el('crop-done').disabled = true;
+    resetCropHint();
+    el('crop-overlay').classList.remove('hidden');
+    // 图片可能已在缓存中，load 事件不再触发，这里兜底布局
+    if (img.complete && img.naturalWidth > 0) layoutCrop();
+  }
+
+  function closeCrop() {
+    crop = null;
+    el('crop-overlay').classList.add('hidden');
+  }
+
+  function cropResizeRect(mode, start, dx, dy) {
+    var b = crop.bounds;
+    var x = start.x;
+    var y = start.y;
+    var w = start.w;
+    var h = start.h;
+    if (mode.indexOf('w') !== -1) {
+      var nx = clampNum(x + dx, b.left, x + w - CROP_MIN);
+      w = x + w - nx;
+      x = nx;
+    }
+    if (mode.indexOf('e') !== -1) {
+      w = clampNum(w + dx, CROP_MIN, b.left + b.width - x);
+    }
+    if (mode.indexOf('n') !== -1) {
+      var ny = clampNum(y + dy, b.top, y + h - CROP_MIN);
+      h = y + h - ny;
+      y = ny;
+    }
+    if (mode.indexOf('s') !== -1) {
+      h = clampNum(h + dy, CROP_MIN, b.top + b.height - y);
+    }
+    return { x: x, y: y, w: w, h: h };
+  }
+
+  function cropMoveRect(start, dx, dy) {
+    var b = crop.bounds;
+    return {
+      x: clampNum(start.x + dx, b.left, b.left + b.width - start.w),
+      y: clampNum(start.y + dy, b.top, b.top + b.height - start.h),
+      w: start.w,
+      h: start.h
+    };
+  }
+
+  var stageEl = el('crop-stage');
+  stageEl.addEventListener('pointerdown', function (event) {
+    if (!crop || !crop.bounds || !crop.rect) return;
+    var target = event.target;
+    var handle = target.getAttribute ? target.getAttribute('data-h') : null;
+    var mode;
+    if (handle) {
+      mode = handle;
+    } else if (target.closest && target.closest('#crop-box')) {
+      mode = 'move';
+    } else {
+      return; // 框外按下不响应
+    }
+    event.preventDefault();
+    crop.drag = { mode: mode, start: Object.assign({}, crop.rect), startX: event.clientX, startY: event.clientY };
+    stageEl.setPointerCapture(event.pointerId);
+  });
+  stageEl.addEventListener('pointermove', function (event) {
+    if (!crop || !crop.drag) return;
+    var dx = event.clientX - crop.drag.startX;
+    var dy = event.clientY - crop.drag.startY;
+    crop.rect = crop.drag.mode === 'move'
+      ? cropMoveRect(crop.drag.start, dx, dy)
+      : cropResizeRect(crop.drag.mode, crop.drag.start, dx, dy);
+    positionCropBox();
+  });
+  function endCropDrag(event) {
+    if (!crop || !crop.drag) return;
+    crop.drag = null;
+    if (stageEl.hasPointerCapture(event.pointerId)) {
+      stageEl.releasePointerCapture(event.pointerId);
+    }
+  }
+  stageEl.addEventListener('pointerup', endCropDrag);
+  stageEl.addEventListener('pointercancel', endCropDrag);
+
+  el('crop-img').onload = function () { layoutCrop(); };
+  el('crop-cancel').onclick = closeCrop;
+  window.addEventListener('resize', function () {
+    if (crop) layoutCrop();
+  });
+
+  el('crop-done').onclick = function () {
+    if (!crop || !crop.bounds || !crop.rect) return;
+    var img = el('crop-img');
+    // 舞台是缩放展示，换算回原始分辨率再裁剪
+    var scale = img.naturalWidth / crop.bounds.width;
+    var sx = (crop.rect.x - crop.bounds.left) * scale;
+    var sy = (crop.rect.y - crop.bounds.top) * scale;
+    var sw = crop.rect.w * scale;
+    var sh = crop.rect.h * scale;
+    var canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(sw));
+    canvas.height = Math.max(1, Math.round(sh));
+    canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    var dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+    var data = dataUrl.slice(dataUrl.indexOf(',') + 1);
+    if (Math.ceil(data.length * 3 / 4) > MAX_BYTES) {
+      showCropError('裁剪结果仍超过 4MB，请缩小选区后重试');
+      return;
+    }
+    state.images[crop.index] = { mediaType: 'image/jpeg', data: data, preview: dataUrl };
+    closeCrop();
+    renderThumbs();
   };
 
   renderThumbs();

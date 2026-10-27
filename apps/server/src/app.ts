@@ -22,17 +22,24 @@ import { createSettingsRouter } from "./routes/settings.js";
 import { createSolutionRouter } from "./routes/solution.js";
 import { createStepsRouter } from "./routes/steps.js";
 import { AssetStore } from "./services/asset-store.js";
+import { createCredentialStore } from "./services/credentials/index.js";
 import { MobileSessionStore } from "./services/mobile-session.js";
 
 export interface CreateAppOptions {
   dbPath?: string;
   uploadsDir?: string;
+  /** 凭据存储目录；默认取 dbPath 同级 secrets/，测试用临时 dbPath 即天然隔离 */
+  secretsDir?: string;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
-  const db = openDatabase(options.dbPath ?? DB_FILE);
+  const dbPath = options.dbPath ?? DB_FILE;
+  const db = openDatabase(dbPath);
   const repository = new WorkspaceRepository(db);
-  const settingsStore = new ProviderSettingsStore(db);
+  const credentialStore = createCredentialStore(
+    options.secretsDir ?? path.join(path.dirname(dbPath), "secrets"),
+  );
+  const settingsStore = new ProviderSettingsStore(db, credentialStore);
   const mobileSessions = new MobileSessionStore();
   const assetStore = new AssetStore(options.uploadsDir ?? UPLOADS_DIR);
 
