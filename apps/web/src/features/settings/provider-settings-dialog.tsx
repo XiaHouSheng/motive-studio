@@ -25,6 +25,14 @@ interface FormState {
   maxTokens: string;
 }
 
+interface ProviderPreset {
+  name: string;
+  baseUrl: string;
+  model: string;
+  /** 模型是否支持图片输入（拍照导入识别需要） */
+  vision?: boolean;
+}
+
 const EMPTY_FORM: FormState = {
   name: "",
   baseUrl: "",
@@ -32,6 +40,25 @@ const EMPTY_FORM: FormState = {
   temperature: "",
   maxTokens: "",
 };
+
+/** 常用服务商预设：仅填入名称/地址/模型，API Key 需用户自行填写 */
+const PROVIDER_PRESETS: ProviderPreset[] = [
+  { name: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", model: "deepseek-chat" },
+  { name: "Kimi", baseUrl: "https://api.moonshot.cn/v1", model: "moonshot-v1-8k" },
+  {
+    name: "通义千问",
+    baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    model: "qwen-vl-max",
+    vision: true,
+  },
+  {
+    name: "智谱 GLM",
+    baseUrl: "https://open.bigmodel.cn/api/paas/v4",
+    model: "glm-4v-flash",
+    vision: true,
+  },
+  { name: "OpenAI", baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini", vision: true },
+];
 
 const inputClass =
   "h-8 w-full rounded-md border border-line bg-field px-2.5 text-[12.5px] text-ink outline-none placeholder:text-ink-faint focus:border-brand/50";
@@ -60,6 +87,7 @@ export function ProviderSettingsDialog() {
 
   const [view, setView] = useState<ProviderSettingsView | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [activePreset, setActivePreset] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -76,6 +104,7 @@ export function ProviderSettingsDialog() {
     setNotice(null);
     setTestResult(null);
     setApiKey("");
+    setActivePreset(null);
 
     api
       .getProviderSettings()
@@ -99,12 +128,28 @@ export function ProviderSettingsDialog() {
   const updateField = useCallback(
     (field: keyof FormState, value: string) => {
       setForm((prev) => ({ ...prev, [field]: value }));
+      if (field === "name" || field === "baseUrl" || field === "model") {
+        setActivePreset(null);
+      }
       setNotice(null);
       setError(null);
       setTestResult(null);
     },
     [],
   );
+
+  const applyPreset = useCallback((preset: ProviderPreset) => {
+    setForm((prev) => ({
+      ...prev,
+      name: preset.name,
+      baseUrl: preset.baseUrl,
+      model: preset.model,
+    }));
+    setActivePreset(preset.name);
+    setNotice(null);
+    setError(null);
+    setTestResult(null);
+  }, []);
 
   const buildProvider = useCallback((): ProviderConfig | null => {
     if (!form.name.trim()) {
@@ -255,6 +300,36 @@ export function ProviderSettingsDialog() {
         </div>
       ) : (
         <div className="space-y-4">
+          <div className="space-y-1.5">
+            <span className={labelClass}>常用服务商预设</span>
+            <div className="flex flex-wrap gap-1.5">
+              {PROVIDER_PRESETS.map((preset) => (
+                <button
+                  key={preset.name}
+                  type="button"
+                  onClick={() => applyPreset(preset)}
+                  className={cn(
+                    "inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[11.5px] transition-colors",
+                    activePreset === preset.name
+                      ? "border-brand/50 bg-brand/5 text-ink"
+                      : "border-line bg-field text-ink-soft hover:bg-selection hover:text-ink",
+                  )}
+                >
+                  {preset.name}
+                  {preset.vision ? (
+                    <span className="rounded bg-brand/10 px-1 text-[10px] leading-4 text-brand">
+                      图片
+                    </span>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+            <span className="block text-[11px] text-ink-faint">
+              点击自动填入名称、地址与模型；带「图片」的模型支持拍照导入的图像识别。API
+              Key 请按所选服务商重新填写。
+            </span>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1.5">
               <span className={labelClass}>服务名称</span>
