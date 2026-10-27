@@ -60,6 +60,15 @@ function toMessage(error: unknown): string {
   return "操作失败，请重试";
 }
 
+/** 工作区数据的轻量签名：题组/题目清单与其 updatedAt，数据变化时必然改变 */
+function dataSignature(data: WorkspaceData): string {
+  const groups = data.groups.map((group) => `${group.id}:${group.updatedAt}`).join("|");
+  const questions = data.questions
+    .map((question) => `${question.id}:${question.updatedAt}`)
+    .join("|");
+  return `${data.groups.length}#${groups}#${data.questions.length}#${questions}`;
+}
+
 export function useWorkspace() {
   const [data, setData] = useState<WorkspaceData>(EMPTY_WORKSPACE);
   const [loading, setLoading] = useState(true);
@@ -99,14 +108,18 @@ export function useWorkspace() {
   const initializeSelection = useUiStore((state) => state.initializeSelection);
   const resetSelection = useUiStore((state) => state.resetSelection);
 
-  const load = useCallback(async (initial = false) => {
+  const load = useCallback(async (initial = false, onlyIfChanged = false) => {
     if (initial) {
       setLoading(true);
       setFatalError(null);
     }
     try {
       const next = await api.bootstrap();
-      setData(next);
+      setData((current) => {
+        // 轮询场景下内容未变化时不重渲染，避免打断当前操作
+        if (onlyIfChanged && dataSignature(current) === dataSignature(next)) return current;
+        return next;
+      });
       lastLoadAt.current = Date.now();
       setFatalError(null);
     } catch (loadError) {
@@ -136,22 +149,26 @@ export function useWorkspace() {
     };
   }, []);
 
-  // 手机导入弹窗打开期间，窗口重新聚焦或切回标签页时静默刷新，让手机提交的结果及时出现
+  // 手机导入弹窗打开期间：窗口聚焦/切回标签页时刷新，并每 4 秒轮询一次，
+  // 手机提交后无需手动刷新即可看到新题目（内容未变化时静默跳过）
   useEffect(() => {
-    if (!mobileLinkOpen) return;
-    const maybeRefresh = () => {
-      if (Date.now() - lastLoadAt.current > 3000) {
-        lastLoadAt.current = Date.now();
-        void load().catch(() => undefined);
-      }
+    let disposed = false;
+    const maybeRefresh = (onlyIfChanged: boolean) => {
+      if (disposed) return;
+      if (Date.now() - lastLoadAt.current < 3000) return;
+      lastLoadAt.current = Date.now();
+      void load(false, onlyIfChanged).catch(() => undefined);
     };
-    const handleFocus = () => maybeRefresh();
+    const handleFocus = () => maybeRefresh(false);
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") maybeRefresh();
+      if (document.visibilityState === "visible") maybeRefresh(false);
     };
+    const pollId = mobileLinkOpen ? window.setInterval(() => maybeRefresh(true), 4000) : null;
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibility);
     return () => {
+      disposed = true;
+      if (pollId !== null) window.clearInterval(pollId);
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
@@ -746,7 +763,9 @@ export function useWorkspace() {
     setMobileLinkOpen(false);
     setMobileLinkUrls([]);
     setMobileLinkError(null);
-  }, []);
+    // 关闭弹窗时补一次静默刷新，兜住「先关弹窗、再在手机上提交」的情况
+    void load(false, true).catch(() => undefined);
+  }, [load]);
 
   const deleteQuestion = useCallback(
     (id: string) => {

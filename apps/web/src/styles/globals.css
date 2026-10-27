@@ -394,7 +394,7 @@
 
 /* ---------- Motion ---------- */
 
-/* 动效时间与曲线集中在 @theme 定义，组件统一引用 duration-*/ease-*/animate-* 工具，不散落硬编码时长 */
+/* 动效时间与曲线集中在 @theme 定义，组件统一引用 duration / ease / animate 工具类，不散落硬编码时长 */
 
 @keyframes rise-in {
   from {

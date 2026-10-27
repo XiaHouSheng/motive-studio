@@ -405,7 +405,7 @@ type TaskStatus =
 
 - [x] 建立全局动效变量：`--duration-fast/normal/slow`、`--ease-standard/enter/exit`，动画统一走 `animate-*` 工具（内部引用时长与曲线变量），组件时长用 `duration-(--duration-fast)` var 引用。
 - [x] 统一按钮、徽章的反馈时长（`duration-fast`）。
-- [x] 弹窗统一入场（遮罩淡入 + 面板缩放淡入）与快速退场（120ms 淡出）。
+- [x] 弹窗统一入场（遮罩淡入 + 面板缩【放淡入）与快速退场（120ms 淡出）。
 - [x] 减少动效支持：补齐 `scroll-behavior: auto`。
 - [x] 键盘操作与焦点状态：沿用全局 `:focus-visible`，Radix 菜单自带焦点管理。
 - [x] 动效不阻塞操作：全部使用 `transform` / `opacity`，无遮挡交互。
