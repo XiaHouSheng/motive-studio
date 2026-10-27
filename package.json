@@ -1,0 +1,26 @@
+{
+  "name": "motive-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local-first AI structured thinking workspace",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "npm run dev -w @motive/web",
+    "dev:server": "npm run dev -w @motive/server",
+    "build": "npm run build -w @motive/web",
+    "typecheck": "npm run typecheck -w @motive/shared && npm run typecheck -w @motive/web && npm run typecheck -w @motive/server",
+    "test": "npm run test -w @motive/web && npm run test -w @motive/server",
+    "start": "node scripts/start.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
