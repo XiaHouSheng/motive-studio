@@ -9,6 +9,7 @@ import { ChatPanel } from "@/features/discussions/chat-panel";
 import { ProviderSettingsDialog } from "@/features/settings/provider-settings-dialog";
 import { ArchiveProposalDialog } from "@/features/archive/archive-proposal-dialog";
 import { ImageImportDialog } from "@/features/question-groups/image-import-dialog";
+import { MobileCaptureDialog } from "@/features/mobile-capture/mobile-capture-dialog";
 import { ResizeHandle } from "@/components/shared/resize-handle";
 import { CHAT_WIDTH_LIMITS, SIDEBAR_WIDTH_LIMITS } from "@/stores/ui";
 import { TopBar } from "./top-bar";
@@ -206,6 +207,7 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
       <ProviderSettingsDialog />
       <ArchiveProposalDialog workspace={workspace} />
       <ImageImportDialog workspace={workspace} />
+      <MobileCaptureDialog workspace={workspace} />
     </div>
   );
 }

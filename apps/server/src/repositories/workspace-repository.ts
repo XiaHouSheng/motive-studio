@@ -30,6 +30,18 @@ import { insertWorkspaceData } from "../db/insert-workspace.js";
 import { withTransaction } from "../db/client.js";
 import { HttpError } from "../http-error.js";
 
+export interface ImportedQuestionsResult {
+  groupId: string;
+  groupTitle: string;
+  questions: Question[];
+}
+
+export interface GroupSummary {
+  id: string;
+  title: string;
+  questionCount: number;
+}
+
 interface GroupRow {
   id: string;
   title: string;
@@ -472,6 +484,52 @@ export class WorkspaceRepository {
       createdAt: now,
       updatedAt: now,
     };
+  }
+
+  /**
+   * 批量导入题目：existing 加入已有题组，否则按 groupTitle（或默认名）新建题组。
+   * 事务保证「新建组 + 批量建题」的原子性。
+   */
+  importQuestions(
+    target: { groupId?: string; groupTitle?: string },
+    contents: string[],
+  ): ImportedQuestionsResult {
+    return withTransaction(this.db, () => {
+      let groupId: string;
+      let groupTitle: string;
+      if (target.groupId) {
+        const group = this.requireGroup(target.groupId);
+        groupId = group.id;
+        groupTitle = group.title;
+      } else {
+        const now = new Date();
+        const pad = (value: number) => String(value).padStart(2, "0");
+        const fallback = `拍照导入 ${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        const created = this.createGroup(target.groupTitle?.trim() || fallback);
+        groupId = created.id;
+        groupTitle = created.title;
+      }
+
+      const questions = contents.map((content) => this.createQuestion(groupId, content));
+      return { groupId, groupTitle, questions };
+    });
+  }
+
+  listGroupSummaries(): GroupSummary[] {
+    const rows = this.db
+      .prepare(
+        `SELECT g.id, g.title, COUNT(q.id) AS question_count
+         FROM question_groups g
+         LEFT JOIN questions q ON q.group_id = g.id
+         GROUP BY g.id
+         ORDER BY g.position, g.created_at`,
+      )
+      .all() as unknown as Array<{ id: string; title: string; question_count: number }>;
+    return rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      questionCount: row.question_count,
+    }));
   }
 
   updateQuestion(questionId: string, patch: QuestionPatch): Question {

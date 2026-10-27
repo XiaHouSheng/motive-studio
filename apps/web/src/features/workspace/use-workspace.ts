@@ -84,7 +84,12 @@ export function useWorkspace() {
   const [imageImportCreating, setImageImportCreating] = useState(false);
   const [imageImportError, setImageImportError] = useState<string | null>(null);
   const [imageImportQuestions, setImageImportQuestions] = useState<string[]>([]);
+  const [mobileLinkOpen, setMobileLinkOpen] = useState(false);
+  const [mobileLinkLoading, setMobileLinkLoading] = useState(false);
+  const [mobileLinkError, setMobileLinkError] = useState<string | null>(null);
+  const [mobileLinkUrls, setMobileLinkUrls] = useState<string[]>([]);
   const controllers = useRef<Map<string, AbortController>>(new Map());
+  const lastLoadAt = useRef(0);
 
   const selectedGroupId = useUiStore((state) => state.selectedGroupId);
   const selectedQuestionId = useUiStore((state) => state.selectedQuestionId);
@@ -100,6 +105,7 @@ export function useWorkspace() {
     try {
       const next = await api.bootstrap();
       setData(next);
+      lastLoadAt.current = Date.now();
       setFatalError(null);
     } catch (loadError) {
       const message = toMessage(loadError);
@@ -113,6 +119,27 @@ export function useWorkspace() {
   useEffect(() => {
     void load(true).catch(() => undefined);
   }, [load]);
+
+  // 手机导入弹窗打开期间，窗口重新聚焦或切回标签页时静默刷新，让手机提交的结果及时出现
+  useEffect(() => {
+    if (!mobileLinkOpen) return;
+    const maybeRefresh = () => {
+      if (Date.now() - lastLoadAt.current > 3000) {
+        lastLoadAt.current = Date.now();
+        void load().catch(() => undefined);
+      }
+    };
+    const handleFocus = () => maybeRefresh();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") maybeRefresh();
+    };
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [mobileLinkOpen, load]);
 
   // 切换题目时同步该题最新的待确认归档提案
   useEffect(() => {
@@ -684,6 +711,27 @@ export function useWorkspace() {
     [imageImportGroupId, load],
   );
 
+  const openMobileLink = useCallback(async () => {
+    setMobileLinkOpen(true);
+    setMobileLinkLoading(true);
+    setMobileLinkError(null);
+    try {
+      const link = await api.getMobileLink(crypto.randomUUID());
+      setMobileLinkUrls(link.urls);
+    } catch (linkError) {
+      setMobileLinkUrls([]);
+      setMobileLinkError(toMessage(linkError));
+    } finally {
+      setMobileLinkLoading(false);
+    }
+  }, []);
+
+  const closeMobileLink = useCallback(() => {
+    setMobileLinkOpen(false);
+    setMobileLinkUrls([]);
+    setMobileLinkError(null);
+  }, []);
+
   const deleteQuestion = useCallback(
     (id: string) => {
       void run(async () => {
@@ -815,6 +863,12 @@ export function useWorkspace() {
     closeImageImport,
     analyzeImages,
     createQuestionsFromImages,
+    mobileLinkOpen,
+    mobileLinkLoading,
+    mobileLinkError,
+    mobileLinkUrls,
+    openMobileLink,
+    closeMobileLink,
     deleteGroup,
     deleteQuestion,
     sendMessage,

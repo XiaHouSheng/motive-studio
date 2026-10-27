@@ -143,6 +143,11 @@ export const api = {
         body: JSON.stringify({ images }),
       },
     ),
+  getMobileLink: (key: string) =>
+    request<{ token: string; urls: string[]; preferred: string | null }>(
+      "/api/mobile/link",
+      { method: "POST", body: JSON.stringify({ key }) },
+    ),
 
   createQuestion: (groupId: string, content: string) =>
     request<Question>("/api/questions", {

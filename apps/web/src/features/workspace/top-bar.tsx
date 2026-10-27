@@ -11,6 +11,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Settings2,
+  Smartphone,
   Terminal,
   Upload,
 } from "lucide-react";
@@ -53,7 +54,14 @@ interface TopBarProps {
 }
 
 export function TopBar({ workspace }: TopBarProps) {
-  const { selectedGroup, question, loading, exportBackup, importBackup } = workspace;
+  const {
+    selectedGroup,
+    question,
+    loading,
+    exportBackup,
+    importBackup,
+    openMobileLink,
+  } = workspace;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const chatVisible = useUiStore((state) => state.chatVisible);
@@ -134,6 +142,15 @@ export function TopBar({ workspace }: TopBarProps) {
           />
           {status === "online" ? "本地服务已连接" : status === "checking" ? "检测服务…" : "服务未连接"}
         </span>
+        <button
+          type="button"
+          onClick={() => void openMobileLink()}
+          aria-label="手机拍照导入"
+          title="手机拍照导入"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-selection hover:text-ink"
+        >
+          <Smartphone size={16} strokeWidth={1.8} />
+        </button>
         <button
           type="button"
           onClick={openSettings}

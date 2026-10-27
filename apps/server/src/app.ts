@@ -14,11 +14,13 @@ import { createExplanationsRouter } from "./routes/explanations.js";
 import { createExportRouter } from "./routes/exports.js";
 import { healthRouter } from "./routes/health.js";
 import { createImageImportRouter } from "./routes/image-import.js";
+import { createMobileRouter } from "./routes/mobile.js";
 import { createQuestionGroupsRouter } from "./routes/question-groups.js";
 import { createQuestionsRouter } from "./routes/questions.js";
 import { createSettingsRouter } from "./routes/settings.js";
 import { createSolutionRouter } from "./routes/solution.js";
 import { createStepsRouter } from "./routes/steps.js";
+import { MobileSessionStore } from "./services/mobile-session.js";
 
 export interface CreateAppOptions {
   dbPath?: string;
@@ -28,11 +30,13 @@ export function createApp(options: CreateAppOptions = {}) {
   const db = openDatabase(options.dbPath ?? DB_FILE);
   const repository = new WorkspaceRepository(db);
   const settingsStore = new ProviderSettingsStore(db);
+  const mobileSessions = new MobileSessionStore();
 
   const app = express();
 
   app.disable("x-powered-by");
-  app.use(express.json({ limit: "20mb" }));
+  // 桌面端 4×6MB base64 ≈32MB，移动端 4×4MB ≈21.4MB，均需覆盖
+  app.use(express.json({ limit: "40mb" }));
 
   app.use("/api/health", healthRouter);
   app.use("/api", createBootstrapRouter(repository));
@@ -46,6 +50,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use("/api", createExportRouter(repository));
   app.use("/api", createBackupRouter(repository));
   app.use("/api", createSettingsRouter(settingsStore));
+  app.use(createMobileRouter(repository, settingsStore, mobileSessions));
 
   app.use("/api", (_req: Request, res: Response) => {
     res.status(404).json({ code: "NOT_FOUND", message: "接口不存在" });
