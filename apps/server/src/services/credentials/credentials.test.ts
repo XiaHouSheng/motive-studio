@@ -254,6 +254,9 @@ describe("ProviderSettingsStore 恢复失败兜底", () => {
     await next.restore();
     const view = next.getView();
     expect(view.hasApiKey).toBe(false);
+    // 无法解密时不能给出可辨认的掩码
+    expect(view.apiKeyMasked).toBeNull();
+    expect(view.apiKeySavedAt).toBeNull();
     expect(view.credentialIssue).not.toBeNull();
     expect(next.getApiKey()).toBeNull();
     db.close();
@@ -272,6 +275,9 @@ describe("凭据持久化 HTTP 闭环", () => {
     expect(saved.credentialIssue).toBeNull();
     expect(VALID_MODES).toContain(saved.credentialStorage);
     expect(JSON.stringify(saved).includes(API_KEY)).toBe(false);
+    // 脱敏视图：掩码可辨认（前 3 位 + 末 4 位），记录保存时间，但绝无明文
+    expect(saved.apiKeyMasked).toBe("sk-••••3210");
+    expect(typeof saved.apiKeySavedAt).toBe("number");
 
     // secrets 目录与 sqlite 配置均不含明文
     for (const content of readAllFiles(secretsDir)) {
@@ -289,12 +295,17 @@ describe("凭据持久化 HTTP 闭环", () => {
     const restored = await getProvider(second);
     expect(restored.hasApiKey).toBe(true);
     expect(restored.credentialIssue).toBeNull();
+    // 重启后掩码与保存时间仍可展示
+    expect(restored.apiKeyMasked).toBe("sk-••••3210");
+    expect(typeof restored.apiKeySavedAt).toBe("number");
     // 内存缓存可供 AI 路由同步读取
     expect((second.app.locals.settingsStore as ProviderSettingsStore).getApiKey()).toBe(API_KEY);
 
     // 3. 清除密钥 → 重启后仍为已清除
     const cleared = await putProvider(second, { clearApiKey: true });
     expect(cleared.hasApiKey).toBe(false);
+    expect(cleared.apiKeyMasked).toBeNull();
+    expect(cleared.apiKeySavedAt).toBeNull();
     await second.close();
 
     const third = await startApp(dbPath);

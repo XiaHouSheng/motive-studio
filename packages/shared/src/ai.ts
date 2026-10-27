@@ -26,6 +26,10 @@ export type CredentialStorageMode =
 export interface ProviderSettingsView {
   provider: ProviderConfig;
   hasApiKey: boolean;
+  /** 已保存密钥的脱敏预览（前 3 位 + 末 4 位，无明文）；未保存或无法解密时为 null */
+  apiKeyMasked: string | null;
+  /** 当前密钥的保存时间（epoch ms）；未保存或早期保存未记录时为 null */
+  apiKeySavedAt: number | null;
   /** 密钥在本机的存储方式（脱敏，不含任何路径） */
   credentialStorage: CredentialStorageMode;
   /** 凭据存储异常提示（如解密失败需要重新配置）；正常为 null */

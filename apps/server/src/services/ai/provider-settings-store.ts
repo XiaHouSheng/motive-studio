@@ -12,6 +12,18 @@ const SETTINGS_KEY = "provider_config";
  * 该键只作为凭据存储的索引，不是密钥本身，也不会出现在任何 API 响应中。
  */
 const CREDENTIAL_KEY = "provider:default";
+/** 密钥保存时间的元数据键（仅记录时间，不含密钥任何信息） */
+const CREDENTIAL_META_KEY = "provider_credential_meta";
+
+/**
+ * 生成密钥的脱敏预览：保留前 3 位与末 4 位，其余以圆点代替。
+ * 过短的密钥可辨认字符过多，全部打码。结果不含任何可用于还原明文的信息。
+ */
+export function maskApiKey(key: string): string {
+  const trimmed = key.trim();
+  if (trimmed.length < 12) return "••••••••";
+  return `${trimmed.slice(0, 3)}••••${trimmed.slice(-4)}`;
+}
 
 export const DEFAULT_PROVIDER_CONFIG: ProviderConfig = {
   id: "default",
@@ -157,10 +169,26 @@ export class ProviderSettingsStore {
     }
   }
 
+  /** 读取当前密钥的保存时间；无记录或数据异常时返回 null */
+  private readSavedAt(): number | null {
+    const row = this.db
+      .prepare("SELECT value FROM app_settings WHERE key = ?")
+      .get(CREDENTIAL_META_KEY) as { value: string } | undefined;
+    if (!row) return null;
+    try {
+      const parsed = JSON.parse(row.value) as { savedAt?: unknown };
+      return typeof parsed.savedAt === "number" ? parsed.savedAt : null;
+    } catch {
+      return null;
+    }
+  }
+
   getView(): ProviderSettingsView {
     return {
       provider: this.getConfig(),
       hasApiKey: this.apiKey !== null,
+      apiKeyMasked: this.apiKey ? maskApiKey(this.apiKey) : null,
+      apiKeySavedAt: this.apiKey !== null ? this.readSavedAt() : null,
       credentialStorage: this.credentials.mode,
       credentialIssue: this.credentialIssue,
     };
@@ -203,10 +231,25 @@ export class ProviderSettingsStore {
       if (input.clearApiKey) {
         // 删除失败必须报错，不谎报成功（内存状态保持不变）
         await this.credentials.delete(CREDENTIAL_KEY);
+        this.db
+          .prepare("DELETE FROM app_settings WHERE key = ?")
+          .run(CREDENTIAL_META_KEY);
         this.apiKey = null;
         this.credentialIssue = null;
       } else if (nextApiKey) {
         await this.credentials.set(CREDENTIAL_KEY, nextApiKey);
+        // 记录保存时间（仅时间，不含密钥信息），供脱敏视图展示
+        this.db
+          .prepare(
+            `INSERT INTO app_settings (key, value, updated_at)
+             VALUES (?, ?, ?)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+          )
+          .run(
+            CREDENTIAL_META_KEY,
+            JSON.stringify({ savedAt: updatedAt }),
+            updatedAt,
+          );
         this.apiKey = nextApiKey;
         this.credentialIssue = null;
       }

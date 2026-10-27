@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { useUiStore } from "@/stores/ui";
 import { ApiError, api } from "@/lib/api";
+import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface FormState {
@@ -452,6 +453,25 @@ export function ProviderSettingsDialog() {
                 autoComplete="off"
               />
             </div>
+            {hasApiKey && view ? (
+              <div className="space-y-1 rounded-md border border-line bg-field/60 px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 font-mono text-[12px] text-ink">
+                    <KeyRound size={12} className="text-brand" />
+                    {view.apiKeyMasked ?? "••••••••"}
+                  </span>
+                  <span className="text-[10.5px] text-ink-faint">
+                    {view.apiKeySavedAt
+                      ? `保存于 ${formatTime(view.apiKeySavedAt)}`
+                      : "已加密保存"}
+                  </span>
+                </div>
+                <span className="block text-[11px] text-ink-faint">
+                  模型 API Key（{view.provider.name}）·
+                  {STORAGE_LABELS[view.credentialStorage]}·明文不可查看，可更换或清除
+                </span>
+              </div>
+            ) : null}
             {hasApiKey ? (
               <button
                 type="button"
