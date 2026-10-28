@@ -1,6 +1,9 @@
 <div align="center">
 
-<img src="https://api.iconify.design/lucide/brain-circuit.svg?color=%23f97316" width="72" alt="Motive Studio Logo" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/logo-dark.svg" />
+  <img src="apps/web/public/logo-light.svg" width="96" alt="Motive Studio Logo" />
+</picture>
 
 # Motive Studio
 
@@ -8,15 +11,47 @@
 
 拍照收集题目，AI 分步解题、陪你讨论、沉淀归档 —— 数据全部保存在你自己的电脑上。
 
-![Node.js](https://img.shields.io/badge/Node.js-24%2B-339933?style=flat-square&logo=nodedotjs&logoColor=white)
-![React](https://img.shields.io/badge/React-19-20232A?style=flat-square&logo=react&logoColor=61DAFB)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.9-20232A?style=flat-square&logo=typescript&logoColor=3178C6)
-![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
-![Zustand](https://img.shields.io/badge/Zustand-5-20232A?style=flat-square&logo=zustand&logoColor=white)
-![Express](https://img.shields.io/badge/Express-5-000000?style=flat-square&logo=express&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-node:sqlite-003B57?style=flat-square&logo=sqlite&logoColor=white)
-![Vitest](https://img.shields.io/badge/Vitest-5-729B1B?style=flat-square&logo=vitest&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-24%2B-173c3b?style=flat-square&logo=nodedotjs&logoColor=5FA04E)
+![React](https://img.shields.io/badge/React-19-173c3b?style=flat-square&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9-173c3b?style=flat-square&logo=typescript&logoColor=3178C6)
+![Vite](https://img.shields.io/badge/Vite-8-173c3b?style=flat-square&logo=vite&logoColor=646CFF)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-173c3b?style=flat-square&logo=tailwindcss&logoColor=38BDF8)
+![Zustand](https://img.shields.io/badge/Zustand-5-173c3b?style=flat-square&logo=zustand&logoColor=FFFFFF)
+![Express](https://img.shields.io/badge/Express-5-173c3b?style=flat-square&logo=express&logoColor=FFFFFF)
+![SQLite](https://img.shields.io/badge/SQLite-node:sqlite-173c3b?style=flat-square&logo=sqlite&logoColor=FFFFFF)
+![Vitest](https://img.shields.io/badge/Vitest-5-173c3b?style=flat-square&logo=vitest&logoColor=729B1B)
+
+</div>
+
+## 🖼️ 应用预览
+
+<div align="center">
+
+**主工作台 · 三栏一屏**：题组 → 题目 → 分步题解，界面随系统自动切换明暗主题
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/workspace-dark-main.png" />
+  <img src="docs/screenshots/workspace-light-main.png" alt="Motive Studio 主工作台" width="92%" />
+</picture>
+
+<br/>
+
+<table>
+  <tr>
+    <td align="center" width="33.3%">
+      <img src="docs/screenshots/discussion-panel.png" alt="围绕步骤讨论" width="100%" /><br/>
+      <sub><b>讨论面板</b> · 围绕当前步骤向 AI 追问，携带完整上下文</sub>
+    </td>
+    <td align="center" width="33.3%">
+      <img src="docs/screenshots/mobile-capture.png" alt="扫码配对手机拍照" width="100%" /><br/>
+      <sub><b>手机拍照导入</b> · 扫码配对直连局域网，数据不上传云端</sub>
+    </td>
+    <td align="center" width="33.3%">
+      <img src="docs/screenshots/provider-settings.png" alt="模型服务设置" width="100%" /><br/>
+      <sub><b>模型服务设置</b> · OpenAI 兼容接口，API Key 系统级加密</sub>
+    </td>
+  </tr>
+</table>
 
 </div>
 
@@ -24,17 +59,17 @@
 
 | 图标 | 功能 | 说明 |
 | :---: | --- | --- |
-| <img src="https://api.iconify.design/lucide/camera.svg?color=%23f97316" width="20" /> | **拍照添加题目** | 手机扫码进入拍照页随手拍，桌面端支持粘贴 / 选择图片，AI 自动结构化导入为题目 |
-| <img src="https://api.iconify.design/lucide/crop.svg?color=%2314b8a6" width="20" /> | **裁剪编辑器** | 选图后可框选区域再识别：拖动移动、八向手柄缩放、三分构图线，鼠标与触控统一支持 |
-| <img src="https://api.iconify.design/lucide/brain.svg?color=%23a855f7" width="20" /> | **AI 分步解题** | 逐步生成解题步骤，SSE 流式输出实时呈现思考过程，支持修订并保留历史版本 |
-| <img src="https://api.iconify.design/lucide/sigma.svg?color=%233b82f6" width="20" /> | **数学公式渲染** | 基于 KaTeX 完整渲染 LaTeX 公式，理科题目排版不失真 |
-| <img src="https://api.iconify.design/lucide/messages-square.svg?color=%230ea5e9" width="20" /> | **讨论面板** | 围绕当前题目与 AI 追问对话，携带上下文，随时回到题目本身 |
-| <img src="https://api.iconify.design/lucide/archive.svg?color=%23f59e0b" width="20" /> | **AI 归档整理** | 解完的题目自动提炼要点、生成归档建议，确认后入库沉淀 |
-| <img src="https://api.iconify.design/lucide/file-down.svg?color=%2322c55e" width="20" /> | **Markdown 导出** | 题目与解题过程一键导出为 Markdown，方便二次编辑与分享 |
-| <img src="https://api.iconify.design/lucide/scan-line.svg?color=%2306b6d4" width="20" /> | **扫码配对** | 桌面端展示二维码，手机扫码直连局域网服务，回环校验防止服务暴露到公网 |
-| <img src="https://api.iconify.design/lucide/shield-check.svg?color=%2310b981" width="20" /> | **密钥安全存储** | API Key 走操作系统级凭据保护（DPAPI / Keychain / Secret Service），明文永不回传 |
-| <img src="https://api.iconify.design/lucide/key-round.svg?color=%23f43f5e" width="20" /> | **密钥脱敏查看** | 设置面板可查看已保存密钥的掩码预览（前 3 位 + 末 4 位）与保存时间，认得出、看不见 |
-| <img src="https://api.iconify.design/lucide/palette.svg?color=%238b5cf6" width="20" /> | **明暗主题** | 亮 / 暗主题一键切换，偏好本地记忆 |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide/camera.svg?color=%232dd4bf" /><img src="https://api.iconify.design/lucide/camera.svg?color=%230d9488" width="20" /></picture> | **拍照添加题目** | 手机扫码进入拍照页随手拍，桌面端支持粘贴 / 选择图片，AI 自动结构化导入为题目 |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide/crop.svg?color=%235eead4" /><img src="https://api.iconify.design/lucide/crop.svg?color=%230f766e" width="20" /></picture> | **裁剪编辑器** | 选图后可框选区域再识别：拖动移动、八向手柄缩放、三分构图线，鼠标与触控统一支持 |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide/brain.svg?color=%232dd4bf" /><img src="https://api.iconify.design/lucide/brain.svg?color=%230d9488" width="20" /></picture> | **AI 分步解题** | 逐步生成解题步骤，SSE 流式输出实时呈现思考过程，支持修订并保留历史版本 |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide/sigma.svg?color=%235eead4" /><img src="https://api.iconify.design/lucide/sigma.svg?color=%230f766e" width="20" /></picture> | **数学公式渲染** | 基于 KaTeX 完整渲染 LaTeX 公式，理科题目排版不失真 |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide/messages-square.svg?color=%235eead4" /><img src="https://api.iconify.design/lucide/messages-square.svg?color=%230f766e" width="20" /></picture> | **讨论面板** | 围绕当前题目与 AI 追问对话，携带上下文，随时回到题目本身 |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide/archive.svg?color=%23fdb022" /><img src="https://api.iconify.design/lucide/archive.svg?color=%23a15c07" width="20" /></picture> | **AI 归档整理** | 解完的题目自动提炼要点、生成归档建议，确认后入库沉淀 |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide/file-down.svg?color=%234ade80" /><img src="https://api.iconify.design/lucide/file-down.svg?color=%230f7b6c" width="20" /></picture> | **Markdown 导出** | 题目与解题过程一键导出为 Markdown，方便二次编辑与分享 |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide/scan-line.svg?color=%232dd4bf" /><img src="https://api.iconify.design/lucide/scan-line.svg?color=%230d9488" width="20" /></picture> | **扫码配对** | 桌面端展示二维码，手机扫码直连局域网服务，回环校验防止服务暴露到公网 |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide/shield-check.svg?color=%234ade80" /><img src="https://api.iconify.design/lucide/shield-check.svg?color=%230f7b6c" width="20" /></picture> | **密钥安全存储** | API Key 走操作系统级凭据保护（DPAPI / Keychain / Secret Service），明文永不回传 |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide/key-round.svg?color=%23f97066" /><img src="https://api.iconify.design/lucide/key-round.svg?color=%23b42318" width="20" /></picture> | **密钥脱敏查看** | 设置面板可查看已保存密钥的掩码预览（前 3 位 + 末 4 位）与保存时间，认得出、看不见 |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.iconify.design/lucide/palette.svg?color=%235eead4" /><img src="https://api.iconify.design/lucide/palette.svg?color=%230f766e" width="20" /></picture> | **明暗主题** | 亮 / 暗主题一键切换，偏好本地记忆 |
 
 ## 🧰 技术栈
 
@@ -50,11 +85,11 @@ Monorepo（npm workspaces），三端共享一套 TypeScript 类型定义。
 
 <div align="left">
 
-1. <img src="https://api.iconify.design/lucide/qr-code.svg?color=%2306b6d4" width="16" /> 桌面端点击「手机拍照」，展示局域网配对二维码
-2. <img src="https://api.iconify.design/lucide/smartphone.svg?color=%2306b6d4" width="16" /> 手机扫码进入拍照页，一次配对、会话内有效
-3. <img src="https://api.iconify.design/lucide/camera.svg?color=%23f97316" width="16" /> 拍照 / 选图，自动压缩，最多 6 张
-4. <img src="https://api.iconify.design/lucide/crop.svg?color=%2314b8a6" width="16" /> 点击缩略图进入裁剪编辑器，框选题目区域后替换原图
-5. <img src="https://api.iconify.design/lucide/sparkles.svg?color=%23a855f7" width="16" /> 提交到桌面端，AI 识别题目内容并结构化入题库
+1. <img src="https://api.iconify.design/lucide/qr-code.svg?color=%230d9488" width="16" /> 桌面端点击「手机拍照」，展示局域网配对二维码
+2. <img src="https://api.iconify.design/lucide/smartphone.svg?color=%230d9488" width="16" /> 手机扫码进入拍照页，一次配对、会话内有效
+3. <img src="https://api.iconify.design/lucide/camera.svg?color=%230d9488" width="16" /> 拍照 / 选图，自动压缩，最多 6 张
+4. <img src="https://api.iconify.design/lucide/crop.svg?color=%230f766e" width="16" /> 点击缩略图进入裁剪编辑器，框选题目区域后替换原图
+5. <img src="https://api.iconify.design/lucide/sparkles.svg?color=%230d9488" width="16" /> 提交到桌面端，AI 识别题目内容并结构化入题库
 
 </div>
 
@@ -125,4 +160,6 @@ npm run test
 ## 🙏 图标与致谢
 
 - 界面与本文档图标来自 [Lucide](https://lucide.dev)（通过 [Iconify](https://iconify.design) 提供 SVG 服务）
-- 技术栈徽章由 [Shields.io](https://shields.io) 渲染
+- 品牌 Logo 为自绘「M」渐变标识，随主题切换：明色用薄荷渐变（`apps/web/public/logo-light.svg`），暗色用品牌青渐变（`apps/web/public/logo-dark.svg`），favicon 为深底圆角徽标（`apps/web/public/favicon.svg`）
+- 图标配色取自应用主题：品牌 Teal（`#0d9488` / `#2dd4bf`）与语义色（琥珀 / 青绿 / 红），随系统明暗自动切换
+- 技术栈徽章由 [Shields.io](https://shields.io) 渲染，底色统一为品牌深色 `#173c3b`

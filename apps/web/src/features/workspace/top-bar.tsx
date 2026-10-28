@@ -16,6 +16,7 @@ import {
   Upload,
 } from "lucide-react";
 import { useUiStore } from "@/stores/ui";
+import { useThemeStore } from "@/stores/theme";
 import { cn } from "@/lib/utils";
 import { ThemeMenu } from "@/features/theme/theme-menu";
 import type { WorkspaceApi } from "./use-workspace";
@@ -64,6 +65,7 @@ export function TopBar({ workspace }: TopBarProps) {
   } = workspace;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
+  const resolved = useThemeStore((state) => state.resolved);
   const chatVisible = useUiStore((state) => state.chatVisible);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   const toggleChat = useUiStore((state) => state.toggleChat);
@@ -99,9 +101,12 @@ export function TopBar({ workspace }: TopBarProps) {
       </button>
 
       <div className="ml-0.5 flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand text-[12px] font-bold text-white dark:text-[#062b27]">
-          M
-        </span>
+        <img
+          src={resolved === "dark" ? "/logo-dark.svg" : "/logo-light.svg"}
+          alt=""
+          className="h-6 w-auto select-none"
+          draggable={false}
+        />
         <span className="text-[13px] font-semibold tracking-[-0.01em] text-ink">Motive Studio</span>
         <span className="hidden rounded border border-line px-1.5 py-px text-[9.5px] font-medium tracking-[0.08em] text-ink-faint uppercase sm:inline">
           Local
