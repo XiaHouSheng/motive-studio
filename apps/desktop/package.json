@@ -9,7 +9,9 @@
     "node": ">=24"
   },
   "scripts": {
-    "verify:runtime": "electron scripts/verify-runtime.mjs"
+    "verify:runtime": "electron scripts/verify-runtime.mjs",
+    "build:server": "node scripts/build-server.mjs",
+    "dev": "node scripts/dev.mjs"
   },
   "devDependencies": {
     "electron": "45.2.1",
