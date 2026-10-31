@@ -2,6 +2,10 @@
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/* Streamdown 的样式以 Tailwind 工具类分发，需要让 Tailwind 扫描其产物 */
+@source "../../../../node_modules/streamdown/dist/*.js";
+@source "../../../../node_modules/@streamdown/math/dist/*.js";
+
 :root {
   --surface: #f7faf9;
   --sidebar: #f0f5f3;
@@ -67,6 +71,18 @@
   --color-danger: var(--danger);
   --color-success: var(--success);
   --color-warning: var(--warning);
+
+  /* Streamdown 依赖 shadcn 语义色名，映射到本项目色板 */
+  --color-background: var(--panel);
+  --color-foreground: var(--ink);
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-muted: var(--sidebar);
+  --color-muted-foreground: var(--ink-soft);
+  --color-card: var(--panel);
+  --color-card-foreground: var(--ink);
+  --color-primary: var(--brand);
+  --color-primary-foreground: #ffffff;
   --font-sans: ui-sans-serif, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Consolas, "Liberation Mono", monospace;
   --shadow-soft: var(--elevation);
@@ -163,7 +179,7 @@
   line-height: 1.75;
 }
 
-.md > * + * {
+.md .md-streamdown > * + * {
   margin-top: 0.8em;
 }
 
@@ -232,83 +248,22 @@
   color: var(--ink-faint);
 }
 
-.md code {
+/* 行内代码（Streamdown 以 data-streamdown 标记区分于代码块） */
+.md [data-streamdown="inline-code"] {
   font-family: var(--font-mono);
   font-size: 0.85em;
-  background: color-mix(in oklab, var(--line) 52%, transparent);
-  border-radius: 4px;
-  padding: 0.12em 0.35em;
-}
-
-/* 行内变量（非代码块）：提亮背景与正文色，突出变量记号 */
-.md :not(pre) > code {
   color: var(--ink);
   background: color-mix(in oklab, var(--brand) 12%, var(--line));
-  font-weight: 500;
-}
-
-.md pre {
-  overflow-x: auto;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: color-mix(in oklab, var(--sidebar) 75%, var(--panel));
-  padding: 0.85rem 1rem;
-  font-size: 0.85rem;
-  line-height: 1.65;
-}
-
-.md pre code {
-  background: transparent;
-  padding: 0;
-  font-size: 1em;
-}
-
-.md-code {
-  margin: 1rem 0;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: color-mix(in oklab, var(--sidebar) 75%, var(--panel));
-}
-
-.md-code-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  border-bottom: 1px solid var(--line);
-  padding: 0.3rem 0.6rem 0.3rem 0.85rem;
-}
-
-.md-code-copy {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
   border-radius: 4px;
-  padding: 0.15rem 0.35rem;
-  font-size: 10.5px;
-  color: var(--ink-soft);
-  transition:
-    color 150ms ease,
-    background-color 150ms ease;
-}
-
-.md-code-copy:hover {
-  background: var(--selection);
-  color: var(--ink);
-}
-
-.md .md-code pre {
-  margin: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
+  padding: 0.12em 0.35em;
+  font-weight: 500;
 }
 
 .md blockquote {
   border-left: 2px solid var(--line-strong);
   padding-left: 0.9rem;
   color: var(--ink-soft);
+  font-style: normal;
 }
 
 .md blockquote p + p {
@@ -380,6 +335,7 @@
 .md p.md-formula code {
   background: transparent;
   padding: 0;
+  font-family: var(--font-mono);
   font-size: 1em;
 }
 

@@ -1,10 +1,8 @@
-import { isValidElement, useState, type ReactNode } from "react";
-import ReactMarkdown from "react-markdown";
-import type { Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
-import { Check, Copy } from "lucide-react";
+import { isValidElement, type ReactNode } from "react";
+import { Streamdown } from "streamdown";
+import type { Components, StreamdownTranslations } from "streamdown";
+import { createMathPlugin } from "@streamdown/math";
+import type { Element } from "hast";
 import { cn } from "@/lib/utils";
 
 function flattenText(node: ReactNode): string {
@@ -16,71 +14,30 @@ function flattenText(node: ReactNode): string {
   return "";
 }
 
-function significantChildren(children: ReactNode): ReactNode[] {
-  const list = Array.isArray(children) ? children : [children];
-  return list.filter((child) => !(typeof child === "string" && child.trim() === ""));
-}
-
-function languageOf(children: ReactNode): string | null {
-  const list = Array.isArray(children) ? children : [children];
-  for (const child of list) {
-    if (!isValidElement(child)) continue;
-    const className = (child.props as { className?: string }).className;
-    const match = /language-([\w-]+)/.exec(className ?? "");
-    if (match) return match[1];
-  }
-  return null;
-}
-
-function CodeBlock({ children }: { children: ReactNode }) {
-  const [copied, setCopied] = useState(false);
-  const language = languageOf(children);
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(flattenText(children).replace(/\n$/, ""));
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
-    } catch {
-      setCopied(false);
-    }
-  };
-
-  return (
-    <div className="md-code">
-      <div className="md-code-bar">
-        <span className="font-mono text-[10.5px] tracking-[0.04em] text-ink-faint uppercase">
-          {language ?? "code"}
-        </span>
-        <button type="button" onClick={copy} className="md-code-copy">
-          {copied ? <Check size={11.5} strokeWidth={2.2} /> : <Copy size={11.5} strokeWidth={1.9} />}
-          {copied ? "已复制" : "复制"}
-        </button>
-      </div>
-      <pre>{children}</pre>
-    </div>
+/** 段落里唯一有效子节点（跳过空白文本），用于识别整行强调/公式 */
+function soleElement(node: Element | undefined): Element | null {
+  if (!node) return null;
+  const significant = node.children.filter(
+    (child) => child.type === "element" || (child.type === "text" && child.value.trim() !== ""),
   );
+  if (significant.length !== 1) return null;
+  return significant[0].type === "element" ? significant[0] : null;
 }
 
 const components: Components = {
-  p({ children }) {
-    const parts = significantChildren(children);
+  p({ children, node }) {
+    const child = soleElement(node);
 
-    if (parts.length === 1 && isValidElement(parts[0])) {
-      const child = parts[0];
-      const childProps = child.props as { children?: ReactNode; className?: string };
+    if (child?.tagName === "strong") {
+      return <p className="md-question">{children}</p>;
+    }
 
-      if (child.type === "strong") {
-        return <p className="md-question">{children}</p>;
-      }
-
-      if (child.type === "code" && !childProps.className) {
-        return (
-          <p className="md-formula">
-            <code>{childProps.children}</code>
-          </p>
-        );
-      }
+    if (child?.tagName === "code") {
+      return (
+        <p className="md-formula">
+          <code>{flattenText(children)}</code>
+        </p>
+      );
     }
 
     return <p>{children}</p>;
@@ -89,16 +46,19 @@ const components: Components = {
     const isVerify = flattenText(children).includes("⚠️");
     return <blockquote className={isVerify ? "md-verify" : undefined}>{children}</blockquote>;
   },
-  pre({ children }) {
-    return <CodeBlock>{children}</CodeBlock>;
-  },
-  a({ href, children }) {
-    return (
-      <a href={href} target="_blank" rel="noreferrer noopener">
-        {children}
-      </a>
-    );
-  },
+};
+
+/** 行内公式开关需显式打开，否则 $…$ 不会被解析 */
+const math = createMathPlugin({
+  singleDollarTextMath: true,
+  errorColor: "var(--warning)",
+});
+
+const translations: Partial<StreamdownTranslations> = {
+  copyCode: "复制",
+  copied: "已复制",
+  copyTable: "复制表格",
+  downloadTable: "下载表格",
 };
 
 const SUPERSCRIPT_MAP: Record<string, string> = {
@@ -200,13 +160,14 @@ interface MarkdownProps {
 export function Markdown({ content, className }: MarkdownProps) {
   return (
     <div className={cn("md", className)}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
+      <Streamdown
+        className="md-streamdown"
         components={components}
+        plugins={{ math }}
+        translations={translations}
       >
         {normalizeMath(content)}
-      </ReactMarkdown>
+      </Streamdown>
     </div>
   );
 }
