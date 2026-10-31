@@ -212,8 +212,8 @@ export class LanListenerManager {
           await new Promise<void>((resolve) => {
             server.close(() => resolve());
             server.closeIdleConnections?.();
-            const force = setTimeout(() => server.closeAllConnections?.(), CLOSE_GRACE_MS);
-            force.unref?.();
+            // 5s 后强制关闭剩余连接（含半关闭的 keep-alive socket），不可 unref
+            setTimeout(() => server.closeAllConnections?.(), CLOSE_GRACE_MS);
           });
         } catch (error) {
           console.error("[desktop] 局域网监听关闭出错：", error);
@@ -375,10 +375,17 @@ export async function startDesktopServer(options: DesktopServerOptions): Promise
     await manager.close("shutdown").catch((error: unknown) => errors.push(error));
     // 4-6. 主服务停止接受新连接，等待在途请求结束，超时强制关闭剩余连接
     await new Promise<void>((resolve) => {
-      mainServer.close(() => resolve());
+      mainServer.close(() => {
+        console.log("[desktop] 主 HTTP Server 已关闭");
+        resolve();
+      });
       mainServer.closeIdleConnections?.();
-      const force = setTimeout(() => mainServer.closeAllConnections?.(), CLOSE_GRACE_MS);
-      force.unref?.();
+      console.log("[desktop] 主服务停止接受新连接，等待在途请求结束");
+      // 5s 后强制关闭剩余连接（含 Chromium 半关闭的 keep-alive socket），不可 unref
+      setTimeout(() => {
+        console.log("[desktop] 关闭超时，强制关闭剩余连接");
+        mainServer.closeAllConnections?.();
+      }, CLOSE_GRACE_MS);
     });
     // 7. 确认 HTTP Server 关闭后再关闭 SQLite（AI 流式任务均随请求生命周期中止）
     try {

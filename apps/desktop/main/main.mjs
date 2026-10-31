@@ -33,8 +33,10 @@ if (!gotLock) {
 }
 
 function bootstrap() {
-  // 统一应用名，保证开发与打包模式使用同一 userData（%APPDATA%/Motive Studio）
+  // 统一应用名与 userData：app.setName 不会移动已解析的 userData 路径，
+  // 必须显式 setPath，保证开发与打包模式均使用 %APPDATA%/Motive Studio
   app.setName("Motive Studio");
+  app.setPath("userData", path.join(app.getPath("appData"), "Motive Studio"));
 
   let mainWindow = null;
   let serverProcess = null;

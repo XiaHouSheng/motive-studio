@@ -16,9 +16,14 @@ async function main() {
 
   // 先注册消息处理再报告就绪，避免 shutdown 消息竞争
   parentPort.on("message", (message) => {
-    if (message?.type !== "shutdown") return;
-    const force = setTimeout(() => process.exit(1), SHUTDOWN_FORCE_MS);
-    force.unref?.();
+    // 主→子消息被 MessagePort 包裹在 { data } 中，兼容两种结构
+    const payload = message?.data ?? message;
+    if (payload?.type !== "shutdown") return;
+    console.log("[desktop] 收到 shutdown，开始优雅关闭");
+    const force = setTimeout(() => {
+      console.error("[desktop] 优雅关闭超时，强制退出");
+      process.exit(1);
+    }, SHUTDOWN_FORCE_MS);
     server
       .close()
       .catch((error) => {

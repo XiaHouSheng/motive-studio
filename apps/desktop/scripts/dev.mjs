@@ -20,7 +20,7 @@ const repoRoot = path.resolve(desktopRoot, "..", "..");
 const isWindows = process.platform === "win32";
 const npm = isWindows ? "npm.cmd" : "npm";
 
-const WEB_URL = "http://127.0.0.1:5173";
+const WEB_URL = "http://localhost:5173";
 const API_HEALTH_URL = "http://127.0.0.1:3001/api/health";
 const READY_TIMEOUT_MS = 60_000;
 const POLL_INTERVAL_MS = 400;
@@ -38,22 +38,38 @@ async function isUp(url) {
   }
 }
 
-/** Windows 下按进程树强制终止，避免 npm 包装层留下孤儿子进程。 */
+/** Windows 下按进程树强制终止并等待完成，避免 npm 包装层留下孤儿子进程。 */
 function killTree(child) {
-  if (!child || child.killed || child.exitCode !== null) return;
-  if (isWindows) {
-    try {
-      spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
-    } catch {
-      // 进程可能已退出
+  return new Promise((resolve) => {
+    if (!child || child.killed || child.exitCode !== null) return resolve();
+    if (isWindows) {
+      const taskkill = spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      let output = "";
+      taskkill.stdout?.on("data", (chunk) => {
+        output += chunk;
+      });
+      taskkill.stderr?.on("data", (chunk) => {
+        output += chunk;
+      });
+      taskkill.on("error", (error) => {
+        console.error(`[dev] taskkill 启动失败：${error.message}`);
+        resolve();
+      });
+      taskkill.on("exit", (code) => {
+        if (code !== 0) console.error(`[dev] taskkill 退出码 ${code}：${output.trim()}`);
+        resolve();
+      });
+    } else {
+      try {
+        child.kill("SIGTERM");
+      } catch {
+        // 忽略
+      }
+      resolve();
     }
-  } else {
-    try {
-      child.kill("SIGTERM");
-    } catch {
-      // 忽略
-    }
-  }
+  });
 }
 
 function pipeWithPrefix(stream, prefix) {
@@ -104,13 +120,14 @@ const deadline = Date.now() + READY_TIMEOUT_MS;
 while (!(await isUp(WEB_URL)) || !(await isUp(API_HEALTH_URL))) {
   if (Date.now() > deadline) {
     console.error("[dev] 开发服务就绪超时（60s），终止。");
-    if (devChild) killTree(devChild);
+    await killTree(devChild);
     process.exit(1);
   }
   await sleep(POLL_INTERVAL_MS);
 }
 console.log("[dev] 开发服务就绪");
 
+let isShuttingDown = false;
 const electronBin = path.join(repoRoot, "node_modules", ".bin", isWindows ? "electron.cmd" : "electron");
 const electron = spawn(electronBin, ["."], {
   cwd: desktopRoot,
@@ -119,22 +136,25 @@ const electron = spawn(electronBin, ["."], {
   env: { ...process.env, MOTIVE_DESKTOP_DEV: "1" },
 });
 
-electron.on("error", (error) => {
+electron.on("error", async (error) => {
   console.error(`[electron] 启动失败：${error.message}`);
-  if (devChild) killTree(devChild);
+  await killTree(devChild);
   process.exit(1);
 });
 
-electron.on("exit", (code) => {
+electron.on("exit", async (code) => {
+  if (isShuttingDown) return;
   electronExitHandled = true;
   console.log(`[electron] 已退出（code ${code ?? 0}）`);
-  if (devChild) killTree(devChild);
+  await killTree(devChild);
   process.exit(code ?? 0);
 });
 
-const shutdown = () => {
-  killTree(electron);
-  if (devChild) killTree(devChild);
+const shutdown = async () => {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  await killTree(electron);
+  await killTree(devChild);
   process.exit(0);
 };
 process.on("SIGINT", shutdown);
