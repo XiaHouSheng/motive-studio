@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, shell, utilityProcess } from "electron";
-import { appendFileSync, mkdirSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -80,6 +80,15 @@ function bootstrap() {
     return new Promise((resolve, reject) => {
       const resourcesDir = process.env.MOTIVE_DESKTOP_RESOURCES || process.resourcesPath;
       const entry = path.join(resourcesDir, "server-entry.mjs");
+      // 打包不完整时明确报错并终止，不静默回退开发模式
+      if (!existsSync(entry)) {
+        reject(new Error(`服务端入口缺失：${entry}（安装包可能不完整，请重新安装）`));
+        return;
+      }
+      if (!existsSync(path.join(resourcesDir, "web", "index.html"))) {
+        reject(new Error(`前端资源缺失：${path.join(resourcesDir, "web")}（安装包可能不完整，请重新安装）`));
+        return;
+      }
       const child = utilityProcess.fork(entry, [], {
         serviceName: "motive-server",
         stdio: "pipe",

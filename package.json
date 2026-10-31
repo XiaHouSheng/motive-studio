@@ -15,12 +15,19 @@
     "dev": "node scripts/dev.mjs",
     "dev:web": "npm run dev -w @motive/web",
     "dev:server": "npm run dev -w @motive/server",
+    "dev:desktop": "npm run dev -w @motive/desktop",
     "build": "npm run build -w @motive/web",
+    "build:desktop": "npm run build && npm run build:server -w @motive/desktop",
+    "dist:desktop": "npm run build:desktop && npm run dist -w @motive/desktop",
     "typecheck": "npm run typecheck -w @motive/shared && npm run typecheck -w @motive/web && npm run typecheck -w @motive/server",
     "test": "npm run test -w @motive/web && npm run test -w @motive/server",
     "start": "node scripts/start.mjs"
   },
   "devDependencies": {
     "typescript": "^5.9.3"
+  },
+  "allowScripts": {
+    "electron-winstaller@5.4.0": true,
+    "esbuild@0.28.2": true
   }
 }

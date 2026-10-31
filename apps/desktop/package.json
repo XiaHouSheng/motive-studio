@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Motive Studio Electron desktop shell",
+  "author": "Motive Studio",
   "main": "main/main.mjs",
   "engines": {
     "node": ">=24"
@@ -11,10 +12,14 @@
   "scripts": {
     "verify:runtime": "electron scripts/verify-runtime.mjs",
     "build:server": "node scripts/build-server.mjs",
-    "dev": "node scripts/dev.mjs"
+    "make-icon": "node scripts/make-icon.mjs",
+    "dev": "node scripts/dev.mjs",
+    "dist": "node scripts/check-dist-inputs.mjs && electron-builder --win"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "2.6.2",
     "electron": "45.2.1",
-    "esbuild": "^0.28.2"
+    "electron-builder": "26.18.0",
+    "esbuild": "0.28.2"
   }
 }

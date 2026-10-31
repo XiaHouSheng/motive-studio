@@ -1,0 +1,28 @@
+appId: com.motive.studio
+productName: Motive Studio
+directories:
+  output: release
+  buildResources: build
+asar: true
+files:
+  - main/**
+  - "!main/server-entry.mjs"
+  - package.json
+extraResources:
+  - from: dist/server.mjs
+    to: server.mjs
+  - from: dist/server.mjs.map
+    to: server.mjs.map
+  - from: main/server-entry.mjs
+    to: server-entry.mjs
+  - from: ../web/dist
+    to: web
+win:
+  target:
+    - target: nsis
+    - target: portable
+  icon: build/icon.ico
+nsis:
+  oneClick: true
+  perMachine: false
+  deleteAppDataOnUninstall: false
