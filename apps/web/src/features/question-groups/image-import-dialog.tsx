@@ -102,6 +102,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
   const [localError, setLocalError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [croppingId, setCroppingId] = useState<string | null>(null);
+  const [attachImages, setAttachImages] = useState(true);
 
   const open = imageImportGroupId !== null;
   const groupTitle =
@@ -114,6 +115,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
       setLocalError(null);
       setDragging(false);
       setCroppingId(null);
+      setAttachImages(true);
     }
   }, [open]);
 
@@ -215,7 +217,15 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
       return;
     }
     setLocalError(null);
-    const message = await createQuestionsFromImages(contents);
+    const message = await createQuestionsFromImages(
+      contents,
+      attachImages
+        ? images.map((image) => ({
+            mediaType: image.mediaType,
+            data: image.dataUrl.split(",")[1] ?? "",
+          }))
+        : [],
+    );
     if (message) setLocalError(message);
   };
 
@@ -362,6 +372,24 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
               </div>
             ))}
           </div>
+        ) : null}
+
+        {images.length > 0 ? (
+          <label className="flex cursor-pointer items-start gap-2 rounded-md border border-line bg-elevated/40 px-3 py-2 text-[11.5px] leading-relaxed text-ink-soft">
+            <input
+              type="checkbox"
+              checked={attachImages}
+              disabled={busy}
+              onChange={(event) => setAttachImages(event.target.checked)}
+              className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--color-brand)]"
+            />
+            <span>
+              将截图作为题目上下文
+              <span className="ml-1 text-ink-faint">
+                （附带原图可提升识图题、几何题的解析准确度；关闭后仅用文字题干）
+              </span>
+            </span>
+          </label>
         ) : null}
 
         {error ? (

@@ -731,7 +731,10 @@ export function useWorkspace() {
   );
 
   const createQuestionsFromImages = useCallback(
-    async (contents: string[]) => {
+    async (
+      contents: string[],
+      images: Array<{ mediaType: string; data: string }> = [],
+    ) => {
       const groupId = imageImportGroupId;
       if (!groupId) return "请先选择题组";
       const cleaned = contents.map((content) => content.trim()).filter(Boolean);
@@ -742,7 +745,12 @@ export function useWorkspace() {
       try {
         const created: Question[] = [];
         for (const content of cleaned) {
-          created.push(await api.createQuestion(groupId, content));
+          const question = await api.createQuestion(groupId, content);
+          // 截图随题目入库，后续解题与讨论可按题目图片策略进入 AI 上下文
+          if (images.length > 0) {
+            await api.uploadQuestionAssets(question.id, images);
+          }
+          created.push(question);
         }
         // 先刷新数据再切换选择，避免选择恢复逻辑把焦点落回第一题
         await load();

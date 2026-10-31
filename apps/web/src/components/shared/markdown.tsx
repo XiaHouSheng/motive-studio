@@ -140,15 +140,84 @@ function normalizePlainFormulas(content: string): string {
     .join("");
 }
 
+/** 含这些结构的公式在行内会明显撑高行距，更适合独占一行展示 */
+const DISPLAY_MATH_HINT = /\\frac|\\dfrac|\\tfrac|\\sum|\\int|\\lim|\\begin\{|\\displaystyle/;
+
+function shouldPromoteToDisplay(body: string): boolean {
+  const formula = body.trim();
+  if (formula.length < 18) return false;
+  if (DISPLAY_MATH_HINT.test(formula)) return true;
+  if (formula.length >= 60) return true;
+  // 多个等式串联（如 a=b=c）也按块级处理，避免行内过宽
+  return (formula.match(/=/g)?.length ?? 0) >= 2 && formula.length >= 30;
+}
+
+function promoteLongFormula(piece: string): string {
+  if (piece.startsWith("$$")) {
+    if (!piece.startsWith("$$\n")) {
+      // 单行 $$…$$ 会被 remark-math 当成行内公式，改成多行块级写法
+      const body = piece.slice(2, -2).trim();
+      if (body) return `\n\n$$\n${body}\n$$\n\n`;
+    }
+    return piece;
+  }
+  if (!piece.startsWith("$")) return piece;
+  const body = piece.slice(1, -1);
+  if (!shouldPromoteToDisplay(body)) return piece;
+  return `\n\n$$\n${body.trim()}\n$$\n\n`;
+}
+
+/** 把长公式提升为块级，并把紧随其后的标点移回上一段，避免出现孤立的「，」开头 */
+function splitLongFormulas(content: string): string {
+  const parts = content.split(VERBATIM_SEGMENT);
+
+  for (let index = 1; index < parts.length; index += 2) {
+    const original = parts[index];
+    const promoted = promoteLongFormula(original);
+    if (promoted === original) continue;
+    parts[index] = promoted;
+
+    const following = parts[index + 1];
+    const leading = following?.match(/^([ \t]*)([，。；：、,.;:])/);
+    if (!following || !leading) continue;
+
+    // 只在公式前已有正文时移动标点，避免把标点丢到空段
+    const previous = parts[index - 1] ?? "";
+    const trailing = /[ \t\n]*$/.exec(previous)?.[0] ?? "";
+    const body = previous.slice(0, previous.length - trailing.length);
+    if (body.trim() === "") continue;
+
+    parts[index - 1] = `${body}${leading[2]}${trailing}`;
+    parts[index + 1] = following.slice(leading[1].length + leading[2].length);
+  }
+
+  return parts.join("");
+}
+
+/**
+ * Markdown 会把单个换行折叠成空格，而 AI 常按行罗列推导，导致多行被挤成一段。
+ * 这里把行内单换行转成硬换行（两个空格 + 换行），代码与公式片段保持原样。
+ */
+function addSoftBreaks(content: string): string {
+  return content
+    .split(VERBATIM_SEGMENT)
+    .map((part, index) =>
+      index % 2 === 1 ? part : part.replace(/([^\n])\n(?=[^\n])/g, "$1  \n"),
+    )
+    .join("");
+}
+
 /**
  * 兼容 AI 常见的 LaTeX 分隔符：\(…\) 行内、\[…\] 块级。
  * remark-math 只识别 $…$ / $$…$$，模型不守约定时公式会原样显示，这里统一归一化。
  */
 function normalizeMath(content: string): string {
-  return normalizePlainFormulas(
-    content
-      .replace(/\\\(([\s\S]+?)\\\)/g, (_match, inner: string) => `$${inner}$`)
-      .replace(/\\\[([\s\S]+?)\\\]/g, (_match, inner: string) => `$$${inner}$$`),
+  return splitLongFormulas(
+    normalizePlainFormulas(
+      content
+        .replace(/\\\(([\s\S]+?)\\\)/g, (_match, inner: string) => `$${inner}$`)
+        .replace(/\\\[([\s\S]+?)\\\]/g, (_match, inner: string) => `\n\n$$\n${inner}\n$$\n\n`),
+    ),
   );
 }
 
@@ -166,7 +235,7 @@ export function Markdown({ content, className }: MarkdownProps) {
         plugins={{ math }}
         translations={translations}
       >
-        {normalizeMath(content)}
+        {addSoftBreaks(normalizeMath(content))}
       </Streamdown>
     </div>
   );

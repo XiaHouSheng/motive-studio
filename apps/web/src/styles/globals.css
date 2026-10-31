@@ -176,7 +176,7 @@
 
 .md.md-compact {
   font-size: 13px;
-  line-height: 1.75;
+  line-height: 1.85;
 }
 
 .md .md-streamdown > * + * {
@@ -304,12 +304,20 @@
   border: 1px solid color-mix(in oklab, var(--brand) 22%, var(--line));
   border-radius: 8px;
   background: color-mix(in oklab, var(--brand) 5%, transparent);
+  font-size: 1.02em;
+  line-height: 1.4;
 }
 
-/* 行内公式：放大并与正文拉开层次 */
+.md .katex-display > .katex {
+  margin-inline: 0;
+}
+
+/* 行内公式：与正文同字号，留出与中文的间距，避免字母和符号贴在一起 */
 .md .katex {
-  font-size: 1.08em;
+  font-size: 1em;
   color: var(--ink);
+  margin-inline: 0.14em;
+  letter-spacing: normal;
 }
 
 /* 用户原始问题强调块：整行粗体段落 */
