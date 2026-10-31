@@ -13,6 +13,7 @@ import { getLanAddresses, isAllowedQrUrl } from "../services/lan.js";
 import type { MobileSessionStore } from "../services/mobile-session.js";
 import { attachImages } from "../services/question-image.js";
 import type { AssetStore } from "../services/asset-store.js";
+import type { MobileRuntime } from "../services/mobile-runtime.js";
 import { readImages } from "./image-input.js";
 import { isLoopbackRequest } from "./loopback.js";
 import { readBody } from "./validation.js";
@@ -32,10 +33,16 @@ function extractToken(req: Request): string {
   return typeof query === "string" ? query : "";
 }
 
-function requireToken(req: Request, sessions: MobileSessionStore): void {
+function requireToken(
+  req: Request,
+  sessions: MobileSessionStore,
+  runtime?: MobileRuntime,
+): void {
   if (!sessions.validate(extractToken(req))) {
     throw new HttpError(403, "UNAUTHORIZED", "访问凭证无效或已过期，请重新扫码");
   }
+  // 凭证校验通过才刷新局域网监听空闲计时；无效请求不刷新
+  runtime?.touch();
 }
 
 function readQuestions(body: Record<string, unknown>): string[] {
@@ -88,18 +95,23 @@ export function createMobileRouter(
   settingsStore: ProviderSettingsStore,
   sessions: MobileSessionStore,
   assetStore: AssetStore,
+  runtime?: MobileRuntime,
 ): Router {
   const router = Router();
 
   // 桌面端注册凭证（key 由桌面端生成，仅允许本机回环调用）
-  router.post("/api/mobile/link", (req: Request, res: Response, next: NextFunction) => {
+  router.post("/api/mobile/link", async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!isLoopbackRequest(req)) {
         throw new HttpError(403, "UNAUTHORIZED", "仅允许在桌面端本机注册访问凭证");
       }
       const body = readBody(req.body);
+      // 桌面版：先懒启动局域网监听（失败则直接报错，不影响主服务），再用实际端口生成链接
+      const lan = runtime ? await runtime.ensureLanListener() : null;
       const token = sessions.register(body.key);
-      const urls = getLanAddresses(resolvePort(req)).map((origin) => `${origin}/m?t=${token}`);
+      runtime?.touch();
+      const origins = lan ? lan.urls : getLanAddresses(resolvePort(req));
+      const urls = origins.map((origin) => `${origin}/m?t=${token}`);
       res.json({ token, urls, preferred: urls[0] ?? null });
     } catch (error) {
       next(error instanceof HttpError ? error : toHttpError(error));
@@ -113,7 +125,14 @@ export function createMobileRouter(
         throw new HttpError(403, "UNAUTHORIZED", "仅允许在桌面端本机生成二维码");
       }
       const rawUrl = req.query.url;
-      if (typeof rawUrl !== "string" || !isAllowedQrUrl(rawUrl, resolvePort(req))) {
+      if (typeof rawUrl !== "string") {
+        throw new HttpError(400, "INVALID_PARAM", "二维码地址必须是本机地址");
+      }
+      // 桌面版需同时放行主服务端口与移动监听端口；Web 版仅有主服务端口
+      const allowedPorts = [resolvePort(req)];
+      const lanPort = runtime?.getLanPort();
+      if (typeof lanPort === "number") allowedPorts.push(lanPort);
+      if (!isAllowedQrUrl(rawUrl, allowedPorts)) {
         throw new HttpError(400, "INVALID_PARAM", "二维码地址必须是本机地址");
       }
       QRCode.toString(rawUrl, { type: "svg", margin: 1 })
@@ -135,6 +154,8 @@ export function createMobileRouter(
       res.status(403).type("html").send(renderDeniedPage());
       return;
     }
+    // 已授权的移动页面访问刷新局域网监听空闲计时
+    runtime?.touch();
     res.setHeader("Cache-Control", "no-store");
     res.type("html").send(renderMobilePage());
   });
@@ -143,7 +164,7 @@ export function createMobileRouter(
     "/api/mobile/groups",
     (req: Request, res: Response, next: NextFunction) => {
       try {
-        requireToken(req, sessions);
+        requireToken(req, sessions, runtime);
         res.json({ groups: repository.listGroupSummaries() });
       } catch (error) {
         next(error instanceof HttpError ? error : toHttpError(error));
@@ -155,7 +176,7 @@ export function createMobileRouter(
     "/api/mobile/extract",
     (req: Request, res: Response, next: NextFunction) => {
       try {
-        requireToken(req, sessions);
+        requireToken(req, sessions, runtime);
         const images = readImages(readBody(req.body));
 
         const apiKey = settingsStore.getApiKey();
@@ -177,7 +198,7 @@ export function createMobileRouter(
     "/api/mobile/commit",
     (req: Request, res: Response, next: NextFunction) => {
       try {
-        requireToken(req, sessions);
+        requireToken(req, sessions, runtime);
         const body = readBody(req.body);
         const target = readCommitTarget(body);
         const questions = readQuestions(body);

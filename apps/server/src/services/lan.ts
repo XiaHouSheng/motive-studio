@@ -43,13 +43,13 @@ export function getLanAddresses(port: number): string[] {
   return getLocalIPv4Addresses().map((address) => `http://${address}:${port}`);
 }
 
-/** 校验二维码目标 URL 必须指向本机，避免变成任意地址二维码生成器。 */
-export function isAllowedQrUrl(rawUrl: string, port: number): boolean {
+/** 校验二维码目标 URL 必须指向本机（协议、主机、端口均需匹配），避免变成任意地址二维码生成器。 */
+export function isAllowedQrUrl(rawUrl: string, port: number | number[]): boolean {
+  const allowedPorts = (Array.isArray(port) ? port : [port]).map(String);
   try {
     const url = new URL(rawUrl);
     if (url.protocol !== "http:") return false;
-    if (url.port && url.port !== String(port)) return false;
-    if (!url.port && port !== 80) return false;
+    if (url.port ? !allowedPorts.includes(url.port) : !allowedPorts.includes("80")) return false;
     const hostname = url.hostname.toLowerCase();
     if (hostname === "127.0.0.1" || hostname === "localhost") return true;
     return getLocalIPv4Addresses().includes(hostname);

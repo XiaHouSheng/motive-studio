@@ -24,12 +24,18 @@ import { createStepsRouter } from "./routes/steps.js";
 import { AssetStore } from "./services/asset-store.js";
 import { createCredentialStore } from "./services/credentials/index.js";
 import { MobileSessionStore } from "./services/mobile-session.js";
+import type { MobileRuntime } from "./services/mobile-runtime.js";
 
 export interface CreateAppOptions {
   dbPath?: string;
   uploadsDir?: string;
   /** 凭据存储目录；默认取 dbPath 同级 secrets/，测试用临时 dbPath 即天然隔离 */
   secretsDir?: string;
+  /**
+   * 局域网移动监听运行时；桌面版注入（懒启动独立监听），
+   * Web 版本缺省，移动路由保持原有行为。
+   */
+  mobileRuntime?: MobileRuntime;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -62,7 +68,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use("/api", createExportRouter(repository));
   app.use("/api", createBackupRouter(repository));
   app.use("/api", createSettingsRouter(settingsStore));
-  app.use(createMobileRouter(repository, settingsStore, mobileSessions, assetStore));
+  app.use(createMobileRouter(repository, settingsStore, mobileSessions, assetStore, options.mobileRuntime));
 
   app.use("/api", (_req: Request, res: Response) => {
     res.status(404).json({ code: "NOT_FOUND", message: "接口不存在" });
@@ -86,6 +92,9 @@ export function createApp(options: CreateAppOptions = {}) {
   app.locals.db = db;
   app.locals.repository = repository;
   app.locals.settingsStore = settingsStore;
+  // 暴露给桌面版组装独立的局域网移动监听（共享同一批实例，不重复初始化）
+  app.locals.assetStore = assetStore;
+  app.locals.mobileSessions = mobileSessions;
 
   return app;
 }

@@ -33,6 +33,11 @@ export class MobileSessionStore {
     return true;
   }
 
+  /** 清空全部会话（桌面端关闭局域网监听后调用，使旧二维码立即失效）。 */
+  clearAll(): void {
+    this.sessions.clear();
+  }
+
   private cleanup(): void {
     const now = Date.now();
     for (const [token, createdAt] of this.sessions) {
