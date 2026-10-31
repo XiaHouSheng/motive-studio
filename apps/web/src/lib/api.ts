@@ -200,6 +200,11 @@ export const api = {
       `/api/questions/${encodeURIComponent(questionId)}/explanations`,
       { method: "POST", body: JSON.stringify(input) },
     ),
+  generateExplanation: (questionId: string) =>
+    request<SolutionExplanation>(
+      `/api/questions/${encodeURIComponent(questionId)}/explanations/generate`,
+      { method: "POST" },
+    ),
   generateSolution: (questionId: string) =>
     request<SolutionGenerationResult>(
       `/api/questions/${encodeURIComponent(questionId)}/solution/generate`,

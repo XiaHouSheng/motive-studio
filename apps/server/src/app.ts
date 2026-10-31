@@ -58,7 +58,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use("/api", createSolutionRouter(repository, settingsStore, assetStore));
   app.use("/api", createArchiveRouter(repository, settingsStore));
   app.use("/api", createStepsRouter(repository, settingsStore));
-  app.use("/api", createExplanationsRouter(repository));
+  app.use("/api", createExplanationsRouter(repository, settingsStore));
   app.use("/api", createExportRouter(repository));
   app.use("/api", createBackupRouter(repository));
   app.use("/api", createSettingsRouter(settingsStore));

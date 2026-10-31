@@ -116,6 +116,9 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
     generatingSolution,
     solutionError,
     generateSolution,
+    generatingExplanation,
+    explanationError,
+    generateExplanation,
     pendingProposal,
     openArchiveDialog,
     exportQuestionMarkdown,
@@ -259,7 +262,7 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
         <div className="mb-2.5 flex items-center gap-2">
           <h2 className="text-[12px] font-semibold tracking-[0.06em] text-ink-soft">题目详解</h2>
           <span className="text-[11px] text-ink-faint">融入了讨论中的疑问</span>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1.5">
             <Button
               variant="ghost"
               size="sm"
@@ -269,8 +272,28 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
               <Download size={13} strokeWidth={1.9} />
               导出
             </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void generateExplanation()}
+              disabled={generatingExplanation || steps.length === 0}
+              title={steps.length === 0 ? "请先生成分步题解" : "把讨论中的疑问融入一篇完整详解"}
+            >
+              {generatingExplanation ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Sparkles size={13} />
+              )}
+              {generatingExplanation ? "正在生成…" : explanations.length > 0 ? "重新生成详解" : "生成详解"}
+            </Button>
           </div>
         </div>
+        {explanationError ? (
+          <div className="mb-2.5 flex items-start gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-[11.5px] leading-relaxed text-danger">
+            <AlertCircle size={13} className="mt-0.5 shrink-0" />
+            <span className="min-w-0 flex-1">{explanationError}</span>
+          </div>
+        ) : null}
         {explanations.length > 0 ? (
           <div className="space-y-2.5">
             {explanations.slice(0, 5).map((explanation, index) => (

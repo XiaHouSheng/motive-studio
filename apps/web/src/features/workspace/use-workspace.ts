@@ -81,6 +81,8 @@ export function useWorkspace() {
     message: string;
     code?: string;
   } | null>(null);
+  const [generatingExplanation, setGeneratingExplanation] = useState(false);
+  const [explanationError, setExplanationError] = useState<string | null>(null);
   const [pendingProposal, setPendingProposal] = useState<ArchiveProposal | null>(null);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [archiveGenerating, setArchiveGenerating] = useState(false);
@@ -558,6 +560,23 @@ export function useWorkspace() {
     }
   }, [generatingSolutionFor, load]);
 
+  const generateExplanation = useCallback(async () => {
+    const questionId = useUiStore.getState().selectedQuestionId;
+    if (!questionId || generatingExplanation) return;
+
+    setGeneratingExplanation(true);
+    setExplanationError(null);
+
+    try {
+      await api.generateExplanation(questionId);
+      await load();
+    } catch (generationError) {
+      setExplanationError(toMessage(generationError));
+    } finally {
+      setGeneratingExplanation(false);
+    }
+  }, [generatingExplanation, load]);
+
   const generateArchive = useCallback(
     async (subConversationId: string) => {
       if (archiveGenerating) return;
@@ -950,6 +969,9 @@ export function useWorkspace() {
     generatingSolution: generatingSolutionFor !== null,
     solutionError,
     generateSolution,
+    generatingExplanation,
+    explanationError,
+    generateExplanation,
     turns: data.turns,
     pendingProposal,
     archiveDialogOpen,

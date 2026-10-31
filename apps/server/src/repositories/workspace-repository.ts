@@ -231,6 +231,13 @@ export interface ArchiveContextData {
   tags: TurnStepTag[];
 }
 
+export interface ExplanationContextData {
+  question: Question;
+  steps: SolutionStep[];
+  turns: ConversationTurn[];
+  tags: TurnStepTag[];
+}
+
 export interface CreateArchiveProposalInput {
   subConversationId: string;
   questionId: string;
@@ -1001,6 +1008,60 @@ export class WorkspaceRepository {
       turns: turnRows.map(toTurn),
       tags: tagRows.map(toTag),
     };
+  }
+
+  /** 题目级详解上下文：所有未纳入讨论的轮次及其步骤关联 */
+  getExplanationContext(questionId: string): ExplanationContextData {
+    const questionRow = this.requireQuestion(questionId);
+
+    const stepRows = this.db
+      .prepare("SELECT * FROM solution_steps WHERE question_id = ? ORDER BY step_order")
+      .all(questionId) as unknown as StepRow[];
+    const steps = stepRows.map(toStep);
+
+    const turnRows = this.db
+      .prepare(
+        `SELECT turns.* FROM conversation_turns turns
+         JOIN sub_conversations subs ON subs.id = turns.sub_conversation_id
+         JOIN solution_steps steps ON steps.id = subs.entry_step_id
+         WHERE steps.question_id = ?
+           AND turns.archive_status = 'unarchived'
+           AND turns.generation_status = 'completed'
+         ORDER BY turns.created_at, turns.rowid`,
+      )
+      .all(questionId) as unknown as TurnRow[];
+
+    const turnIds = new Set(turnRows.map((row) => row.id));
+    const tagRows = this.db
+      .prepare(
+        `SELECT tags.* FROM turn_step_tags tags
+         JOIN conversation_turns turns ON turns.id = tags.turn_id
+         JOIN sub_conversations subs ON subs.id = turns.sub_conversation_id
+         JOIN solution_steps steps ON steps.id = subs.entry_step_id
+         WHERE steps.question_id = ?
+         ORDER BY tags.created_at, tags.rowid`,
+      )
+      .all(questionId) as unknown as TagRow[];
+
+    return {
+      question: toQuestion(
+        questionRow,
+        steps.map((step) => step.id),
+        this.listQuestionAssets(questionId),
+      ),
+      steps,
+      turns: turnRows.map(toTurn),
+      tags: tagRows.filter((row) => turnIds.has(row.turn_id)).map(toTag),
+    };
+  }
+
+  markTurnsArchived(turnIds: string[]): void {
+    const statement = this.db.prepare(
+      "UPDATE conversation_turns SET archive_status = 'archived' WHERE id = ?",
+    );
+    withTransaction(this.db, () => {
+      for (const turnId of turnIds) statement.run(turnId);
+    });
   }
 
   createArchiveProposal(input: CreateArchiveProposalInput): ArchiveProposal {
