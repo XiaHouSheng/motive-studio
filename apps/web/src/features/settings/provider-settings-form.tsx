@@ -14,8 +14,6 @@ import type {
 } from "@motive/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
-import { useUiStore } from "@/stores/ui";
 import { api } from "@/lib/api";
 import { formatTime } from "@/lib/format";
 import { useT } from "@/lib/i18n/use-i18n";
@@ -104,9 +102,12 @@ function describeError(
   return t("settings.operationFailed");
 }
 
-export function ProviderSettingsDialog() {
-  const open = useUiStore((state) => state.settingsOpen);
-  const closeSettings = useUiStore((state) => state.closeSettings);
+/**
+ * 模型服务设置表单（原 ProviderSettingsDialog 的表单体）。
+ * 加载、校验、保存、测试连接、脱敏展示与错误提示行为与原对话框完全一致，
+ * 仅去掉 Dialog 外壳，供设置页「模型服务」分区嵌入。
+ */
+export function ProviderSettingsForm() {
   const t = useT();
 
   const [view, setView] = useState<ProviderSettingsView | null>(null);
@@ -120,8 +121,6 @@ export function ProviderSettingsDialog() {
   const [testResult, setTestResult] = useState<ProviderTestResult | null>(null);
 
   useEffect(() => {
-    if (!open) return;
-
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -147,7 +146,7 @@ export function ProviderSettingsDialog() {
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [t]);
 
   const updateField = useCallback(
     (field: keyof FormState, value: string) => {
@@ -257,7 +256,7 @@ export function ProviderSettingsDialog() {
         setSaving(false);
       }
     },
-    [persist],
+    [persist, t],
   );
 
   const handleClearKey = useCallback(async () => {
@@ -282,47 +281,41 @@ export function ProviderSettingsDialog() {
     } finally {
       setSaving(false);
     }
-  }, [buildProvider]);
+  }, [buildProvider, t]);
 
   const hasApiKey = view?.hasApiKey ?? false;
 
   return (
-    <Dialog
-      open={open}
-      onClose={closeSettings}
-      title={t("settings.title")}
-      description={t("settings.description")}
-      footer={
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-[11px] text-ink-faint">
-            {view
-              ? t("settings.keyStorageLabel", {
-                  storage: t(STORAGE_LABELS[view.credentialStorage]),
-                })
-              : t("settings.keyStorageFallback")}
-          </span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void handleSave(true)}
-              disabled={saving || loading}
-            >
-              {saving ? <Loader2 size={13} className="animate-spin" /> : null}
-              {t("settings.saveAndTest")}
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => void handleSave(false)}
-              disabled={saving || loading}
-            >
-              {t("settings.save")}
-            </Button>
-          </div>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[11px] text-ink-faint">
+          {view
+            ? t("settings.keyStorageLabel", {
+                storage: t(STORAGE_LABELS[view.credentialStorage]),
+              })
+            : t("settings.keyStorageFallback")}
+        </span>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void handleSave(true)}
+            disabled={saving || loading}
+          >
+            {saving ? <Loader2 size={13} className="animate-spin" /> : null}
+            {t("settings.saveAndTest")}
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => void handleSave(false)}
+            disabled={saving || loading}
+          >
+            {t("settings.save")}
+          </Button>
         </div>
-      }
-    >
+      </div>
+
       {loading ? (
         <div className="flex items-center gap-2 py-6 text-[12px] text-ink-faint">
           <Loader2 size={14} className="animate-spin" />
@@ -367,7 +360,6 @@ export function ProviderSettingsDialog() {
                 value={form.name}
                 onChange={(event) => updateField("name", event.target.value)}
                 placeholder={t("settings.namePlaceholder")}
-                autoFocus
               />
             </label>
             <label className="space-y-1.5">
@@ -529,6 +521,6 @@ export function ProviderSettingsDialog() {
           ) : null}
         </div>
       )}
-    </Dialog>
+    </div>
   );
 }

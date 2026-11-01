@@ -7,7 +7,7 @@ import type { WorkspaceApi } from "./use-workspace";
 import { GroupSidebar } from "@/features/question-groups/group-sidebar";
 import { SolutionPanel } from "@/features/solutions/solution-panel";
 import { ChatPanel } from "@/features/discussions/chat-panel";
-import { ProviderSettingsDialog } from "@/features/settings/provider-settings-dialog";
+import { SettingsPage } from "@/features/settings/settings-page";
 import { ArchiveProposalDialog } from "@/features/archive/archive-proposal-dialog";
 import { ImageImportDialog } from "@/features/question-groups/image-import-dialog";
 import { MobileCaptureDialog } from "@/features/mobile-capture/mobile-capture-dialog";
@@ -21,6 +21,8 @@ interface WorkspaceShellProps {
 
 export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
   const t = useT();
+  const settingsOpen = useUiStore((state) => state.settingsOpen);
+  const closeSettings = useUiStore((state) => state.closeSettings);
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const sidebarWidth = useUiStore((state) => state.sidebarWidth);
   const setSidebarWidth = useUiStore((state) => state.setSidebarWidth);
@@ -37,12 +39,23 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      if (settingsOpen) {
+        closeSettings();
+        return;
+      }
       if (mobileNavOpen) closeMobileNav();
       if (mobileChatOpen) closeMobileChat();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [mobileNavOpen, mobileChatOpen, closeMobileNav, closeMobileChat]);
+  }, [
+    settingsOpen,
+    closeSettings,
+    mobileNavOpen,
+    mobileChatOpen,
+    closeMobileNav,
+    closeMobileChat,
+  ]);
 
   if (workspace.fatalError) {
     return (
@@ -68,6 +81,12 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
         </button>
       </div>
     );
+  }
+
+  // 设置页：整页视图替代工作台内容（顶栏齿轮进入，返回/Escape 离开）。
+  // 工作台数据保存在 useWorkspace 中（父组件），进入设置页不会重置。
+  if (settingsOpen) {
+    return <SettingsPage />;
   }
 
   return (
@@ -229,7 +248,6 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
       >
         <ChatPanel workspace={workspace} onClose={closeMobileChat} />
       </aside>
-      <ProviderSettingsDialog />
       <ArchiveProposalDialog workspace={workspace} />
       <ImageImportDialog workspace={workspace} />
       <MobileCaptureDialog workspace={workspace} />
