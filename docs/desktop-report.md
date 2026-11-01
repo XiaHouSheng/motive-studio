@@ -18,6 +18,7 @@
 | `968a038` | feat(desktop): add utility process server management and dev orchestration —— bundle 构建 + 开发编排 |
 | `c17cd6e` | fix(desktop): correct message envelope, userData path and process cleanup —— 验证中三个根因修复 |
 | `74c3c6b` | build(desktop): add desktop packaging configuration —— 打包配置 + 图标 |
+| `eac7648` | feat(desktop): support custom installation path in NSIS installer —— 向导式安装，可选安装路径 |
 | （本次） | docs(desktop): document desktop development and deployment —— README + 本报告 |
 
 ## 3. 修改文件清单与目的
@@ -46,7 +47,7 @@
 | `scripts/check-dist-inputs.mjs` | 打包前 5 项输入完整性校验，缺失即非零退出 |
 | `scripts/make-icon.mjs` | 品牌图标转换：六尺寸透明 PNG → ICO（256 嵌 PNG、≤48 为 32bpp BMP），双自检 + 原子替换，输出稳定 |
 | `scripts/dev.mjs` | 桌面开发编排：HTTP 健康探测、复用/半启动检测、taskkill 整树终止（await 完成） |
-| `electron-builder.yml` | NSIS（oneClick per-user、卸载保留数据）+ Portable；asar 布局：壳进 asar、服务端/web 走 extraResources |
+| `electron-builder.yml` | NSIS（向导式安装、`allowToChangeInstallationDirectory` 可选安装路径、per-user、卸载保留数据）+ Portable；asar 布局：壳进 asar、服务端/web 走 extraResources |
 | `package.json` | 依赖精确锁定（electron 45.2.1 / electron-builder 26.18.0 / @resvg/resvg-js 2.6.2 / esbuild 0.28.2）+ 六个脚本 |
 
 ### 根目录
