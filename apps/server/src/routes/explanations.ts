@@ -8,10 +8,12 @@ import { OpenAIProvider } from "../services/ai/openai-provider.js";
 import { buildExplanationMessages } from "../services/ai/explanation-context-builder.js";
 import { generateExplanation } from "../services/ai/explanation-generator.js";
 import type { ProviderSettingsStore } from "../services/ai/provider-settings-store.js";
+import type { PromptSettingsStore } from "../services/settings/prompt-settings-store.js";
 
 export function createExplanationsRouter(
   repository: WorkspaceRepository,
   settingsStore: ProviderSettingsStore,
+  promptStore: PromptSettingsStore,
 ): Router {
   const router = Router();
 
@@ -39,7 +41,9 @@ export function createExplanationsRouter(
 
         const config = settingsStore.getConfig();
         const provider = new OpenAIProvider(config, apiKey);
-        const messages = buildExplanationMessages(context);
+        const messages = buildExplanationMessages(context, {
+          systemPrompt: promptStore.getSettings().explanation_generation,
+        });
 
         const controller = new AbortController();
         let settled = false;

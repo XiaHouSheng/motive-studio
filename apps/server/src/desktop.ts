@@ -8,6 +8,7 @@ import { createApp } from "./app.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createMobileRouter } from "./routes/mobile.js";
 import type { ProviderSettingsStore } from "./services/ai/provider-settings-store.js";
+import type { PromptSettingsStore } from "./services/settings/prompt-settings-store.js";
 import { AssetStore } from "./services/asset-store.js";
 import { getLanAddresses } from "./services/lan.js";
 import { MobileSessionStore } from "./services/mobile-session.js";
@@ -317,6 +318,7 @@ export async function startDesktopServer(options: DesktopServerOptions): Promise
           app.locals.settingsStore as ProviderSettingsStore,
           app.locals.mobileSessions as MobileSessionStore,
           app.locals.assetStore as AssetStore,
+          app.locals.promptSettingsStore as PromptSettingsStore,
           runtime,
         ),
       );

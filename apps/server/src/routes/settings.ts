@@ -6,10 +6,16 @@ import { readBody } from "./validation.js";
 import { AIError, toHttpError } from "../services/ai/errors.js";
 import { OpenAIProvider } from "../services/ai/openai-provider.js";
 import type { ProviderSettingsStore } from "../services/ai/provider-settings-store.js";
+import type { PromptSettingsStore } from "../services/settings/prompt-settings-store.js";
+import type { UiPreferencesStore } from "../services/settings/ui-preferences-store.js";
 
 const TEST_TIMEOUT_MS = 15_000;
 
-export function createSettingsRouter(store: ProviderSettingsStore): Router {
+export function createSettingsRouter(
+  store: ProviderSettingsStore,
+  promptStore: PromptSettingsStore,
+  uiStore: UiPreferencesStore,
+): Router {
   const router = Router();
 
   router.get("/settings/provider", (_req: Request, res: Response) => {
@@ -42,6 +48,30 @@ export function createSettingsRouter(store: ProviderSettingsStore): Router {
         clearApiKey: clearApiKeyRaw === true,
       }),
     );
+  });
+
+  router.get("/settings/prompts", (_req: Request, res: Response) => {
+    res.json(promptStore.getView());
+  });
+
+  // 请求体统一为 { "settings": { "<stage>": "..." } }；部分更新，未出现的 stage 保留原值
+  router.put("/settings/prompts", (req: Request, res: Response) => {
+    const body = readBody(req.body);
+    const settings = body.settings;
+    if (typeof settings !== "object" || settings === null || Array.isArray(settings)) {
+      throw new HttpError(400, "INVALID_FIELD", "settings 必须是对象");
+    }
+    res.json(promptStore.save(settings as Record<string, unknown>));
+  });
+
+  router.get("/settings/ui", (_req: Request, res: Response) => {
+    res.json(uiStore.get());
+  });
+
+  // 部分更新：只覆盖请求中明确提供的字段，成功后返回完整 UiPreferences
+  router.put("/settings/ui", (req: Request, res: Response) => {
+    const body = readBody(req.body);
+    res.json(uiStore.save(body));
   });
 
   router.post("/settings/provider/test", async (_req: Request, res: Response) => {

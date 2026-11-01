@@ -15,10 +15,12 @@ import { CHAT_TEMPERATURE, buildChatMessages } from "../services/ai/context-buil
 import { AIError } from "../services/ai/errors.js";
 import { OpenAIProvider } from "../services/ai/openai-provider.js";
 import type { ProviderSettingsStore } from "../services/ai/provider-settings-store.js";
+import type { PromptSettingsStore } from "../services/settings/prompt-settings-store.js";
 
 export function createStepsRouter(
   repository: WorkspaceRepository,
   settingsStore: ProviderSettingsStore,
+  promptStore: PromptSettingsStore,
 ): Router {
   const router = Router();
 
@@ -65,7 +67,9 @@ export function createStepsRouter(
         }
 
         const context = repository.getChatContext(stepId);
-        const messages = buildChatMessages(context, userMessage);
+        const messages = buildChatMessages(context, userMessage, {
+          systemPrompt: promptStore.getSettings().step_discussion,
+        });
         const provider = new OpenAIProvider(view.provider, apiKey);
 
         res.status(200);

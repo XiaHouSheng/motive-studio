@@ -8,12 +8,14 @@ import { OpenAIProvider } from "../services/ai/openai-provider.js";
 import { buildQuestionContext } from "../services/ai/question-context.js";
 import { generateSolution } from "../services/ai/solution-generator.js";
 import type { ProviderSettingsStore } from "../services/ai/provider-settings-store.js";
+import type { PromptSettingsStore } from "../services/settings/prompt-settings-store.js";
 import type { AssetStore } from "../services/asset-store.js";
 
 export function createSolutionRouter(
   repository: WorkspaceRepository,
   settingsStore: ProviderSettingsStore,
   assetStore: AssetStore,
+  promptStore: PromptSettingsStore,
 ): Router {
   const router = Router();
 
@@ -36,6 +38,7 @@ export function createSolutionRouter(
             model: config.model,
           },
           store: assetStore,
+          systemPrompt: promptStore.getSettings().solution_generation,
         });
 
         // 快照只用于追溯，写入失败不影响题解生成

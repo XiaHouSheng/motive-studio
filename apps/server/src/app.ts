@@ -7,6 +7,8 @@ import { openDatabase } from "./db/client.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { WorkspaceRepository } from "./repositories/workspace-repository.js";
 import { ProviderSettingsStore } from "./services/ai/provider-settings-store.js";
+import { PromptSettingsStore } from "./services/settings/prompt-settings-store.js";
+import { UiPreferencesStore } from "./services/settings/ui-preferences-store.js";
 import { createArchiveRouter } from "./routes/archive.js";
 import { createBackupRouter } from "./routes/backup.js";
 import { createBootstrapRouter } from "./routes/bootstrap.js";
@@ -46,6 +48,8 @@ export function createApp(options: CreateAppOptions = {}) {
     options.secretsDir ?? path.join(path.dirname(dbPath), "secrets"),
   );
   const settingsStore = new ProviderSettingsStore(db, credentialStore);
+  const promptSettingsStore = new PromptSettingsStore(db);
+  const uiPreferencesStore = new UiPreferencesStore(db);
   const mobileSessions = new MobileSessionStore();
   const assetStore = new AssetStore(options.uploadsDir ?? UPLOADS_DIR);
 
@@ -58,17 +62,26 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use("/api/health", healthRouter);
   app.use("/api", createBootstrapRouter(repository));
   app.use("/api", createQuestionGroupsRouter(repository));
-  app.use("/api", createImageImportRouter(repository, settingsStore));
+  app.use("/api", createImageImportRouter(repository, settingsStore, promptSettingsStore));
   app.use("/api", createQuestionsRouter(repository));
   app.use("/api", createQuestionAssetsRouter(repository, assetStore));
-  app.use("/api", createSolutionRouter(repository, settingsStore, assetStore));
-  app.use("/api", createArchiveRouter(repository, settingsStore));
-  app.use("/api", createStepsRouter(repository, settingsStore));
-  app.use("/api", createExplanationsRouter(repository, settingsStore));
+  app.use("/api", createSolutionRouter(repository, settingsStore, assetStore, promptSettingsStore));
+  app.use("/api", createArchiveRouter(repository, settingsStore, promptSettingsStore));
+  app.use("/api", createStepsRouter(repository, settingsStore, promptSettingsStore));
+  app.use("/api", createExplanationsRouter(repository, settingsStore, promptSettingsStore));
   app.use("/api", createExportRouter(repository));
   app.use("/api", createBackupRouter(repository));
-  app.use("/api", createSettingsRouter(settingsStore));
-  app.use(createMobileRouter(repository, settingsStore, mobileSessions, assetStore, options.mobileRuntime));
+  app.use("/api", createSettingsRouter(settingsStore, promptSettingsStore, uiPreferencesStore));
+  app.use(
+    createMobileRouter(
+      repository,
+      settingsStore,
+      mobileSessions,
+      assetStore,
+      promptSettingsStore,
+      options.mobileRuntime,
+    ),
+  );
 
   app.use("/api", (_req: Request, res: Response) => {
     res.status(404).json({ code: "NOT_FOUND", message: "接口不存在" });
@@ -92,6 +105,8 @@ export function createApp(options: CreateAppOptions = {}) {
   app.locals.db = db;
   app.locals.repository = repository;
   app.locals.settingsStore = settingsStore;
+  app.locals.promptSettingsStore = promptSettingsStore;
+  app.locals.uiPreferencesStore = uiPreferencesStore;
   // 暴露给桌面版组装独立的局域网移动监听（共享同一批实例，不重复初始化）
   app.locals.assetStore = assetStore;
   app.locals.mobileSessions = mobileSessions;

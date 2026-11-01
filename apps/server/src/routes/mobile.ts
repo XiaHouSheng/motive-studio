@@ -9,6 +9,7 @@ import { generateQuestionsFromImages } from "../services/ai/image-import-generat
 import { OpenAIProvider } from "../services/ai/openai-provider.js";
 import { toHttpError } from "../services/ai/errors.js";
 import type { ProviderSettingsStore } from "../services/ai/provider-settings-store.js";
+import type { PromptSettingsStore } from "../services/settings/prompt-settings-store.js";
 import { getLanAddresses, isAllowedQrUrl } from "../services/lan.js";
 import type { MobileSessionStore } from "../services/mobile-session.js";
 import { attachImages } from "../services/question-image.js";
@@ -95,6 +96,7 @@ export function createMobileRouter(
   settingsStore: ProviderSettingsStore,
   sessions: MobileSessionStore,
   assetStore: AssetStore,
+  promptStore: PromptSettingsStore,
   runtime?: MobileRuntime,
 ): Router {
   const router = Router();
@@ -185,7 +187,10 @@ export function createMobileRouter(
         }
 
         const provider = new OpenAIProvider(settingsStore.getConfig(), apiKey);
-        generateQuestionsFromImages(provider, images)
+        // 与桌面端图片导入（routes/image-import.ts）使用相同的环节提示词配置
+        generateQuestionsFromImages(provider, images, undefined, {
+          systemPrompt: promptStore.getSettings().image_import,
+        })
           .then((questions) => res.json({ questions }))
           .catch(next);
       } catch (error) {

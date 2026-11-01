@@ -6,12 +6,14 @@ import { OpenAIProvider } from "../services/ai/openai-provider.js";
 import { generateQuestionsFromImages } from "../services/ai/image-import-generator.js";
 import { toHttpError } from "../services/ai/errors.js";
 import type { ProviderSettingsStore } from "../services/ai/provider-settings-store.js";
+import type { PromptSettingsStore } from "../services/settings/prompt-settings-store.js";
 import { readImages } from "./image-input.js";
 import { readBody, readParam } from "./validation.js";
 
 export function createImageImportRouter(
   repository: WorkspaceRepository,
   settingsStore: ProviderSettingsStore,
+  promptStore: PromptSettingsStore,
 ): Router {
   const router = Router();
 
@@ -29,7 +31,10 @@ export function createImageImportRouter(
         }
 
         const provider = new OpenAIProvider(settingsStore.getConfig(), apiKey);
-        const questions = await generateQuestionsFromImages(provider, images);
+        // 与手机拍照导入（routes/mobile.ts）使用相同的环节提示词配置
+        const questions = await generateQuestionsFromImages(provider, images, undefined, {
+          systemPrompt: promptStore.getSettings().image_import,
+        });
         res.json({ questions });
       } catch (error) {
         if (error instanceof HttpError) {
