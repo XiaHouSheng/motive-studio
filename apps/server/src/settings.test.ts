@@ -1,5 +1,5 @@
 import { mkdtempSync, rmSync } from "node:fs";
-import { createServer, type Server, type ServerResponse } from "node:http";
+import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { Express } from "express";
@@ -7,6 +7,7 @@ import type { ProviderSettingsView } from "@motive/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "./app.js";
 import { DEFAULT_PROMPTS } from "./services/ai/effective-prompt.js";
+import type { PromptStage } from "@motive/shared";
 
 const IMAGE = { mediaType: "image/png", data: "iVBORw0KGgo=" };
 const CUSTOM = "自定义提示词：所有输出必须使用英文。";
@@ -155,7 +156,7 @@ describe("提示词设置接口", () => {
       defaults: Record<string, string>;
     }>(running, "GET", "/api/settings/prompts");
     expect(response.status).toBe(200);
-    for (const stage of Object.keys(DEFAULT_PROMPTS)) {
+    for (const stage of Object.keys(DEFAULT_PROMPTS) as PromptStage[]) {
       expect(response.body.settings[stage]).toBe("");
       expect(response.body.defaults[stage]).toBe(DEFAULT_PROMPTS[stage]);
       expect(response.body.defaults[stage].length).toBeGreaterThan(0);
