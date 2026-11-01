@@ -6,12 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Markdown } from "@/components/shared/markdown";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import type { DictionaryKey } from "@/lib/i18n/zh-CN";
+import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const creatorLabel: Record<SolutionRevisionCreator, string> = {
-  ai: "AI 生成",
-  manual: "手动调整",
-  archive: "归档应用",
+const creatorLabel: Record<SolutionRevisionCreator, DictionaryKey> = {
+  ai: "revisions.creator.ai",
+  manual: "revisions.creator.manual",
+  archive: "revisions.creator.archive",
 };
 
 const creatorTone: Record<
@@ -22,10 +25,6 @@ const creatorTone: Record<
   manual: "brand",
   archive: "success",
 };
-
-function formatTime(timestamp: number): string {
-  return new Date(timestamp).toLocaleString("zh-CN", { hour12: false });
-}
 
 interface RevisionHistoryDialogProps {
   open: boolean;
@@ -40,6 +39,7 @@ export function RevisionHistoryDialog({
 }: RevisionHistoryDialogProps) {
   const { revisions, revisionsLoading, loadRevisions, restoreRevision, restoringRevision } =
     workspace;
+  const { t, locale } = useI18n();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,13 +72,15 @@ export function RevisionHistoryDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="题解版本历史"
-      description="每次生成、归档应用或恢复都会保存一个版本快照。"
+      title={t("revisions.title")}
+      description={t("revisions.description")}
       className="max-w-[820px]"
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-[11px] text-ink-faint">
-            {selected ? `当前选中第 ${selected.revisionNumber} 版` : "选择一个版本查看内容"}
+            {selected
+              ? t("revisions.selected", { number: selected.revisionNumber })
+              : t("revisions.pickOne")}
           </span>
           {confirming ? (
             <div className="flex items-center gap-2">
@@ -88,7 +90,7 @@ export function RevisionHistoryDialog({
                 onClick={() => setConfirming(false)}
                 disabled={restoringRevision}
               >
-                取消
+                {t("revisions.cancel")}
               </Button>
               <Button
                 variant="primary"
@@ -99,7 +101,7 @@ export function RevisionHistoryDialog({
                 {restoringRevision ? (
                   <Loader2 size={12.5} className="animate-spin" />
                 ) : null}
-                {restoringRevision ? "正在恢复…" : "确认恢复"}
+                {restoringRevision ? t("revisions.restoring") : t("revisions.confirmRestore")}
               </Button>
             </div>
           ) : (
@@ -110,7 +112,7 @@ export function RevisionHistoryDialog({
               disabled={!selected || restoringRevision}
             >
               <RotateCcw size={12.5} strokeWidth={1.9} />
-              恢复此版本
+              {t("revisions.restore")}
             </Button>
           )}
         </div>
@@ -118,7 +120,7 @@ export function RevisionHistoryDialog({
     >
       {confirming ? (
         <div className="mb-3 rounded-md border border-warning/35 bg-warning/10 px-2.5 py-2 text-[11.5px] leading-relaxed text-warning">
-          恢复会用该版本重建题目步骤，并写入一个「手动调整」版本；该题下已建立的讨论会随旧步骤一并移除。
+          {t("revisions.restoreWarning")}
         </div>
       ) : null}
 
@@ -132,11 +134,11 @@ export function RevisionHistoryDialog({
       {revisionsLoading ? (
         <p className="flex items-center justify-center gap-2 py-10 text-[12px] text-ink-faint">
           <Loader2 size={13} className="animate-spin" />
-          正在加载版本…
+          {t("revisions.loading")}
         </p>
       ) : revisions.length === 0 ? (
         <p className="rounded-lg border border-dashed border-line px-3 py-8 text-center text-[12px] text-ink-faint">
-          暂无版本记录。
+          {t("revisions.empty")}
         </p>
       ) : (
         <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
@@ -162,17 +164,17 @@ export function RevisionHistoryDialog({
                   <div className="flex items-center gap-1.5">
                     <History size={11.5} className="shrink-0 text-ink-faint" />
                     <span className="text-[12px] font-semibold text-ink">
-                      第 {revision.revisionNumber} 版
+                      {t("revisions.number", { number: revision.revisionNumber })}
                     </span>
                     <Badge tone={creatorTone[revision.createdBy]} className="ml-auto">
-                      {creatorLabel[revision.createdBy]}
+                      {t(creatorLabel[revision.createdBy])}
                     </Badge>
                   </div>
                   <p className="mt-1 font-mono text-[10.5px] text-ink-faint">
-                    {formatTime(revision.createdAt)}
+                    {formatTime(revision.createdAt, locale)}
                   </p>
                   <p className="mt-0.5 text-[11px] text-ink-faint">
-                    {revision.steps.length} 个步骤
+                    {t("revisions.stepCount", { count: revision.steps.length })}
                   </p>
                 </button>
               );

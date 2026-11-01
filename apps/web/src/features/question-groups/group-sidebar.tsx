@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Download, FolderOpen, ImagePlus, Plus, Trash2, X } from "lucide-react";
 import { useUiStore } from "@/stores/ui";
 import { excerpt } from "@/lib/format";
+import { useT } from "@/lib/i18n/use-i18n";
 import { cn } from "@/lib/utils";
 import type { WorkspaceApi } from "@/features/workspace/use-workspace";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,6 +29,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
   const selectedQuestionId = useUiStore((state) => state.selectedQuestionId);
   const selectGroup = useUiStore((state) => state.selectGroup);
   const selectQuestion = useUiStore((state) => state.selectQuestion);
+  const t = useT();
 
   const [groupDraft, setGroupDraft] = useState("");
   const [addingGroup, setAddingGroup] = useState(false);
@@ -65,13 +67,13 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between px-3 pt-3 pb-2">
         <span className="text-[10.5px] font-semibold tracking-[0.1em] text-ink-faint uppercase">
-          题组
+          {t("groups.title")}
         </span>
         <button
           type="button"
           onClick={() => setAddingGroup((value) => !value)}
           className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-ink"
-          aria-label={addingGroup ? "取消新建题组" : "新建题组"}
+          aria-label={addingGroup ? t("groups.newGroupCancel") : t("groups.newGroup")}
         >
           {addingGroup ? <X size={14} /> : <Plus size={14} />}
         </button>
@@ -90,7 +92,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                 setGroupDraft("");
               }
             }}
-            placeholder="题组名称，回车创建"
+            placeholder={t("groups.namePlaceholder")}
             className="h-8 w-full rounded-md border border-line bg-field px-2.5 text-[12.5px] text-ink outline-none placeholder:text-ink-faint focus:border-brand/50"
           />
         </div>
@@ -99,7 +101,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
       <div className="max-h-[38%] min-h-0 shrink-0 overflow-y-auto px-2 pb-2">
         {groups.length === 0 ? (
           <p className="px-2 py-3 text-[12px] leading-relaxed text-ink-faint">
-            尚无题组，先创建一个。
+            {t("groups.empty")}
           </p>
         ) : (
           <div className="space-y-0.5">
@@ -136,8 +138,8 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                   <div className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover/row:opacity-100">
                     <button
                       type="button"
-                      aria-label={`按图片导入题目到 ${group.title}`}
-                      title="按图片导入题目"
+                      aria-label={t("groups.importToAria", { title: group.title })}
+                      title={t("groups.importTitle")}
                       onClick={(event) => {
                         event.stopPropagation();
                         openImageImport(group.id);
@@ -148,8 +150,8 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                     </button>
                     <button
                       type="button"
-                      aria-label={`导出题组 ${group.title}`}
-                      title="导出题组详解（Markdown）"
+                      aria-label={t("groups.exportAria", { title: group.title })}
+                      title={t("groups.exportTitle")}
                       onClick={(event) => {
                         event.stopPropagation();
                         exportGroupMarkdown(group.id);
@@ -160,11 +162,14 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                     </button>
                     <button
                       type="button"
-                      aria-label={`删除题组 ${group.title}`}
+                      aria-label={t("groups.deleteAria", { title: group.title })}
                       onClick={(event) => {
                         event.stopPropagation();
                         const ok = window.confirm(
-                          `删除题组「${group.title}」及其 ${group.questionIds.length} 道题目？该操作不可恢复。`,
+                          t("groups.deleteConfirm", {
+                            title: group.title,
+                            count: group.questionIds.length,
+                          }),
                         );
                         if (ok) deleteGroup(group.id);
                       }}
@@ -184,24 +189,24 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
 
       <div className="flex items-center justify-between px-3 pt-3 pb-2">
         <span className="text-[10.5px] font-semibold tracking-[0.1em] text-ink-faint uppercase">
-          题目
+          {t("groups.questionsTitle")}
         </span>
         <span className="text-[10.5px] text-ink-faint">{questionsInGroup.length}</span>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
         {!selectedGroup ? (
-          <p className="px-2 py-3 text-[12px] text-ink-faint">先选择一个题组。</p>
+          <p className="px-2 py-3 text-[12px] text-ink-faint">{t("groups.selectFirst")}</p>
         ) : questionsInGroup.length === 0 ? (
           <div className="space-y-2 px-2 py-3">
-            <p className="text-[12px] leading-relaxed text-ink-faint">该题组暂无题目。</p>
+            <p className="text-[12px] leading-relaxed text-ink-faint">{t("groups.noQuestions")}</p>
             <button
               type="button"
               onClick={() => openImageImport(selectedGroup.id)}
               className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-line px-2 py-1.5 text-[12px] text-ink-soft transition-colors hover:border-line-strong hover:bg-selection/50 hover:text-ink"
             >
               <ImagePlus size={13} />
-              从图片导入
+              {t("groups.importButton")}
             </button>
           </div>
         ) : (
@@ -238,11 +243,13 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                   </button>
                   <button
                     type="button"
-                    aria-label="删除题目"
+                    aria-label={t("groups.deleteQuestionAria")}
                     onClick={(event) => {
                       event.stopPropagation();
                       const ok = window.confirm(
-                        `删除题目「${excerpt(question.content, 24)}」及其步骤、讨论与详解？该操作不可恢复。`,
+                        t("groups.deleteQuestionConfirm", {
+                          title: excerpt(question.content, 24),
+                        }),
                       );
                       if (ok) deleteQuestion(question.id);
                     }}
@@ -272,7 +279,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                 }
               }}
               rows={3}
-              placeholder="粘贴题目内容，Cmd/Ctrl+Enter 添加"
+              placeholder={t("groups.questionPlaceholder")}
               className="w-full resize-none rounded-md border border-line bg-field px-2.5 py-2 text-[12.5px] leading-relaxed text-ink outline-none placeholder:text-ink-faint focus:border-brand/50"
             />
             <div className="flex items-center justify-end gap-1.5">
@@ -284,7 +291,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                 }}
                 className="h-7 rounded-md px-2 text-[12px] text-ink-soft transition-colors hover:bg-selection hover:text-ink"
               >
-                取消
+                {t("groups.cancel")}
               </button>
               <button
                 type="button"
@@ -292,7 +299,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                 disabled={!questionDraft.trim()}
                 className="h-7 rounded-md bg-brand px-2.5 text-[12px] font-medium text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
-                添加
+                {t("groups.add")}
               </button>
             </div>
           </div>
@@ -304,7 +311,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
             className="flex w-full items-center gap-2 rounded-md border border-dashed border-line px-2.5 py-2 text-[12.5px] text-ink-soft transition-colors hover:border-line-strong hover:bg-selection/50 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus size={14} />
-            新建题目
+            {t("groups.newQuestion")}
           </button>
         )}
       </div>

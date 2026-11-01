@@ -1,8 +1,9 @@
-import { isValidElement, type ReactNode } from "react";
+import { isValidElement, useMemo, type ReactNode } from "react";
 import { Streamdown } from "streamdown";
 import type { Components, StreamdownTranslations } from "streamdown";
 import { createMathPlugin } from "@streamdown/math";
 import type { Element } from "hast";
+import { useT } from "@/lib/i18n/use-i18n";
 import { cn } from "@/lib/utils";
 
 function flattenText(node: ReactNode): string {
@@ -53,13 +54,6 @@ const math = createMathPlugin({
   singleDollarTextMath: true,
   errorColor: "var(--warning)",
 });
-
-const translations: Partial<StreamdownTranslations> = {
-  copyCode: "复制",
-  copied: "已复制",
-  copyTable: "复制表格",
-  downloadTable: "下载表格",
-};
 
 const SUPERSCRIPT_MAP: Record<string, string> = {
   "⁰": "0",
@@ -227,6 +221,18 @@ interface MarkdownProps {
 }
 
 export function Markdown({ content, className }: MarkdownProps) {
+  const t = useT();
+  // Streamdown 的 UI 文案随语言重建；t 随语言切换变化，useMemo 相应失效
+  const translations = useMemo<Partial<StreamdownTranslations>>(
+    () => ({
+      copyCode: t("markdown.copyCode"),
+      copied: t("markdown.copied"),
+      copyTable: t("markdown.copyTable"),
+      downloadTable: t("markdown.downloadTable"),
+    }),
+    [t],
+  );
+
   return (
     <div className={cn("md", className)}>
       <Streamdown
