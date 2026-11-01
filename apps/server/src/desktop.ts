@@ -97,7 +97,7 @@ function listenOn(server: Server, port: number, host: string): Promise<number> {
 function describeListenError(host: string, port: number, error: unknown): Error {
   if ((error as NodeJS.ErrnoException | null)?.code === "EADDRINUSE") {
     return new Error(
-      `端口 ${port} 已被占用，无法监听 ${host}:${port}。请更换 MOTIVE_PORT 或释放该端口后重试。`,
+      `端口监听失败：端口 ${port} 已被占用，无法监听 ${host}:${port}。请更换 MOTIVE_PORT 或释放该端口后重试。`,
     );
   }
   return error instanceof Error ? error : new Error(String(error));
@@ -342,13 +342,42 @@ export async function startDesktopServer(options: DesktopServerOptions): Promise
     mobileRuntime: runtime,
   });
 
+  /** 监听主服务；仅固定端口的 EADDRINUSE 回退到随机端口，其他错误原样抛出。 */
+  const listenWithFallback = async (): Promise<{ server: Server; port: number }> => {
+    const settingsStore = app.locals.settingsStore as ProviderSettingsStore;
+    await settingsStore.restore();
+    let server: Server | undefined;
+    try {
+      server = app.listen(port, MAIN_HOST);
+      const bound = await listenOn(server, port, MAIN_HOST);
+      return { server, port: bound };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException | null)?.code !== "EADDRINUSE" || port === 0) {
+        // 非 EADDRINUSE（或本就请求随机端口）不做回退：启动失败并原样报告
+        throw (error as NodeJS.ErrnoException | null)?.code === "EADDRINUSE"
+          ? describeListenError(MAIN_HOST, port, error)
+          : error;
+      }
+      // 仅 EADDRINUSE 允许从固定端口回退到随机端口：关闭失败的监听后重试
+      console.warn(`[desktop] 预期端口 ${port} 被占用，回退为操作系统分配随机端口`);
+      try {
+        // 传入回调：server 未处于监听状态时错误进回调而非 error 事件
+        server?.close(() => {});
+      } catch {
+        // 处于失败状态的 server 直接丢弃
+      }
+      const fallbackServer = app.listen(0, MAIN_HOST);
+      const fallbackPort = await listenOn(fallbackServer, 0, MAIN_HOST);
+      return { server: fallbackServer, port: fallbackPort };
+    }
+  };
+
   let mainServer: Server;
   let actualPort: number;
   try {
-    const settingsStore = app.locals.settingsStore as ProviderSettingsStore;
-    await settingsStore.restore();
-    mainServer = app.listen(port, MAIN_HOST);
-    actualPort = await listenOn(mainServer, port, MAIN_HOST);
+    const bound = await listenWithFallback();
+    mainServer = bound.server;
+    actualPort = bound.port;
   } catch (error) {
     // 启动失败不留下半初始化状态（数据库已打开时先关闭）
     try {
@@ -356,9 +385,14 @@ export async function startDesktopServer(options: DesktopServerOptions): Promise
     } catch {
       // 保留原始失败原因
     }
-    throw (error as NodeJS.ErrnoException | null)?.code === "EADDRINUSE"
-      ? describeListenError(MAIN_HOST, port, error)
-      : error;
+    throw error;
+  }
+  if (port === 0) {
+    console.log(`[desktop] 主服务监听 ${MAIN_HOST}:${actualPort}（操作系统分配端口）`);
+  } else if (actualPort !== port) {
+    console.warn(`[desktop] 主服务监听 ${MAIN_HOST}:${actualPort}（已从预期端口 ${port} 回退）`);
+  } else {
+    console.log(`[desktop] 主服务监听 ${MAIN_HOST}:${actualPort}`);
   }
 
   // 沿用 index.ts 的行为：大体积 base64 图片经慢速网络上传可能超过默认的

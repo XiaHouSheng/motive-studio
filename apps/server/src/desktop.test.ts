@@ -336,22 +336,47 @@ describe("桌面版主服务", () => {
     await expect(server.close()).resolves.toBeUndefined();
   });
 
-  it("指定端口被占用时启动失败且不回退", async () => {
+  it("固定端口被占用时仅 EADDRINUSE 回退随机端口，ready 端口为实际端口", async () => {
     const blocker = createServer((_request, response) => response.end());
     await new Promise<void>((resolve) => blocker.listen(0, "127.0.0.1", resolve));
     const blockerPort = (blocker.address() as AddressInfo).port;
 
     try {
-      await expect(startDesktop({ port: blockerPort })).rejects.toThrow(/已被占用/);
+      // options.port 固定端口被占用 → 回退随机端口并正常提供服务
+      const fallback = await startDesktop({ port: blockerPort });
+      expect(fallback.port).not.toBe(blockerPort);
+      expect(fallback.port).toBeGreaterThan(0);
+      const health = await call(fallback, "GET", "/api/health");
+      expect(health.status).toBe(200);
+      await fallback.close();
 
+      // env MOTIVE_PORT 固定端口被占用 → 同样回退
       process.env.MOTIVE_PORT = String(blockerPort);
-      await expect(startDesktop()).rejects.toThrow(/已被占用/);
+      const envFallback = await startDesktop();
+      expect(envFallback.port).not.toBe(blockerPort);
+      expect(envFallback.port).toBeGreaterThan(0);
+      await envFallback.close();
 
+      // MOTIVE_PORT 无效仍是启动失败
       process.env.MOTIVE_PORT = "not-a-port";
       await expect(startDesktop()).rejects.toThrow(/MOTIVE_PORT 无效/);
     } finally {
+      delete process.env.MOTIVE_PORT;
       blocker.close();
     }
+  });
+
+  it("健康检查返回应用身份，供桌面壳校验 service=motive-studio", async () => {
+    const server = await startDesktop();
+    const health = await call(server, "GET", "/api/health");
+    expect(health.status).toBe(200);
+    expect((health.body as { service?: string }).service).toBe("motive-studio");
+  });
+
+  it("非 EADDRINUSE 的监听错误原样抛出，不回退随机端口", async () => {
+    // 65536 超出合法端口范围，触发 ERR_SOCKET_BAD_PORT（非 EADDRINUSE）
+    await expect(startDesktop({ port: 65_536 })).rejects.toThrow();
+    await expect(startDesktop({ port: 65_536 })).rejects.not.toThrow(/已被占用/);
   });
 
   it("数据库在服务端关闭后仍然保持数据完整", async () => {

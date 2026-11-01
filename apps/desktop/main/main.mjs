@@ -19,6 +19,13 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const isDev = process.env.MOTIVE_DESKTOP_DEV === "1";
 const DEV_URL = "http://localhost:5173";
 
+/**
+ * 服务端默认固定端口：稳定的 origin 让 localStorage（主题/语言/面板宽度）
+ * 在重启后保持可用。端口被占用时服务端会回退到随机端口（仅 EADDRINUSE），
+ * 就绪消息会携带实际端口，界面偏好由 /api/settings/ui 兜底恢复。
+ */
+const DEFAULT_SERVER_PORT = 39_217;
+
 const SERVER_START_TIMEOUT_MS = 15_000;
 const HEALTH_CHECK_TIMEOUT_MS = 10_000;
 const HEALTH_CHECK_INTERVAL_MS = 200;
@@ -89,6 +96,7 @@ function bootstrap() {
         reject(new Error(`前端资源缺失：${path.join(resourcesDir, "web")}（安装包可能不完整，请重新安装）`));
         return;
       }
+      const expectedPort = process.env.MOTIVE_PORT || String(DEFAULT_SERVER_PORT);
       const child = utilityProcess.fork(entry, [], {
         serviceName: "motive-server",
         stdio: "pipe",
@@ -97,13 +105,14 @@ function bootstrap() {
           NODE_ENV: "production",
           MOTIVE_DATA_DIR: app.getPath("userData"),
           MOTIVE_WEB_DIST: path.join(resourcesDir, "web"),
+          MOTIVE_PORT: expectedPort,
         },
       });
       serverProcess = child;
 
       let settled = false;
       const timer = setTimeout(() => {
-        fail(new Error(`服务进程 ${SERVER_START_TIMEOUT_MS / 1000}s 内未报告就绪状态`));
+        fail(new Error(`服务进程启动失败：${SERVER_START_TIMEOUT_MS / 1000}s 内未报告就绪状态`));
       }, SERVER_START_TIMEOUT_MS);
 
       function fail(error) {
@@ -126,6 +135,13 @@ function bootstrap() {
           clearTimeout(timer);
           serverPort = message.port;
           serverReady = true;
+          const expectedPort = Number(process.env.MOTIVE_PORT || DEFAULT_SERVER_PORT);
+          if (Number.isInteger(expectedPort) && expectedPort > 0 && serverPort !== expectedPort) {
+            log(
+              "warn",
+              `预期端口 ${expectedPort} 被占用，已回退随机端口 ${serverPort}（界面偏好经服务端设置恢复）`,
+            );
+          }
           log("info", `服务就绪 · http://127.0.0.1:${serverPort}`);
           resolve(child);
           return;
@@ -137,7 +153,7 @@ function bootstrap() {
 
       child.on("exit", (code) => {
         if (!settled) {
-          fail(new Error(`服务进程在就绪前退出（exit code ${code}）`));
+          fail(new Error(`服务进程启动失败：就绪前退出（exit code ${code}）`));
           return;
         }
         serverProcess = null;
@@ -156,7 +172,11 @@ function bootstrap() {
     });
   }
 
-  /** 轮询 /api/health 直到通过或超时。 */
+  /**
+   * 轮询 /api/health 直到通过或超时。
+   * 必须校验响应体 service === "motive-studio"，防止连接到恰好占用端口的其他进程。
+   * 错误分类：健康检查超时（整体超时）/ 服务身份不匹配（立即失败）。
+   */
   async function waitHealthy(port) {
     const deadline = Date.now() + HEALTH_CHECK_TIMEOUT_MS;
     let lastError = null;
@@ -165,14 +185,23 @@ function bootstrap() {
         const response = await fetch(`http://127.0.0.1:${port}/api/health`, {
           signal: AbortSignal.timeout(1_000),
         });
-        if (response.ok) return;
+        if (response.ok) {
+          const body = await response.json().catch(() => null);
+          if (body?.service === "motive-studio") return;
+          throw new Error(
+            `服务身份不匹配：/api/health 返回 service=${JSON.stringify(body?.service ?? null)}，期望 "motive-studio"`,
+          );
+        }
         lastError = new Error(`健康检查返回 ${response.status}`);
       } catch (error) {
+        if (error instanceof Error && error.message.startsWith("服务身份不匹配")) throw error;
         lastError = error;
       }
       await new Promise((resolve) => setTimeout(resolve, HEALTH_CHECK_INTERVAL_MS));
     }
-    throw new Error(`服务健康检查未通过：${lastError instanceof Error ? lastError.message : lastError}`);
+    throw new Error(
+      `健康检查超时（${HEALTH_CHECK_TIMEOUT_MS / 1000}s）：${lastError instanceof Error ? lastError.message : lastError}`,
+    );
   }
 
   function isExternalHttp(target, currentOrigin) {
