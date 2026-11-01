@@ -29,15 +29,17 @@ function imagePart(mimeType: string, bytes: Buffer) {
 
 /**
  * 题解生成的统一素材入口：按「题目图片策略 + 模型视觉能力」确定是否附原图。
- * 纯文本分支复用 buildSolutionMessages，保证与既有提示词完全一致。
+ * 纯文本分支复用 buildSolutionMessages，保证与既有提示词完全一致；
+ * 自定义 system prompt 经 options 透传，两条分支（纯文本 / 多模态）均生效。
  */
 export function buildQuestionContext(input: {
   question: QuestionContextSource;
   provider: ContextProvider;
   store: AssetStore;
+  systemPrompt?: string;
 }): BuiltQuestionContext {
-  const { question, provider, store } = input;
-  const base = buildSolutionMessages(question.content);
+  const { question, provider, store, systemPrompt } = input;
+  const base = buildSolutionMessages(question.content, { systemPrompt });
   const reasons: string[] = [];
   const warnings: string[] = [];
 

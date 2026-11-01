@@ -1,21 +1,13 @@
 import type { ChatMessage } from "@motive/shared";
+import { resolveSystemPrompt } from "./effective-prompt.js";
 import type { ExplanationContextData } from "../../repositories/workspace-repository.js";
-
-const SYSTEM_PROMPT = `你是一个严谨的解题学习助手。你的回答必须基于给定的上下文，不确定的内容要明确说明，不得编造。
-你是解题详解撰写者。请基于题目的分步解答与用户在讨论中不懂的地方，输出一份完整的题目详解（Markdown）。
-写作规则：
-1. 以步骤为顺序组织（使用 ## 标题），读起来是一篇连贯的详解文章，而不是步骤原文的拼接。
-2. 每个步骤下先完整讲解该步的推理与依据；融入该步骤关联讨论时，必须先以整行粗体单独点出用户的原始问题（如单独一行 **问：为什么 (x-2)²≥0 就能推出 f(x)≥-1？**），随后另起段落给出解答；不得出现与讨论无关的凭空补充，也不得以问答罗列的形式呈现。
-3. 已确认的修正落实到行文；尚未验证的推测在对应步骤末尾以 "> ⚠️ 待验证：…" 单独标注，不得当作结论陈述。
-4. 讨论中被否定的方案不得作为有效方法写入（可注明"讨论中曾提出的 X 方案被否定，因为……"）。
-5. 未关联步骤的讨论若对整体有价值，融入最合适的位置并同样点出原始问题。
-6. 数学公式必须用 LaTeX：行内公式用 $...$，独立公式用 $$...$$；禁止用 Unicode 上下标（如 x²、a₁）或裸文本表示公式。
-只输出 JSON，格式：
-{"explanation":"完整 Markdown 详解","summary":"一句话概述本详解"}`;
 
 const REF_ONLY_LENGTH = 40;
 
-export function buildExplanationMessages(context: ExplanationContextData): ChatMessage[] {
+export function buildExplanationMessages(
+  context: ExplanationContextData,
+  options?: { systemPrompt?: string },
+): ChatMessage[] {
   const steps = context.steps;
   const stepById = new Map(steps.map((step) => [step.id, step]));
 
@@ -65,7 +57,13 @@ ${sections.join("\n\n")}
 ${unlinked.length > 0 ? unlinked.join("\n") : "（无）"}`;
 
   return [
-    { role: "system", content: SYSTEM_PROMPT },
+    {
+      role: "system",
+      content: resolveSystemPrompt(
+        "explanation_generation",
+        options?.systemPrompt,
+      ),
+    },
     { role: "user", content: userContent },
   ];
 }

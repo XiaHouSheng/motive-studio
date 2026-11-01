@@ -11,6 +11,7 @@ import { AIError, toHttpError } from "../services/ai/errors.js";
 import { generateArchiveProposal } from "../services/ai/archive-generator.js";
 import { OpenAIProvider } from "../services/ai/openai-provider.js";
 import type { ProviderSettingsStore } from "../services/ai/provider-settings-store.js";
+import type { PromptSettingsStore } from "../services/settings/prompt-settings-store.js";
 
 function assertReferences(
   context: ArchiveContextData,
@@ -34,6 +35,7 @@ function assertReferences(
 export function createArchiveRouter(
   repository: WorkspaceRepository,
   settingsStore: ProviderSettingsStore,
+  promptStore: PromptSettingsStore,
 ): Router {
   const router = Router();
 
@@ -75,6 +77,7 @@ export function createArchiveRouter(
             provider,
             context,
             controller.signal,
+            { systemPrompt: promptStore.getSettings().archive_proposal },
           );
           assertReferences(context, draft);
 

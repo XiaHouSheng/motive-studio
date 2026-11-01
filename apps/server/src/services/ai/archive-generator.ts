@@ -158,8 +158,9 @@ export async function generateArchiveProposal(
   provider: AIProvider,
   context: ArchiveContextData,
   signal?: AbortSignal,
+  options?: { systemPrompt?: string },
 ): Promise<ArchiveProposalDraft> {
-  const messages = buildArchiveMessages(context);
+  const messages = buildArchiveMessages(context, options);
   let lastError: AIError | undefined;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {

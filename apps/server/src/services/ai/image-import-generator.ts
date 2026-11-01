@@ -1,4 +1,5 @@
 import type { ChatMessage } from "@motive/shared";
+import { resolveSystemPrompt } from "./effective-prompt.js";
 import { AIError } from "./errors.js";
 import { stripCodeFence } from "./solution-generator.js";
 import type { AIProvider } from "./types.js";
@@ -15,20 +16,15 @@ export interface ImportImage {
   data: string;
 }
 
-const SYSTEM_PROMPT = [
-  "你是题目录入助手，负责把图片中的题目完整转写成文本。",
-  "规则：",
-  "1. 图片可能包含一道或多道题目（如试卷截图），按从上到下的顺序逐题转写，不要把多道题合并成一道。",
-  "2. 只转写题干与选项，不要解答、不要补充答案或解析。",
-  "3. 保持原文表述与数字，不要改写或润色；忽略页眉、页脚、页码、水印等无关内容。",
-  "4. 数学公式使用 LaTeX：行内公式用 $...$，独立公式用 $$...$$。",
-  "5. 如果图片中没有可识别的题目，返回空数组。",
-  '只输出 JSON，格式为：{"questions":["题目一","题目二"]}，不要输出任何其他文字。',
-].join("\n");
-
-export function buildImageImportMessages(images: ImportImage[]): ChatMessage[] {
+export function buildImageImportMessages(
+  images: ImportImage[],
+  options?: { systemPrompt?: string },
+): ChatMessage[] {
   return [
-    { role: "system", content: SYSTEM_PROMPT },
+    {
+      role: "system",
+      content: resolveSystemPrompt("image_import", options?.systemPrompt),
+    },
     {
       role: "user",
       content: [
@@ -112,8 +108,9 @@ export async function generateQuestionsFromImages(
   provider: AIProvider,
   images: ImportImage[],
   signal?: AbortSignal,
+  options?: { systemPrompt?: string },
 ): Promise<string[]> {
-  const messages = buildImageImportMessages(images);
+  const messages = buildImageImportMessages(images, options);
   let lastError: AIError | undefined;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
