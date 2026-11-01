@@ -6,6 +6,8 @@ import {
   type ChatStreamEvent,
   type ConversationTurn,
   type ConversationView,
+  type PromptSettings,
+  type PromptSettingsView,
   type ProviderSettingsUpdate,
   type ProviderSettingsView,
   type ProviderTestResult,
@@ -19,6 +21,7 @@ import {
   type SolutionStep,
   type SubConversation,
   type TurnStepTag,
+  type UiPreferences,
   type WorkspaceData,
 } from "@motive/shared";
 
@@ -332,6 +335,19 @@ export const api = {
   testProvider: () =>
     request<ProviderTestResult>("/api/settings/provider/test", {
       method: "POST",
+    }),
+
+  getPromptSettings: () => request<PromptSettingsView>("/api/settings/prompts"),
+  savePromptSettings: (settings: PromptSettings) =>
+    request<PromptSettingsView>("/api/settings/prompts", {
+      method: "PUT",
+      body: JSON.stringify({ settings }),
+    }),
+  getUiPreferences: () => request<UiPreferences>("/api/settings/ui"),
+  saveUiPreferences: (input: Partial<UiPreferences>) =>
+    request<UiPreferences>("/api/settings/ui", {
+      method: "PUT",
+      body: JSON.stringify(input),
     }),
 
   deleteExplanation: (id: string) =>

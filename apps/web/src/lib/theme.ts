@@ -1,6 +1,9 @@
+import type { UiTheme } from "@motive/shared";
+
 export const THEME_STORAGE_KEY = "motive.theme";
 
-export type ThemeMode = "light" | "dark" | "system";
+/** 主题模式取值与服务端共享（light / dark / system），始终存用户选择的模式而非解析结果 */
+export type ThemeMode = UiTheme;
 export type ResolvedTheme = "light" | "dark";
 
 export const THEME_MODES: ThemeMode[] = ["light", "dark", "system"];

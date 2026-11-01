@@ -16,6 +16,8 @@
           var resolved = mode === "system" ? (prefersDark ? "dark" : "light") : mode;
           document.documentElement.dataset.theme = resolved;
           document.documentElement.style.colorScheme = resolved;
+          var storedLang = localStorage.getItem("motive.language");
+          document.documentElement.lang = storedLang === "en" ? "en" : "zh-CN";
         } catch (error) {
           document.documentElement.dataset.theme = "light";
         }
