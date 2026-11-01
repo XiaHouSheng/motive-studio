@@ -14,3 +14,4 @@ coverage/
 
 # Electron 打包产物
 apps/desktop/release/
+.zcode/
