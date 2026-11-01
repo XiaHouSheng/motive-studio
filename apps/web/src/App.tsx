@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { fetchUiPreferences } from "@/lib/ui-preferences";
+import { I18nProvider } from "@/lib/i18n/use-i18n";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useThemeStore } from "@/stores/theme";
 import { useWorkspace } from "@/features/workspace/use-workspace";
@@ -34,5 +35,9 @@ export function App() {
     };
   }, []);
 
-  return <WorkspaceShell workspace={workspace} />;
+  return (
+    <I18nProvider>
+      <WorkspaceShell workspace={workspace} />
+    </I18nProvider>
+  );
 }
