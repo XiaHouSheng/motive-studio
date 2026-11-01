@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, X } from "lucide-react";
 import { useUiStore } from "@/stores/ui";
+import { useT } from "@/lib/i18n/use-i18n";
 import { cn } from "@/lib/utils";
 import type { WorkspaceApi } from "./use-workspace";
 import { GroupSidebar } from "@/features/question-groups/group-sidebar";
@@ -19,6 +20,7 @@ interface WorkspaceShellProps {
 }
 
 export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
+  const t = useT();
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const sidebarWidth = useUiStore((state) => state.sidebarWidth);
   const setSidebarWidth = useUiStore((state) => state.setSidebarWidth);
@@ -49,12 +51,12 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
           M
         </span>
         <div className="space-y-1.5">
-          <p className="text-[14px] font-semibold text-ink">无法加载本地数据</p>
+          <p className="text-[14px] font-semibold text-ink">{t("workspace.loadFailed")}</p>
           <p className="max-w-sm text-[12.5px] leading-relaxed text-ink-soft">
             {workspace.fatalError}
           </p>
           <p className="text-[11.5px] text-ink-faint">
-            请确认本地服务已启动，然后重试。
+            {t("workspace.loadFailedHint")}
           </p>
         </div>
         <button
@@ -62,7 +64,7 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
           onClick={workspace.retry}
           className="h-8 rounded-lg bg-brand px-3.5 text-[12.5px] font-medium text-white transition-colors hover:bg-brand-hover"
         >
-          重试
+          {t("workspace.retry")}
         </button>
       </div>
     );
@@ -79,7 +81,7 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
           <button
             type="button"
             onClick={workspace.dismissError}
-            aria-label="关闭错误提示"
+            aria-label={t("workspace.dismissErrorAria")}
             className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-danger/80 transition-colors hover:bg-danger/10 hover:text-danger"
           >
             <X size={12} />
@@ -111,7 +113,7 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
             min={SIDEBAR_WIDTH_LIMITS.min}
             max={SIDEBAR_WIDTH_LIMITS.max}
             anchor="left"
-            label="调整题组栏宽度"
+            label={t("workspace.resizeSidebarAria")}
             onResize={setSidebarWidth}
             onDraggingChange={setResizing}
             className="border-r border-line bg-line/40 md:block"
@@ -136,7 +138,7 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
             min={CHAT_WIDTH_LIMITS.min}
             max={CHAT_WIDTH_LIMITS.max}
             anchor="right"
-            label="调整讨论栏宽度"
+            label={t("workspace.resizeChatAria")}
             onResize={setChatWidth}
             onDraggingChange={setResizing}
             className="xl:block"
@@ -178,7 +180,7 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
       <aside
         role="dialog"
         aria-modal={mobileNavOpen}
-        aria-label="题组导航"
+        aria-label={t("workspace.groupNavAria")}
         aria-hidden={!mobileNavOpen}
         inert={!mobileNavOpen}
         className={cn(
@@ -194,7 +196,7 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
           <button
             type="button"
             onClick={closeMobileNav}
-            aria-label="关闭题组导航"
+            aria-label={t("workspace.closeGroupNavAria")}
             className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-soft transition-colors hover:bg-selection hover:text-ink"
           >
             <X size={16} />
@@ -217,7 +219,7 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
       <aside
         role="dialog"
         aria-modal={mobileChatOpen}
-        aria-label="步骤讨论"
+        aria-label={t("workspace.stepChatAria")}
         aria-hidden={!mobileChatOpen}
         inert={!mobileChatOpen}
         className={cn(

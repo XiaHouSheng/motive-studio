@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { useT } from "@/lib/i18n/use-i18n";
 import { cn } from "@/lib/utils";
 
 /** 退场动画时长，与 --motion-fast 保持一致 */
@@ -24,6 +25,7 @@ export function Dialog({
   footer,
   className,
 }: DialogProps) {
+  const t = useT();
   const [closing, setClosing] = useState(false);
   const closeTimerRef = useRef<number | null>(null);
 
@@ -101,7 +103,7 @@ export function Dialog({
           <button
             type="button"
             onClick={requestClose}
-            aria-label="关闭"
+            aria-label={t("ui.close")}
             className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-faint transition-colors duration-(--duration-fast) hover:bg-selection hover:text-ink"
           >
             <X size={15} />

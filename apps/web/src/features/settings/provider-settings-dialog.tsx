@@ -16,8 +16,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { useUiStore } from "@/stores/ui";
-import { ApiError, api } from "@/lib/api";
+import { api } from "@/lib/api";
 import { formatTime } from "@/lib/format";
+import { useT } from "@/lib/i18n/use-i18n";
+import { translateApiError } from "@/lib/i18n/errors";
+import type { DictionaryKey } from "@/lib/i18n/zh-CN";
 import { cn } from "@/lib/utils";
 
 interface FormState {
@@ -66,11 +69,11 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
 ];
 
 /** 密钥在本机的存储方式（服务端按平台选择，仅展示名称、不含路径） */
-const STORAGE_LABELS: Record<CredentialStorageMode, string> = {
-  dpapi: "Windows 凭据保护（DPAPI）",
-  keychain: "macOS 钥匙串",
-  "secret-service": "系统密钥服务",
-  "encrypted-file": "本机加密文件（AES-256-GCM）",
+const STORAGE_LABELS: Record<CredentialStorageMode, DictionaryKey> = {
+  dpapi: "settings.storageDpapi",
+  keychain: "settings.storageKeychain",
+  "secret-service": "settings.storageSecretService",
+  "encrypted-file": "settings.storageEncryptedFile",
 };
 
 const inputClass =
@@ -89,15 +92,22 @@ function toForm(provider: ProviderConfig): FormState {
   };
 }
 
-function toMessage(error: unknown): string {
-  if (error instanceof ApiError) return error.message;
-  if (error instanceof Error) return error.message;
-  return "操作失败，请重试";
+/**
+ * 把错误转换为用户提示：ApiError 按错误码词条翻译（未知码保留服务端消息），
+ * 普通 Error 保留原始 message，其余值展示固定兜底词条。
+ */
+function describeError(
+  t: (key: DictionaryKey) => string,
+  error: unknown,
+): string {
+  if (error instanceof Error) return translateApiError(t, error);
+  return t("settings.operationFailed");
 }
 
 export function ProviderSettingsDialog() {
   const open = useUiStore((state) => state.settingsOpen);
   const closeSettings = useUiStore((state) => state.closeSettings);
+  const t = useT();
 
   const [view, setView] = useState<ProviderSettingsView | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -128,7 +138,7 @@ export function ProviderSettingsDialog() {
         setForm(toForm(next.provider));
       })
       .catch((loadError) => {
-        if (!cancelled) setError(toMessage(loadError));
+        if (!cancelled) setError(describeError(t, loadError));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -168,15 +178,15 @@ export function ProviderSettingsDialog() {
 
   const buildProvider = useCallback((): ProviderConfig | null => {
     if (!form.name.trim()) {
-      setError("请填写服务名称");
+      setError(t("settings.nameRequired"));
       return null;
     }
     if (!form.baseUrl.trim()) {
-      setError("请填写 Base URL");
+      setError(t("settings.baseUrlRequired"));
       return null;
     }
     if (!form.model.trim()) {
-      setError("请填写模型名称");
+      setError(t("settings.modelRequired"));
       return null;
     }
 
@@ -184,7 +194,7 @@ export function ProviderSettingsDialog() {
     if (form.temperature.trim() !== "") {
       temperature = Number(form.temperature);
       if (!Number.isFinite(temperature) || temperature < 0 || temperature > 2) {
-        setError("temperature 需要是 0 到 2 之间的数字");
+        setError(t("settings.temperatureInvalid"));
         return null;
       }
     }
@@ -193,7 +203,7 @@ export function ProviderSettingsDialog() {
     if (form.maxTokens.trim() !== "") {
       maxTokens = Number(form.maxTokens);
       if (!Number.isInteger(maxTokens) || maxTokens < 1) {
-        setError("maxTokens 需要是大于 0 的整数");
+        setError(t("settings.maxTokensInvalid"));
         return null;
       }
     }
@@ -208,7 +218,7 @@ export function ProviderSettingsDialog() {
       maxTokens,
       supportsVision: form.supportsVision,
     };
-  }, [form, view]);
+  }, [form, view, t]);
 
   const persist = useCallback(async () => {
     const provider = buildProvider();
@@ -239,10 +249,10 @@ export function ProviderSettingsDialog() {
           const result = await api.testProvider();
           setTestResult(result);
         } else {
-          setNotice("设置已保存");
+          setNotice(t("settings.saved"));
         }
       } catch (saveError) {
-        setError(toMessage(saveError));
+        setError(describeError(t, saveError));
       } finally {
         setSaving(false);
       }
@@ -266,9 +276,9 @@ export function ProviderSettingsDialog() {
       });
       setView(next);
       setApiKey("");
-      setNotice("API Key 已清除");
+      setNotice(t("settings.keyCleared"));
     } catch (clearError) {
-      setError(toMessage(clearError));
+      setError(describeError(t, clearError));
     } finally {
       setSaving(false);
     }
@@ -280,14 +290,16 @@ export function ProviderSettingsDialog() {
     <Dialog
       open={open}
       onClose={closeSettings}
-      title="模型设置"
-      description="仅支持 OpenAI Chat Completions 兼容接口。API Key 加密保存在本机凭据存储中，不写入数据库与备份，重启后自动恢复。"
+      title={t("settings.title")}
+      description={t("settings.description")}
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-[11px] text-ink-faint">
             {view
-              ? `密钥存储：${STORAGE_LABELS[view.credentialStorage]}`
-              : "API Key 加密保存在本机，重启后自动恢复"}
+              ? t("settings.keyStorageLabel", {
+                  storage: t(STORAGE_LABELS[view.credentialStorage]),
+                })
+              : t("settings.keyStorageFallback")}
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -297,7 +309,7 @@ export function ProviderSettingsDialog() {
               disabled={saving || loading}
             >
               {saving ? <Loader2 size={13} className="animate-spin" /> : null}
-              保存并测试
+              {t("settings.saveAndTest")}
             </Button>
             <Button
               variant="primary"
@@ -305,7 +317,7 @@ export function ProviderSettingsDialog() {
               onClick={() => void handleSave(false)}
               disabled={saving || loading}
             >
-              保存
+              {t("settings.save")}
             </Button>
           </div>
         </div>
@@ -314,12 +326,12 @@ export function ProviderSettingsDialog() {
       {loading ? (
         <div className="flex items-center gap-2 py-6 text-[12px] text-ink-faint">
           <Loader2 size={14} className="animate-spin" />
-          正在读取设置…
+          {t("settings.loading")}
         </div>
       ) : (
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <span className={labelClass}>常用服务商预设</span>
+            <span className={labelClass}>{t("settings.presetsLabel")}</span>
             <div className="flex flex-wrap gap-1.5">
               {PROVIDER_PRESETS.map((preset) => (
                 <button
@@ -336,36 +348,35 @@ export function ProviderSettingsDialog() {
                   {preset.name}
                   {preset.vision ? (
                     <span className="rounded bg-brand/10 px-1 text-[10px] leading-4 text-brand">
-                      图片
+                      {t("settings.visionBadge")}
                     </span>
                   ) : null}
                 </button>
               ))}
             </div>
             <span className="block text-[11px] text-ink-faint">
-              点击自动填入名称、地址与模型；带「图片」的模型支持拍照导入的图像识别。API
-              Key 请按所选服务商重新填写。
+              {t("settings.presetsHint")}
             </span>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1.5">
-              <span className={labelClass}>服务名称</span>
+              <span className={labelClass}>{t("settings.nameLabel")}</span>
               <input
                 className={inputClass}
                 value={form.name}
                 onChange={(event) => updateField("name", event.target.value)}
-                placeholder="例如 OpenAI"
+                placeholder={t("settings.namePlaceholder")}
                 autoFocus
               />
             </label>
             <label className="space-y-1.5">
-              <span className={labelClass}>模型名称</span>
+              <span className={labelClass}>{t("settings.modelLabel")}</span>
               <input
                 className={inputClass}
                 value={form.model}
                 onChange={(event) => updateField("model", event.target.value)}
-                placeholder="例如 gpt-4o-mini"
+                placeholder={t("settings.modelPlaceholder")}
               />
             </label>
           </div>
@@ -379,14 +390,13 @@ export function ProviderSettingsDialog() {
               placeholder="https://api.openai.com/v1"
             />
             <span className="block text-[11px] text-ink-faint">
-              必须使用 HTTPS；localhost / 127.0.0.1 允许 HTTP。地址中的
-              /chat/completions 会自动拼接。
+              {t("settings.baseUrlHint")}
             </span>
           </label>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1.5">
-              <span className={labelClass}>temperature（可选）</span>
+              <span className={labelClass}>{t("settings.temperatureLabel")}</span>
               <input
                 className={inputClass}
                 value={form.temperature}
@@ -396,13 +406,13 @@ export function ProviderSettingsDialog() {
               />
             </label>
             <label className="space-y-1.5">
-              <span className={labelClass}>max tokens（可选）</span>
+              <span className={labelClass}>{t("settings.maxTokensLabel")}</span>
               <input
                 className={inputClass}
                 value={form.maxTokens}
                 onChange={(event) => updateField("maxTokens", event.target.value)}
                 inputMode="numeric"
-                placeholder="留空则由服务端决定"
+                placeholder={t("settings.maxTokensPlaceholder")}
               />
             </label>
           </div>
@@ -420,9 +430,9 @@ export function ProviderSettingsDialog() {
               }}
             />
             <span className="space-y-0.5">
-              <span className={labelClass}>支持图片输入</span>
+              <span className={labelClass}>{t("settings.supportsVisionLabel")}</span>
               <span className="block text-[11px] leading-relaxed text-ink-faint">
-                关闭后题目图片不会发送给模型：「始终附带」策略会直接报错，「自动」策略降级为纯文本。
+                {t("settings.supportsVisionHint")}
               </span>
             </span>
           </label>
@@ -431,7 +441,7 @@ export function ProviderSettingsDialog() {
             <div className="flex items-center justify-between gap-2">
               <span className={labelClass}>API Key</span>
               <Badge tone={hasApiKey ? "success" : "warning"}>
-                {hasApiKey ? "已配置" : "未配置"}
+                {hasApiKey ? t("settings.keyConfigured") : t("settings.keyNotConfigured")}
               </Badge>
             </div>
             <div className="relative">
@@ -449,7 +459,7 @@ export function ProviderSettingsDialog() {
                   setError(null);
                   setTestResult(null);
                 }}
-                placeholder={hasApiKey ? "留空则保持当前 Key" : "sk-..."}
+                placeholder={hasApiKey ? t("settings.keyPlaceholderKeep") : "sk-..."}
                 autoComplete="off"
               />
             </div>
@@ -462,13 +472,14 @@ export function ProviderSettingsDialog() {
                   </span>
                   <span className="text-[10.5px] text-ink-faint">
                     {view.apiKeySavedAt
-                      ? `保存于 ${formatTime(view.apiKeySavedAt)}`
-                      : "已加密保存"}
+                      ? t("settings.keySavedAt", { time: formatTime(view.apiKeySavedAt) })
+                      : t("settings.keyEncrypted")}
                   </span>
                 </div>
                 <span className="block text-[11px] text-ink-faint">
-                  模型 API Key（{view.provider.name}）·
-                  {STORAGE_LABELS[view.credentialStorage]}·明文不可查看，可更换或清除
+                  {t("settings.keyInfoPrefix", { name: view.provider.name })}
+                  {t(STORAGE_LABELS[view.credentialStorage])}
+                  {t("settings.keyInfoSuffix")}
                 </span>
               </div>
             ) : null}
@@ -479,7 +490,7 @@ export function ProviderSettingsDialog() {
                 disabled={saving}
                 className="text-[11px] text-danger transition-opacity hover:opacity-80 disabled:opacity-50"
               >
-                清除已保存的 Key
+                {t("settings.clearKey")}
               </button>
             ) : null}
           </div>
@@ -509,7 +520,10 @@ export function ProviderSettingsDialog() {
             <div className="flex items-start gap-2 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-[11.5px] text-success">
               <CheckCircle2 size={13} className="mt-0.5 shrink-0" />
               <span>
-                连接成功：{testResult.model}，响应耗时 {testResult.latencyMs} ms
+                {t("settings.testSuccess", {
+                  model: testResult.model,
+                  latencyMs: testResult.latencyMs,
+                })}
               </span>
             </div>
           ) : null}

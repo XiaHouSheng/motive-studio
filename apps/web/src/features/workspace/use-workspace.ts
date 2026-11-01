@@ -12,6 +12,8 @@ import type {
 } from "@motive/shared";
 import { useUiStore } from "@/stores/ui";
 import { ApiError, api } from "@/lib/api";
+import { useT } from "@/lib/i18n/use-i18n";
+import { translateApiError } from "@/lib/i18n/errors";
 
 export interface ChatTag {
   stepId: string;
@@ -54,12 +56,6 @@ const EMPTY_WORKSPACE: WorkspaceData = {
   explanations: [],
 };
 
-function toMessage(error: unknown): string {
-  if (error instanceof ApiError) return error.message;
-  if (error instanceof Error) return error.message;
-  return "操作失败，请重试";
-}
-
 /** 工作区数据的轻量签名：题组/题目清单与其 updatedAt，数据变化时必然改变 */
 function dataSignature(data: WorkspaceData): string {
   const groups = data.groups.map((group) => `${group.id}:${group.updatedAt}`).join("|");
@@ -70,6 +66,7 @@ function dataSignature(data: WorkspaceData): string {
 }
 
 export function useWorkspace() {
+  const t = useT();
   const [data, setData] = useState<WorkspaceData>(EMPTY_WORKSPACE);
   const [loading, setLoading] = useState(true);
   const [fatalError, setFatalError] = useState<string | null>(null);
@@ -110,6 +107,15 @@ export function useWorkspace() {
   const initializeSelection = useUiStore((state) => state.initializeSelection);
   const resetSelection = useUiStore((state) => state.resetSelection);
 
+  // 错误 → 用户提示：已知 ApiError 错误码走词典翻译，未知错误保留原始消息
+  const toMessage = useCallback(
+    (error: unknown): string => {
+      if (error instanceof Error) return translateApiError(t, error);
+      return t("workspace.operationFailed");
+    },
+    [t],
+  );
+
   const load = useCallback(async (initial = false, onlyIfChanged = false) => {
     if (initial) {
       setLoading(true);
@@ -131,7 +137,7 @@ export function useWorkspace() {
     } finally {
       if (initial) setLoading(false);
     }
-  }, []);
+  }, [toMessage]);
 
   useEffect(() => {
     void load(true).catch(() => undefined);
@@ -214,7 +220,7 @@ export function useWorkspace() {
     } catch (actionError) {
       setError(toMessage(actionError));
     }
-  }, []);
+  }, [toMessage]);
 
   const retry = useCallback(() => {
     void load(true).catch(() => undefined);
@@ -499,7 +505,7 @@ export function useWorkspace() {
 
       if (outcome.error) setError(outcome.error);
     },
-    [load],
+    [load, toMessage],
   );
 
   const sendMessage = useCallback(
@@ -558,7 +564,7 @@ export function useWorkspace() {
     } finally {
       setGeneratingSolutionFor(null);
     }
-  }, [generatingSolutionFor, load]);
+  }, [generatingSolutionFor, load, toMessage]);
 
   const generateExplanation = useCallback(async () => {
     const questionId = useUiStore.getState().selectedQuestionId;
@@ -575,7 +581,7 @@ export function useWorkspace() {
     } finally {
       setGeneratingExplanation(false);
     }
-  }, [generatingExplanation, load]);
+  }, [generatingExplanation, load, toMessage]);
 
   const generateArchive = useCallback(
     async (subConversationId: string) => {
@@ -588,11 +594,11 @@ export function useWorkspace() {
         setArchiveDialogOpen(true);
       } catch (generationError) {
         setArchiveError(toMessage(generationError));
-      } finally {
-        setArchiveGenerating(false);
-      }
-    },
-    [archiveGenerating],
+    } finally {
+      setArchiveGenerating(false);
+    }
+  },
+    [archiveGenerating, toMessage],
   );
 
   const openArchiveDialog = useCallback(() => {
@@ -620,7 +626,7 @@ export function useWorkspace() {
     } finally {
       setArchiveApplying(false);
     }
-  }, [archiveApplying, load, pendingProposal]);
+  }, [archiveApplying, load, pendingProposal, toMessage]);
 
   const rejectArchive = useCallback(async (): Promise<string | null> => {
     if (!pendingProposal) return null;
@@ -632,7 +638,7 @@ export function useWorkspace() {
     } catch (rejectError) {
       return toMessage(rejectError);
     }
-  }, [pendingProposal]);
+  }, [pendingProposal, toMessage]);
 
   const loadRevisions = useCallback(async () => {
     const questionId = useUiStore.getState().selectedQuestionId;
@@ -648,7 +654,7 @@ export function useWorkspace() {
     } finally {
       setRevisionsLoading(false);
     }
-  }, []);
+  }, [toMessage]);
 
   const restoreRevision = useCallback(
     async (revisionId: string): Promise<string | null> => {
@@ -667,7 +673,7 @@ export function useWorkspace() {
         setRestoringRevision(false);
       }
     },
-    [load, loadRevisions, restoringRevision],
+    [load, loadRevisions, restoringRevision, toMessage],
   );
 
   const createGroup = useCallback(
@@ -712,7 +718,7 @@ export function useWorkspace() {
   const analyzeImages = useCallback(
     async (images: Array<{ mediaType: string; data: string }>) => {
       const groupId = imageImportGroupId;
-      if (!groupId) return "请先选择题组";
+      if (!groupId) return t("workspace.selectGroupFirst");
       setImageImportAnalyzing(true);
       setImageImportError(null);
       try {
@@ -727,7 +733,7 @@ export function useWorkspace() {
         setImageImportAnalyzing(false);
       }
     },
-    [imageImportGroupId],
+    [imageImportGroupId, t, toMessage],
   );
 
   const createQuestionsFromImages = useCallback(
@@ -736,9 +742,9 @@ export function useWorkspace() {
       images: Array<{ mediaType: string; data: string }> = [],
     ) => {
       const groupId = imageImportGroupId;
-      if (!groupId) return "请先选择题组";
+      if (!groupId) return t("workspace.selectGroupFirst");
       const cleaned = contents.map((content) => content.trim()).filter(Boolean);
-      if (cleaned.length === 0) return "请至少保留一道题目";
+      if (cleaned.length === 0) return t("workspace.keepAtLeastOneQuestion");
 
       setImageImportCreating(true);
       setImageImportError(null);
@@ -768,7 +774,7 @@ export function useWorkspace() {
         setImageImportCreating(false);
       }
     },
-    [imageImportGroupId, load],
+    [imageImportGroupId, load, t, toMessage],
   );
 
   const openMobileLink = useCallback(async () => {
@@ -784,7 +790,7 @@ export function useWorkspace() {
     } finally {
       setMobileLinkLoading(false);
     }
-  }, []);
+  }, [toMessage]);
 
   const closeMobileLink = useCallback(() => {
     setMobileLinkOpen(false);
@@ -832,7 +838,7 @@ export function useWorkspace() {
         return toMessage(uploadError);
       }
     },
-    [load],
+    [load, toMessage],
   );
 
   const deleteQuestionAsset = useCallback(
@@ -912,7 +918,7 @@ export function useWorkspace() {
         try {
           payload = JSON.parse(await file.text());
         } catch {
-          setError("备份文件不是有效的 JSON");
+          setError(t("workspace.backupInvalidJson"));
           return;
         }
 
@@ -926,7 +932,7 @@ export function useWorkspace() {
         }
       })();
     },
-    [load],
+    [load, t, toMessage],
   );
 
   return {

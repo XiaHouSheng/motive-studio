@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { formatDay, formatTime } from "@/lib/format";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
 import type { WorkspaceApi } from "@/features/workspace/use-workspace";
@@ -20,8 +21,6 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Markdown } from "@/components/shared/markdown";
 import { ThinkingDots } from "@/components/shared/thinking-dots";
 import { Skeleton } from "@/components/ui/skeleton";
-
-const suggestions = ["这一步为什么要这样做？", "能换一种方法解释吗？", "这步和上一步是什么关系？"];
 
 interface ChatPanelProps {
   workspace: WorkspaceApi;
@@ -45,6 +44,12 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
     generateArchive,
   } = workspace;
   const openSettings = useUiStore((state) => state.openSettings);
+  const { t, locale } = useI18n();
+  const suggestions = [
+    t("chat.suggestion.why"),
+    t("chat.suggestion.alternative"),
+    t("chat.suggestion.relation"),
+  ];
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -59,8 +64,8 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
   }, [messages, thinking, activeStep?.id]);
 
   const firstDay = useMemo(
-    () => (messages.length > 0 ? formatDay(messages[0].createdAt) : null),
-    [messages],
+    () => (messages.length > 0 ? formatDay(messages[0].createdAt, locale, t("chat.today")) : null),
+    [messages, locale, t],
   );
 
   const submit = () => {
@@ -81,14 +86,14 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
         <div className="flex items-center gap-1.5">
           <Sparkles size={12.5} strokeWidth={1.9} className="text-brand" />
           <span className="text-[10.5px] font-semibold tracking-[0.1em] text-ink-faint uppercase">
-            深度理解
+            {t("chat.header")}
           </span>
           <div className="ml-auto flex items-center gap-0.5">
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="归档讨论"
-              title="归档讨论"
+              aria-label={t("chat.archive")}
+              title={t("chat.archive")}
               onClick={() => {
                 if (activeSubId) void generateArchive(activeSubId);
               }}
@@ -108,7 +113,7 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
             <button
               type="button"
               onClick={onClose}
-              aria-label="关闭讨论面板"
+              aria-label={t("chat.close")}
               className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-ink"
             >
               <X size={14} />
@@ -120,25 +125,25 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
           {activeStep ? (
             <>
               <Badge tone="brand" className="shrink-0">
-                步骤 {String(activeStep.order).padStart(2, "0")}
+                {t("chat.stepBadge", { number: String(activeStep.order).padStart(2, "0") })}
               </Badge>
               <span className="min-w-0 truncate text-[13px] font-semibold text-ink">
                 {activeStep.title}
               </span>
             </>
           ) : (
-            <span className="text-[13px] font-semibold text-ink">未选择步骤</span>
+            <span className="text-[13px] font-semibold text-ink">{t("chat.noStep")}</span>
           )}
         </div>
 
         <p className="mt-1.5 text-[11px] leading-relaxed text-ink-faint">
-          入口步骤只是起点，可以自然讨论其他步骤。
+          {t("chat.entryHint")}
         </p>
 
         {archiveError ? (
           <div className="mt-2 flex items-start gap-1.5 rounded-md border border-danger/30 bg-danger/10 px-2 py-1.5 text-[11px] leading-relaxed text-danger">
             <AlertCircle size={12} className="mt-0.5 shrink-0" />
-            <span className="min-w-0 flex-1">归档失败：{archiveError}</span>
+            <span className="min-w-0 flex-1">{t("chat.archiveFailed", { message: archiveError })}</span>
           </div>
         ) : null}
       </div>
@@ -157,8 +162,8 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
         ) : !activeStep ? (
           <EmptyState
             icon={MessageSquareText}
-            title="选择步骤开始讨论"
-            description="点击正式题解中的「进入讨论」，围绕不懂的那一步自然追问。讨论会自动关联到相关步骤。"
+            title={t("chat.empty.selectStep")}
+            description={t("chat.empty.selectStepDesc")}
             compact
             className="pt-16"
           />
@@ -166,8 +171,8 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
           <div className="pt-10">
             <EmptyState
               icon={MessageSquareText}
-              title="围绕这一步骤自由提问"
-              description="不用手动分类，系统会自动识别讨论涉及的步骤。"
+              title={t("chat.empty.ask")}
+              description={t("chat.empty.askDesc")}
               compact
             />
             <div className="mx-auto mt-1 flex max-w-[280px] flex-col gap-1.5">
@@ -200,8 +205,8 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
                     {message.content}
                   </div>
                   <span className="pr-1 text-[10px] text-ink-faint">
-                    {formatTime(message.createdAt)}
-                    {message.failed ? " · 未发送" : null}
+                    {formatTime(message.createdAt, locale)}
+                    {message.failed ? ` · ${t("chat.unsent")}` : null}
                   </span>
                 </div>
               ) : (
@@ -216,12 +221,12 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
                     {message.streaming ? (
                       <span className="inline-flex items-center gap-1 text-[10.5px] text-ink-faint">
                         <Loader2 size={10.5} className="animate-spin" />
-                        {streaming?.stopping ? "正在停止…" : "正在生成…"}
+                        {streaming?.stopping ? t("chat.stopping") : t("chat.generating")}
                       </span>
                     ) : message.tagStatus === "pending" ? (
                       <span className="inline-flex items-center gap-1 text-[10.5px] text-ink-faint">
                         <Loader2 size={10.5} className="animate-spin" />
-                        识别关联中…
+                        {t("chat.tagging")}
                       </span>
                     ) : message.tags.length > 0 ? (
                       message.tags.map((tag) => (
@@ -234,16 +239,16 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
                         </span>
                       ))
                     ) : (
-                      <span className="text-[10.5px] text-ink-faint">未关联步骤</span>
+                      <span className="text-[10.5px] text-ink-faint">{t("chat.unlinked")}</span>
                     )}
                     {message.generationStatus === "interrupted" ? (
-                      <span className="text-[10.5px] text-warning">· 已中断，内容不完整</span>
+                      <span className="text-[10.5px] text-warning">· {t("chat.interrupted")}</span>
                     ) : null}
                     {message.archiveStatus === "archived" ? (
-                      <span className="text-[10.5px] text-ink-faint">· 已纳入详解</span>
+                      <span className="text-[10.5px] text-ink-faint">· {t("chat.archived")}</span>
                     ) : null}
                     <span className="ml-auto text-[10px] text-ink-faint">
-                      {formatTime(message.createdAt)}
+                      {formatTime(message.createdAt, locale)}
                     </span>
                   </div>
                 </div>
@@ -254,7 +259,7 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
               <div className="animate-rise space-y-1.5">
                 <div className="inline-flex items-center gap-2 rounded-xl rounded-tl-sm border border-line/80 bg-elevated/70 px-3 py-2.5">
                   <ThinkingDots />
-                  <span className="text-[11.5px] text-ink-faint">正在思考…</span>
+                  <span className="text-[11.5px] text-ink-faint">{t("chat.thinking")}</span>
                 </div>
               </div>
             ) : null}
@@ -274,14 +279,14 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
                   onClick={() => retryFailedSend()}
                   className="font-medium underline underline-offset-2 transition-opacity hover:opacity-80"
                 >
-                  重试
+                  {t("chat.retry")}
                 </button>
                 <button
                   type="button"
                   onClick={openSettings}
                   className="text-ink-soft underline underline-offset-2 transition-opacity hover:opacity-80"
                 >
-                  模型设置
+                  {t("chat.modelSettings")}
                 </button>
               </div>
             </div>
@@ -311,7 +316,7 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
               }
             }}
             placeholder={
-              activeStep ? "继续追问，Enter 发送，Shift+Enter 换行" : "先选择一个步骤"
+              activeStep ? t("chat.placeholder.active") : t("chat.placeholder.inactive")
             }
             className="max-h-[132px] min-h-[52px] w-full resize-none bg-transparent px-3 pt-2.5 pb-1 text-[12.8px] leading-relaxed text-ink outline-none placeholder:text-ink-faint disabled:cursor-not-allowed"
           />
@@ -319,9 +324,9 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
             <span className="text-[10.5px] text-ink-faint">
               {isStreaming
                 ? streaming?.stopping
-                  ? "正在停止…"
-                  : "回复中…"
-                : "讨论会自动关联到相关步骤"}
+                  ? t("chat.stopping")
+                  : t("chat.replying")
+                : t("chat.autoLinkHint")}
             </span>
             {isStreaming ? (
               <Button
@@ -336,7 +341,7 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
                 ) : (
                   <Square size={10.5} strokeWidth={2.4} />
                 )}
-                {streaming?.stopping ? "停止中" : "停止"}
+                {streaming?.stopping ? t("chat.stopPending") : t("chat.stop")}
               </Button>
             ) : (
               <Button
@@ -347,7 +352,7 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
                 className="ml-auto"
               >
                 <Send size={12.5} strokeWidth={2} />
-                发送
+                {t("chat.send")}
               </Button>
             )}
           </div>

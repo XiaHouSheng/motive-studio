@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useUiStore } from "@/stores/ui";
 import { useThemeStore } from "@/stores/theme";
+import { useT } from "@/lib/i18n/use-i18n";
 import { cn } from "@/lib/utils";
 import { ThemeMenu } from "@/features/theme/theme-menu";
 import type { WorkspaceApi } from "./use-workspace";
@@ -55,6 +56,7 @@ interface TopBarProps {
 }
 
 export function TopBar({ workspace }: TopBarProps) {
+  const t = useT();
   const {
     selectedGroup,
     question,
@@ -82,7 +84,7 @@ export function TopBar({ workspace }: TopBarProps) {
       <button
         type="button"
         onClick={openMobileNav}
-        aria-label="打开题组导航"
+        aria-label={t("topbar.openGroupNavAria")}
         className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-selection hover:text-ink md:hidden"
       >
         <Menu size={17} strokeWidth={1.8} />
@@ -90,7 +92,7 @@ export function TopBar({ workspace }: TopBarProps) {
       <button
         type="button"
         onClick={toggleSidebar}
-        aria-label={sidebarCollapsed ? "展开侧栏" : "收起侧栏"}
+        aria-label={sidebarCollapsed ? t("topbar.expandSidebarAria") : t("topbar.collapseSidebarAria")}
         className="hidden h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-selection hover:text-ink md:inline-flex"
       >
         {sidebarCollapsed ? (
@@ -120,11 +122,15 @@ export function TopBar({ workspace }: TopBarProps) {
           <Skeleton className="h-3.5 w-40" />
         ) : (
           <>
-            <span className="shrink-0 text-ink-soft">{selectedGroup?.title ?? "未选择题组"}</span>
+            <span className="shrink-0 text-ink-soft">
+              {selectedGroup?.title ?? t("topbar.noGroupSelected")}
+            </span>
             {question ? (
               <>
                 <ChevronRight size={12} className="shrink-0 text-ink-faint" />
-                <span className="shrink-0 text-ink-faint">第 {questionIndex} 题</span>
+                <span className="shrink-0 text-ink-faint">
+                  {t("topbar.questionIndex", { index: questionIndex })}
+                </span>
               </>
             ) : null}
           </>
@@ -134,7 +140,7 @@ export function TopBar({ workspace }: TopBarProps) {
       <div className="ml-auto flex items-center gap-1">
         <span
           className="mr-1 hidden items-center gap-1.5 rounded-md px-1.5 py-1 text-[11px] text-ink-faint xl:flex"
-          title="本地 Express 服务状态"
+          title={t("topbar.serverStatusTitle")}
         >
           <Terminal size={12} strokeWidth={1.8} />
           <span
@@ -145,13 +151,17 @@ export function TopBar({ workspace }: TopBarProps) {
               status === "offline" && "bg-danger",
             )}
           />
-          {status === "online" ? "本地服务已连接" : status === "checking" ? "检测服务…" : "服务未连接"}
+          {status === "online"
+            ? t("topbar.serverOnline")
+            : status === "checking"
+              ? t("topbar.serverChecking")
+              : t("topbar.serverOffline")}
         </span>
         <button
           type="button"
           onClick={() => void openMobileLink()}
-          aria-label="手机拍照导入"
-          title="手机拍照导入"
+          aria-label={t("topbar.mobileCapture")}
+          title={t("topbar.mobileCapture")}
           className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-selection hover:text-ink"
         >
           <Smartphone size={16} strokeWidth={1.8} />
@@ -159,8 +169,8 @@ export function TopBar({ workspace }: TopBarProps) {
         <button
           type="button"
           onClick={openSettings}
-          aria-label="模型设置"
-          title="模型设置"
+          aria-label={t("topbar.modelSettings")}
+          title={t("topbar.modelSettings")}
           className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-selection hover:text-ink"
         >
           <Settings2 size={16} strokeWidth={1.8} />
@@ -170,7 +180,7 @@ export function TopBar({ workspace }: TopBarProps) {
           <DropdownMenu.Trigger asChild>
             <button
               type="button"
-              aria-label="数据备份"
+              aria-label={t("topbar.backupAria")}
               className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-selection hover:text-ink data-[state=open]:bg-selection data-[state=open]:text-ink"
             >
               <DatabaseBackup size={16} strokeWidth={1.8} />
@@ -183,22 +193,22 @@ export function TopBar({ workspace }: TopBarProps) {
               className="z-50 min-w-[184px] rounded-xl border border-line bg-elevated p-1 shadow-soft"
             >
               <DropdownMenu.Label className="px-2.5 pt-1.5 pb-1 text-[10.5px] font-semibold tracking-[0.08em] text-ink-faint uppercase">
-                本地数据
+                {t("topbar.localData")}
               </DropdownMenu.Label>
               <DropdownMenu.Item onSelect={exportBackup} className={menuItemClass}>
                 <Download size={14} strokeWidth={1.8} className="text-ink-faint" />
-                <span className="flex-1">导出备份</span>
+                <span className="flex-1">{t("topbar.exportBackup")}</span>
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 onSelect={() => fileInputRef.current?.click()}
                 className={menuItemClass}
               >
                 <Upload size={14} strokeWidth={1.8} className="text-ink-faint" />
-                <span className="flex-1">导入备份</span>
+                <span className="flex-1">{t("topbar.importBackup")}</span>
               </DropdownMenu.Item>
               <DropdownMenu.Separator className="my-1 h-px bg-line" />
               <p className="px-2.5 py-1 text-[10.5px] leading-relaxed text-ink-faint">
-                导入会替换当前全部数据。
+                {t("topbar.importWarning")}
               </p>
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
@@ -217,7 +227,7 @@ export function TopBar({ workspace }: TopBarProps) {
         <button
           type="button"
           onClick={openMobileChat}
-          aria-label="打开讨论面板"
+          aria-label={t("topbar.openChatAria")}
           className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-selection hover:text-ink xl:hidden"
         >
           <MessageSquare size={16} strokeWidth={1.8} />
@@ -225,7 +235,7 @@ export function TopBar({ workspace }: TopBarProps) {
         <button
           type="button"
           onClick={toggleChat}
-          aria-label={chatVisible ? "收起讨论面板" : "展开讨论面板"}
+          aria-label={chatVisible ? t("topbar.collapseChatAria") : t("topbar.expandChatAria")}
           className="hidden h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-selection hover:text-ink xl:inline-flex"
         >
           <ChatIcon size={17} strokeWidth={1.8} />

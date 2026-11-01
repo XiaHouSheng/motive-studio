@@ -4,6 +4,8 @@ import type { WorkspaceApi } from "@/features/workspace/use-workspace";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { ImageCropEditor } from "./image-crop-editor";
+import { useT } from "@/lib/i18n/use-i18n";
+import type { DictionaryKey } from "@/lib/i18n/zh-CN";
 import { cn } from "@/lib/utils";
 
 const MAX_IMAGES = 4;
@@ -24,11 +26,25 @@ interface QuestionDraft {
   include: boolean;
 }
 
+/**
+ * 模块级准备函数抛出的错误：消息词条 key 存在实例上，
+ * 由调用方（组件内拿到 t 之后）翻译为当前语言的提示。
+ */
+class ImagePrepareError extends Error {
+  constructor(
+    readonly messageKey: DictionaryKey,
+    readonly params?: Record<string, string | number>,
+  ) {
+    super(messageKey);
+    this.name = "ImagePrepareError";
+  }
+}
+
 function readAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("读取图片失败"));
+    reader.onerror = () => reject(new ImagePrepareError("import.readFailed"));
     reader.readAsDataURL(file);
   });
 }
@@ -37,7 +53,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("图片解析失败"));
+    image.onerror = () => reject(new ImagePrepareError("import.decodeFailed"));
     image.src = src;
   });
 }
@@ -45,7 +61,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 /** 超长边缩放到 1600px，降低上传体积（保留原始格式） */
 async function prepareFile(file: File): Promise<PreparedImage> {
   if (!SUPPORTED_TYPES.includes(file.type)) {
-    throw new Error(`「${file.name}」格式不支持，仅支持 PNG、JPEG、WebP`);
+    throw new ImagePrepareError("import.unsupportedType", { name: file.name });
   }
 
   const original = await readAsDataUrl(file);
@@ -67,7 +83,7 @@ async function prepareFile(file: File): Promise<PreparedImage> {
 
   const base64 = dataUrl.split(",")[1] ?? "";
   if (Math.ceil((base64.length * 3) / 4) > MAX_IMAGE_BYTES) {
-    throw new Error(`「${file.name}」压缩后仍超过 6MB，请裁剪后重试`);
+    throw new ImagePrepareError("import.tooLarge", { name: file.name });
   }
 
   return {
@@ -103,10 +119,11 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
   const [dragging, setDragging] = useState(false);
   const [croppingId, setCroppingId] = useState<string | null>(null);
   const [attachImages, setAttachImages] = useState(true);
+  const t = useT();
 
   const open = imageImportGroupId !== null;
   const groupTitle =
-    groups.find((group) => group.id === imageImportGroupId)?.title ?? "题组";
+    groups.find((group) => group.id === imageImportGroupId)?.title ?? t("groups.title");
 
   useEffect(() => {
     if (!open) {
@@ -136,7 +153,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
   const handleCropApplied = (dataUrl: string) => {
     const base64 = dataUrl.split(",")[1] ?? "";
     if (Math.ceil((base64.length * 3) / 4) > MAX_IMAGE_BYTES) {
-      setLocalError("裁剪结果仍超过 6MB，请缩小选区后重试");
+      setLocalError(t("import.cropStillTooLarge"));
       return;
     }
     setImages((current) =>
@@ -160,7 +177,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
 
     const remaining = MAX_IMAGES - images.length;
     if (remaining <= 0) {
-      setLocalError(`单次最多上传 ${MAX_IMAGES} 张图片`);
+      setLocalError(t("import.maxImages", { count: MAX_IMAGES }));
       return;
     }
 
@@ -168,12 +185,18 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
       const prepared = await Promise.all(list.slice(0, remaining).map(prepareFile));
       setImages((current) => [...current, ...prepared]);
       if (list.length > remaining) {
-        setLocalError(`单次最多上传 ${MAX_IMAGES} 张图片，已忽略多余图片`);
+        setLocalError(t("import.maxImagesIgnored", { count: MAX_IMAGES }));
       }
     } catch (prepareError) {
-      setLocalError(
-        prepareError instanceof Error ? prepareError.message : "图片处理失败",
-      );
+      if (prepareError instanceof ImagePrepareError) {
+        setLocalError(t(prepareError.messageKey, prepareError.params));
+      } else {
+        setLocalError(
+          prepareError instanceof Error
+            ? prepareError.message
+            : t("import.processFailed"),
+        );
+      }
     }
   };
 
@@ -194,7 +217,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
 
   const handleAnalyze = async () => {
     if (images.length === 0) {
-      setLocalError("请先选择题目截图");
+      setLocalError(t("import.selectFirst"));
       return;
     }
     setLocalError(null);
@@ -213,7 +236,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
       .map((draft) => draft.content.trim())
       .filter(Boolean);
     if (contents.length === 0) {
-      setLocalError("请至少勾选一道题目");
+      setLocalError(t("import.selectAtLeastOne"));
       return;
     }
     setLocalError(null);
@@ -236,13 +259,13 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
       onClose={() => {
         if (!busy) closeImageImport();
       }}
-      title="按图片导入题目"
-      description={`识别截图中的题目并创建到「${groupTitle}」，识别结果可先修改再确认。`}
+      title={t("groups.importTitle")}
+      description={t("import.description", { group: groupTitle })}
       className="max-w-[640px]"
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-[11px] text-ink-faint">
-            需要模型支持图片输入；公式会以 LaTeX 保留。
+            {t("import.modelHint")}
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -251,7 +274,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
               onClick={closeImageImport}
               disabled={busy}
             >
-              取消
+              {t("import.cancel")}
             </Button>
             {drafts.length > 0 ? (
               <Button
@@ -261,7 +284,9 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
                 disabled={busy || selectedCount === 0}
               >
                 {imageImportCreating ? <Loader2 size={13} className="animate-spin" /> : null}
-                {imageImportCreating ? "创建中…" : `创建 ${selectedCount} 道题目`}
+                {imageImportCreating
+                  ? t("import.creating")
+                  : t("import.createCount", { count: selectedCount })}
               </Button>
             ) : (
               <Button
@@ -275,7 +300,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
                 ) : (
                   <ScanLine size={13} />
                 )}
-                {imageImportAnalyzing ? "识别中…" : "识别题目"}
+                {imageImportAnalyzing ? t("import.analyzing") : t("import.analyze")}
               </Button>
             )}
           </div>
@@ -301,10 +326,10 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
         >
           <ImagePlus size={22} strokeWidth={1.6} className="text-ink-faint" />
           <p className="text-[12.5px] text-ink-soft">
-            拖入、粘贴（Ctrl/Cmd+V）或选择题目截图
+            {t("import.dropHint")}
           </p>
           <p className="text-[11px] text-ink-faint">
-            支持 PNG / JPEG / WebP，单次最多 {MAX_IMAGES} 张
+            {t("import.supportHint", { count: MAX_IMAGES })}
           </p>
           <input
             ref={inputRef}
@@ -325,7 +350,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
             onClick={() => inputRef.current?.click()}
           >
             <Upload size={13} />
-            选择图片
+            {t("import.chooseImages")}
           </Button>
         </div>
 
@@ -346,7 +371,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
                 />
                 <button
                   type="button"
-                  aria-label={`裁剪 ${image.filename}`}
+                  aria-label={t("import.cropAria", { name: image.filename })}
                   disabled={busy}
                   onClick={() => setCroppingId(image.id)}
                   className="absolute top-1 left-1 inline-flex h-6 w-6 items-center justify-center rounded-md bg-black/55 text-white transition-colors hover:bg-brand/80"
@@ -355,7 +380,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
                 </button>
                 <button
                   type="button"
-                  aria-label={`移除 ${image.filename}`}
+                  aria-label={t("import.removeAria", { name: image.filename })}
                   disabled={busy}
                   onClick={() =>
                     setImages((current) =>
@@ -384,10 +409,8 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
               className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--color-brand)]"
             />
             <span>
-              将截图作为题目上下文
-              <span className="ml-1 text-ink-faint">
-                （附带原图可提升识图题、几何题的解析准确度；关闭后仅用文字题干）
-              </span>
+              {t("import.attachLabel")}
+              <span className="ml-1 text-ink-faint">{t("import.attachHint")}</span>
             </span>
           </label>
         ) : null}
@@ -403,7 +426,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[11.5px] font-medium text-ink-soft">
-                识别结果 · {drafts.length} 道
+                {t("import.resultCount", { count: drafts.length })}
               </span>
               <button
                 type="button"
@@ -413,7 +436,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
                 }}
                 className="text-[11.5px] text-ink-faint transition-colors hover:text-ink"
               >
-                重新识别
+                {t("import.reanalyze")}
               </button>
             </div>
             <div className="space-y-2">
@@ -429,7 +452,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
                     <input
                       type="checkbox"
                       checked={draft.include}
-                      aria-label={`导入第 ${index + 1} 道题目`}
+                      aria-label={t("import.draftIncludeAria", { index: index + 1 })}
                       onChange={(event) =>
                         setDrafts((current) =>
                           current.map((item) =>
@@ -442,7 +465,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
                       className="h-3.5 w-3.5 accent-[var(--color-brand)]"
                     />
                     <span className="text-[11px] text-ink-faint">
-                      第 {index + 1} 道
+                      {t("import.draftIndex", { index: index + 1 })}
                     </span>
                   </div>
                   <textarea
@@ -457,7 +480,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
                         ),
                       )
                     }
-                    aria-label={`第 ${index + 1} 道题目内容`}
+                    aria-label={t("import.draftContentAria", { index: index + 1 })}
                     className="w-full resize-y rounded border border-line bg-panel px-2 py-1.5 text-[12.5px] leading-relaxed text-ink outline-none focus:border-brand/50"
                   />
                 </div>

@@ -2,15 +2,19 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Check, Monitor, Moon, Sun } from "lucide-react";
 import { useThemeStore } from "@/stores/theme";
 import type { ThemeMode } from "@/lib/theme";
+import { useT } from "@/lib/i18n/use-i18n";
+import type { DictionaryKey } from "@/lib/i18n/zh-CN";
 import { cn } from "@/lib/utils";
 
-const options: Array<{ mode: ThemeMode; label: string; icon: typeof Sun }> = [
-  { mode: "light", label: "浅色", icon: Sun },
-  { mode: "dark", label: "深色", icon: Moon },
-  { mode: "system", label: "跟随系统", icon: Monitor },
+// label 存词条 key，渲染时再通过 t() 取当前语言的文案
+const options: Array<{ mode: ThemeMode; labelKey: DictionaryKey; icon: typeof Sun }> = [
+  { mode: "light", labelKey: "theme.light", icon: Sun },
+  { mode: "dark", labelKey: "theme.dark", icon: Moon },
+  { mode: "system", labelKey: "theme.system", icon: Monitor },
 ];
 
 export function ThemeMenu() {
+  const t = useT();
   const mode = useThemeStore((state) => state.mode);
   const setMode = useThemeStore((state) => state.setMode);
   const TriggerIcon = mode === "light" ? Sun : mode === "dark" ? Moon : Monitor;
@@ -20,7 +24,7 @@ export function ThemeMenu() {
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          aria-label="切换主题"
+          aria-label={t("theme.toggleAria")}
           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-selection hover:text-ink data-[state=open]:bg-selection data-[state=open]:text-ink"
         >
           <TriggerIcon size={16} strokeWidth={1.8} />
@@ -33,13 +37,13 @@ export function ThemeMenu() {
           className="z-50 min-w-[168px] rounded-xl border border-line bg-elevated p-1 shadow-soft"
         >
           <DropdownMenu.Label className="px-2.5 pt-1.5 pb-1 text-[10.5px] font-semibold tracking-[0.08em] text-ink-faint uppercase">
-            外观
+            {t("theme.appearance")}
           </DropdownMenu.Label>
           <DropdownMenu.RadioGroup
             value={mode}
             onValueChange={(value) => setMode(value as ThemeMode)}
           >
-            {options.map(({ mode: value, label, icon: Icon }) => (
+            {options.map(({ mode: value, labelKey, icon: Icon }) => (
               <DropdownMenu.RadioItem
                 key={value}
                 value={value}
@@ -50,7 +54,7 @@ export function ThemeMenu() {
                 )}
               >
                 <Icon size={14} strokeWidth={1.8} className="text-ink-faint" />
-                <span className="flex-1">{label}</span>
+                <span className="flex-1">{t(labelKey)}</span>
                 <DropdownMenu.ItemIndicator>
                   <Check size={13} strokeWidth={2.2} className="text-brand" />
                 </DropdownMenu.ItemIndicator>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { Check, Crop, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n/use-i18n";
 import { cn } from "@/lib/utils";
 
 const MIN_SIZE = 48;
@@ -117,6 +118,7 @@ export function ImageCropEditor({
   onCancel,
   onApply,
 }: ImageCropEditorProps) {
+  const t = useT();
   const stageRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -259,7 +261,7 @@ export function ImageCropEditor({
       onApply(canvas.toDataURL(mime, mime === "image/png" ? undefined : 0.92));
     } catch {
       setApplying(false);
-      setError("裁剪失败，请重试");
+      setError(t("crop.failed"));
     }
   };
 
@@ -268,14 +270,14 @@ export function ImageCropEditor({
       <header className="flex items-center justify-between gap-3 px-4 py-3">
         <div className="flex items-center gap-2">
           <Crop size={16} className="text-brand" />
-          <span className="text-[13px] font-medium text-ink">裁剪图片</span>
+          <span className="text-[13px] font-medium text-ink">{t("crop.title")}</span>
         </div>
         <span className="hidden text-[11px] text-ink-faint sm:block">
-          拖动选框调整区域，拖动边角手柄缩放
+          {t("crop.hint")}
         </span>
         <button
           type="button"
-          aria-label="关闭裁剪编辑器"
+          aria-label={t("crop.closeAria")}
           onClick={onCancel}
           className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-white/10 hover:text-ink"
         >
@@ -297,7 +299,7 @@ export function ImageCropEditor({
           alt={filename}
           draggable={false}
           onLoad={measure}
-          onError={() => setError("图片加载失败，请返回后重试")}
+          onError={() => setError(t("crop.loadFailed"))}
           className="pointer-events-none absolute"
           style={
             bounds
@@ -360,7 +362,7 @@ export function ImageCropEditor({
         </span>
         <div className="flex shrink-0 items-center gap-2">
           <Button variant="ghost" size="sm" onClick={onCancel}>
-            取消
+            {t("crop.cancel")}
           </Button>
           <Button
             variant="primary"
@@ -373,7 +375,7 @@ export function ImageCropEditor({
             ) : (
               <Check size={13} />
             )}
-            {applying ? "裁剪中…" : "确认裁剪"}
+            {applying ? t("crop.applying") : t("crop.confirm")}
           </Button>
         </div>
       </footer>

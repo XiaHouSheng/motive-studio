@@ -18,6 +18,8 @@ import type {
   SolutionExplanation,
 } from "@motive/shared";
 import { useUiStore } from "@/stores/ui";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import type { DictionaryKey } from "@/lib/i18n/zh-CN";
 import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { WorkspaceApi } from "@/features/workspace/use-workspace";
@@ -30,17 +32,20 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { StepCard } from "./step-card";
 import { RevisionHistoryDialog } from "./revision-history-dialog";
 
-const policyLabels: Record<ImagePolicy, string> = {
-  auto: "自动（按模型能力）",
-  always: "始终附带",
-  never: "不附带",
+const policyLabels: Record<ImagePolicy, DictionaryKey> = {
+  auto: "solution.policy.auto",
+  always: "solution.policy.always",
+  never: "solution.policy.never",
 };
 
-const statusMeta: Record<ExplanationStatus, { label: string; tone: "neutral" | "brand" | "success" | "danger" | "warning" }> = {
-  pending: { label: "等待执行", tone: "neutral" },
-  processing: { label: "正在生成", tone: "brand" },
-  completed: { label: "已完成", tone: "success" },
-  failed: { label: "生成失败", tone: "danger" },
+const statusMeta: Record<
+  ExplanationStatus,
+  { label: DictionaryKey; tone: "neutral" | "brand" | "success" | "danger" | "warning" }
+> = {
+  pending: { label: "solution.status.pending", tone: "neutral" },
+  processing: { label: "solution.status.processing", tone: "brand" },
+  completed: { label: "solution.status.completed", tone: "success" },
+  failed: { label: "solution.status.failed", tone: "danger" },
 };
 
 function ExplanationCard({
@@ -53,6 +58,7 @@ function ExplanationCard({
   defaultOpen: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const { t, locale } = useI18n();
   const meta = statusMeta[explanation.status];
 
   return (
@@ -64,10 +70,12 @@ function ExplanationCard({
 
         <div className="min-w-0 flex-1 pt-0.5">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-[13.5px] leading-snug font-semibold text-ink">题目详解</h3>
-            <Badge tone={meta.tone}>{meta.label}</Badge>
+            <h3 className="text-[13.5px] leading-snug font-semibold text-ink">
+              {t("solution.explanation.title")}
+            </h3>
+            <Badge tone={meta.tone}>{t(meta.label)}</Badge>
             <span className="text-[11px] text-ink-faint">
-              {formatTime(explanation.createdAt)}
+              {formatTime(explanation.createdAt, locale)}
             </span>
           </div>
         </div>
@@ -77,7 +85,7 @@ function ExplanationCard({
             size={13}
             className={cn("transition-transform duration-150", open && "rotate-180")}
           />
-          {open ? "收起" : "展开"}
+          {open ? t("solution.collapse") : t("solution.expand")}
         </Button>
       </div>
 
@@ -89,10 +97,13 @@ function ExplanationCard({
           </div>
         ) : null}
         <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-faint">
-          <span>纳入 {explanation.turnIds.length} 轮讨论</span>
+          <span>{t("solution.explanation.turns", { count: explanation.turnIds.length })}</span>
           {explanation.usage ? (
             <span>
-              消耗 {explanation.usage.inputTokens} 输入 / {explanation.usage.outputTokens} 输出
+              {t("solution.explanation.usage", {
+                input: explanation.usage.inputTokens,
+                output: explanation.usage.outputTokens,
+              })}
             </span>
           ) : null}
         </div>
@@ -128,6 +139,7 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
   const activeStepId = useUiStore((state) => state.activeStepId);
   const openDiscussion = useUiStore((state) => state.openDiscussion);
   const openSettings = useUiStore((state) => state.openSettings);
+  const { t, locale } = useI18n();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [revisionOpen, setRevisionOpen] = useState(false);
   const [previewAsset, setPreviewAsset] = useState<QuestionAsset | null>(null);
@@ -155,11 +167,11 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
       <div className="flex h-full items-center justify-center px-6">
         <EmptyState
           icon={BookOpen}
-          title={selectedGroup ? "选择一个题目开始" : "选择或新建一个题组"}
+          title={selectedGroup ? t("solution.empty.selectQuestion") : t("solution.empty.selectGroup")}
           description={
             selectedGroup
-              ? "从左侧题目列表中选择一道题，正式题解与讨论会显示在这里。"
-              : "题组和题目都在左侧导航中管理。"
+              ? t("solution.empty.selectQuestionDesc")
+              : t("solution.empty.selectGroupDesc")
           }
         />
       </div>
@@ -169,7 +181,7 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
   return (
     <div className="mx-auto w-full max-w-[780px] px-5 pt-7 pb-20 sm:px-8 lg:px-10">
       <div className="flex items-center gap-2 text-[10.5px] font-semibold tracking-[0.1em] text-ink-faint uppercase">
-        <span>题目</span>
+        <span>{t("solution.question.label")}</span>
         {selectedGroup ? (
           <span className="font-normal tracking-normal normal-case">· {selectedGroup.title}</span>
         ) : null}
@@ -186,19 +198,19 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
               key={asset.id}
               type="button"
               onClick={() => setPreviewAsset(asset)}
-              title="查看原图"
+              title={t("solution.asset.viewOriginal")}
               className="h-16 w-16 overflow-hidden rounded-md border border-line bg-field transition-colors hover:border-brand/50"
             >
               <img
                 src={asset.url}
-                alt="题目原图"
+                alt={t("solution.asset.original")}
                 loading="lazy"
                 className="h-full w-full object-cover"
               />
             </button>
           ))}
           <label className="ml-auto inline-flex items-center gap-1.5 text-[11.5px] text-ink-faint">
-            图片
+            {t("solution.asset.imageLabel")}
             <select
               value={question.imagePolicy}
               onChange={(event) =>
@@ -208,7 +220,7 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
             >
               {(Object.keys(policyLabels) as ImagePolicy[]).map((policy) => (
                 <option key={policy} value={policy}>
-                  {policyLabels[policy]}
+                  {t(policyLabels[policy])}
                 </option>
               ))}
             </select>
@@ -219,26 +231,28 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
       {question.imagePolicy === "always" && providerSupportsVision === false ? (
         <div className="mt-2.5 flex flex-wrap items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-[11.5px] text-warning">
           <AlertCircle size={13} className="shrink-0" />
-          <span className="min-w-0 flex-1">
-            当前模型未声明支持图片输入，「始终附带」会直接报错。
-          </span>
+          <span className="min-w-0 flex-1">{t("solution.warning.vision")}</span>
           <button
             type="button"
             onClick={openSettings}
             className="shrink-0 font-medium underline underline-offset-2 transition-opacity hover:opacity-80"
           >
-            去设置
+            {t("solution.warning.openSettings")}
           </button>
         </div>
       ) : null}
 
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11.5px] text-ink-faint">
-        <span>{steps.length > 0 ? `${steps.length} 个步骤` : "尚无步骤"}</span>
+        <span>
+          {steps.length > 0
+            ? t("solution.steps.count", { count: steps.length })
+            : t("solution.steps.none")}
+        </span>
         <span className="h-3 w-px bg-line" />
-        <span>更新于 {formatTime(question.updatedAt)}</span>
+        <span>{t("solution.updatedAt", { time: formatTime(question.updatedAt, locale) })}</span>
         {steps.length > 0 ? (
           <Badge tone="success" className="ml-1">
-            正式题解已生成
+            {t("solution.badge.generated")}
           </Badge>
         ) : null}
       </div>
@@ -247,44 +261,54 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-brand/30 bg-brand/8 px-3 py-2.5">
           <Archive size={13} strokeWidth={1.9} className="shrink-0 text-brand" />
           <span className="text-[12px] font-medium text-ink-soft">
-            有 {pendingProposal.changes.length} 项待确认的归档提案
+            {t("solution.proposal.pending", { count: pendingProposal.changes.length })}
           </span>
           <span className="min-w-0 flex-1 truncate text-[11px] text-ink-faint">
             {pendingProposal.summary}
           </span>
           <Button variant="secondary" size="sm" onClick={openArchiveDialog}>
-            查看提案
+            {t("solution.proposal.view")}
           </Button>
         </div>
       ) : null}
 
       <section className="mt-8">
         <div className="mb-2.5 flex items-center gap-2">
-          <h2 className="text-[12px] font-semibold tracking-[0.06em] text-ink-soft">题目详解</h2>
-          <span className="text-[11px] text-ink-faint">融入了讨论中的疑问</span>
+          <h2 className="text-[12px] font-semibold tracking-[0.06em] text-ink-soft">
+            {t("solution.explanation.title")}
+          </h2>
+          <span className="text-[11px] text-ink-faint">{t("solution.explanation.subtitle")}</span>
           <div className="ml-auto flex items-center gap-1.5">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => exportQuestionMarkdown(question.id)}
-              title="导出本题详解与分步题解（Markdown）"
+              title={t("solution.export.title")}
             >
               <Download size={13} strokeWidth={1.9} />
-              导出
+              {t("solution.export.action")}
             </Button>
             <Button
               variant="secondary"
               size="sm"
               onClick={() => void generateExplanation()}
               disabled={generatingExplanation || steps.length === 0}
-              title={steps.length === 0 ? "请先生成分步题解" : "把讨论中的疑问融入一篇完整详解"}
+              title={
+                steps.length === 0
+                  ? t("solution.explanation.needSteps")
+                  : t("solution.explanation.tooltip")
+              }
             >
               {generatingExplanation ? (
                 <Loader2 size={13} className="animate-spin" />
               ) : (
                 <Sparkles size={13} />
               )}
-              {generatingExplanation ? "正在生成…" : explanations.length > 0 ? "重新生成详解" : "生成详解"}
+              {generatingExplanation
+                ? t("solution.explanation.generating")
+                : explanations.length > 0
+                  ? t("solution.explanation.regenerate")
+                  : t("solution.explanation.generate")}
             </Button>
           </div>
         </div>
@@ -309,9 +333,11 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
           <div className="flex items-start gap-2.5 rounded-xl border border-dashed border-line px-4 py-3.5">
             <CircleHelp size={15} strokeWidth={1.8} className="mt-0.5 shrink-0 text-ink-faint" />
             <div className="space-y-0.5">
-              <p className="text-[12.5px] font-medium text-ink-soft">尚无详解</p>
+              <p className="text-[12.5px] font-medium text-ink-soft">
+                {t("solution.explanation.empty.title")}
+              </p>
               <p className="text-[12px] leading-relaxed text-ink-faint">
-                在步骤讨论中追问你的疑问，之后可在这里生成一份融入讨论的完整详解。
+                {t("solution.explanation.empty.description")}
               </p>
             </div>
           </div>
@@ -320,9 +346,13 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
 
       <section className="mt-8">
         <div className="mb-2.5 flex items-center gap-2">
-          <h2 className="text-[12px] font-semibold tracking-[0.06em] text-ink-soft">分步题解</h2>
+          <h2 className="text-[12px] font-semibold tracking-[0.06em] text-ink-soft">
+            {t("solution.section.steps")}
+          </h2>
           {steps.length > 0 ? (
-            <span className="text-[11px] text-ink-faint">共 {steps.length} 步</span>
+            <span className="text-[11px] text-ink-faint">
+              {t("solution.steps.total", { count: steps.length })}
+            </span>
           ) : null}
           {steps.length > 0 ? (
             <div className="ml-auto flex items-center gap-1.5">
@@ -333,7 +363,7 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
                 disabled={generatingSolution}
               >
                 <History size={13} strokeWidth={1.9} />
-                版本历史
+                {t("solution.history.action")}
               </Button>
               <Button
                 variant="secondary"
@@ -346,7 +376,7 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
                 ) : (
                   <Sparkles size={13} />
                 )}
-                {generatingSolution ? "正在重新生成…" : "重新生成"}
+                {generatingSolution ? t("solution.regenerating") : t("solution.regenerate")}
               </Button>
             </div>
           ) : null}
@@ -362,7 +392,7 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
                 onClick={openSettings}
                 className="shrink-0 font-medium underline underline-offset-2 transition-opacity hover:opacity-80"
               >
-                配置模型
+                {t("solution.error.configureModel")}
               </button>
             ) : null}
           </div>
@@ -384,8 +414,8 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
           <div className="space-y-2.5">
             <EmptyState
               icon={ListChecks}
-              title="尚未生成正式题解"
-              description="生成分步题解后，就可以围绕不懂的步骤展开讨论。"
+              title={t("solution.empty.noSolution")}
+              description={t("solution.empty.noSolutionDesc")}
               compact
               className="rounded-xl border border-dashed border-line"
             />
@@ -401,7 +431,7 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
                 ) : (
                   <Sparkles size={13} />
                 )}
-                {generatingSolution ? "正在生成题解…" : "生成分步题解"}
+                {generatingSolution ? t("solution.generating") : t("solution.generate")}
               </Button>
             </div>
           </div>
@@ -411,12 +441,12 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
       <Dialog
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
-        title="重新生成题解？"
-        description={`将覆盖当前 ${steps.length} 个步骤，并删除这些步骤下的全部讨论记录，此操作不可撤销。`}
+        title={t("solution.confirm.title")}
+        description={t("solution.confirm.description", { count: steps.length })}
         footer={
           <div className="flex justify-end gap-2">
             <Button variant="secondary" size="sm" onClick={() => setConfirmOpen(false)}>
-              取消
+              {t("solution.cancel")}
             </Button>
             <Button
               variant="primary"
@@ -427,26 +457,26 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
               }}
             >
               <Sparkles size={13} />
-              确认重新生成
+              {t("solution.confirm.action")}
             </Button>
           </div>
         }
       >
         <p className="text-[12px] leading-relaxed text-ink-soft">
-          生成过程会调用当前配置的模型，完成后正式题解将被新步骤替换。
+          {t("solution.confirm.body")}
         </p>
       </Dialog>
 
       <Dialog
         open={previewAsset !== null}
         onClose={() => setPreviewAsset(null)}
-        title="题目原图"
+        title={t("solution.asset.original")}
         className="max-w-[820px]"
       >
         {previewAsset ? (
           <img
             src={previewAsset.url}
-            alt="题目原图"
+            alt={t("solution.asset.original")}
             className="mx-auto max-h-[70vh] w-auto rounded-lg border border-line"
           />
         ) : null}

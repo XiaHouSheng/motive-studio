@@ -1,6 +1,7 @@
 import { MessageCircle, MessageSquarePlus } from "lucide-react";
 import type { SolutionStep } from "@motive/shared";
 import { Markdown } from "@/components/shared/markdown";
+import { useT } from "@/lib/i18n/use-i18n";
 import { cn } from "@/lib/utils";
 
 interface StepCardProps {
@@ -11,6 +12,8 @@ interface StepCardProps {
 }
 
 export function StepCard({ step, active, discussionCount, onDiscuss }: StepCardProps) {
+  const t = useT();
+
   return (
     <article
       className={cn(
@@ -47,7 +50,7 @@ export function StepCard({ step, active, discussionCount, onDiscuss }: StepCardP
           )}
         >
           <MessageSquarePlus size={13} strokeWidth={1.9} />
-          {active ? "讨论中" : "进入讨论"}
+          {active ? t("steps.discussing") : t("steps.enterDiscussion")}
         </button>
       </div>
 
@@ -56,7 +59,7 @@ export function StepCard({ step, active, discussionCount, onDiscuss }: StepCardP
         {discussionCount > 0 ? (
           <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-ink-faint">
             <MessageCircle size={11.5} strokeWidth={1.9} />
-            {discussionCount} 轮讨论关联此步
+            {t("steps.discussionCount", { count: discussionCount })}
           </div>
         ) : null}
       </div>
