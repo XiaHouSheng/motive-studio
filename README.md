@@ -195,10 +195,57 @@ data/
 | `npm run dev` | 同时启动前端（5173）与后端（3001），支持热更新 |
 | `npm run dev:web` | 仅启动前端 |
 | `npm run dev:server` | 仅启动后端 |
+| `npm run dev:desktop` | 桌面开发模式（复用现有开发服务 + Electron 窗口） |
 | `npm run build` | 构建前端产物（含 `tsc` 类型检查） |
+| `npm run build:desktop` | 构建前端产物与服务端桌面 Bundle |
+| `npm run dist:desktop` | 一键打包 Windows 桌面应用（NSIS + Portable） |
 | `npm start` | 生产模式启动后端并托管前端 |
 | `npm run typecheck` | 全仓 TypeScript 类型检查 |
 | `npm run test` | 运行全部单元与集成测试（Vitest） |
+
+## 桌面应用
+
+Motive Studio 提供基于 Electron 的 Windows 桌面版（NSIS 安装版与 Portable 便携版）。桌面版内嵌既有 Express 服务端（运行于 Electron Utility Process），业务代码与 Web 版完全共享，不改变任何 API 协议与数据模型。
+
+### 开发与打包
+
+```bash
+npm run dev:desktop    # 桌面开发模式：复用现有 web + server 开发服务，Electron 加载 Vite 页面
+npm run build:desktop  # 构建前端产物 + 服务端自包含 Bundle（esbuild）
+npm run dist:desktop   # 一键打包：构建 + electron-builder，产物输出至 apps/desktop/release/
+```
+
+### 运行形态与数据目录
+
+- **NSIS 安装版**：按用户安装（无需管理员），支持覆盖升级，卸载保留用户数据；
+- **Portable 便携版**：单文件直接运行，替换或删除 EXE 不影响数据；
+- 两种形态共享同一数据目录 `%APPDATA%/Motive Studio`：
+
+```text
+Motive Studio/
+├─ motive.db      # SQLite 数据库（WAL 模式）
+├─ uploads/       # 题目图片
+├─ secrets/       # 加密凭据文件（Windows DPAPI）
+├─ logs/          # 桌面运行日志
+└─ backups/       # 备份目录
+```
+
+### 桌面专属行为
+
+- 主 API 仅监听 `127.0.0.1`，端口由操作系统动态分配（环境变量 `MOTIVE_PORT` 可指定，被占用即启动失败并明确报错）；
+- 手机拍照导入默认关闭局域网监听：点击「手机拍照」后才在独立端口启动仅含移动路由的监听（完整 API 不暴露局域网），空闲 30 分钟自动关闭并清空配对凭证；
+- 关闭窗口即退出应用，服务端优雅关闭（等待在途流式请求，5 秒超时强制清理）；
+- 渲染进程运行于沙箱（Context Isolation 开启、无 Node API），外部链接经系统浏览器打开。
+
+### 网络受限环境构建
+
+Electron 与 electron-builder 二进制下载支持镜像环境变量（仅改变下载来源，按需在命令行注入，不写入仓库）：
+
+```bash
+ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/
+ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/
+NODE_OPTIONS=--use-system-ca   # 存在 TLS 证书拦截的环境
+```
 
 ## 手机拍照导入
 
@@ -255,13 +302,19 @@ motive-studio/
 │  │     ├─ components/          # 共享组件与 Markdown 渲染
 │  │     ├─ stores/              # Zustand 状态
 │  │     └─ lib/                 # API 客户端与工具函数
-│  └─ server/                    # Express API 服务
-│     └─ src/
-│        ├─ routes/              # REST / SSE 路由
-│        ├─ services/            # AI、凭据、图片、归档、导出、移动会话
-│        ├─ repositories/        # 数据访问
-│        ├─ db/                  # 迁移、示例数据、连接管理
-│        └─ mobile/page.ts       # 手机拍照页（单文件内嵌资源）
+│  ├─ server/                    # Express API 服务
+│  │  └─ src/
+│  │     ├─ routes/              # REST / SSE 路由
+│  │     ├─ services/            # AI、凭据、图片、归档、导出、移动会话
+│  │     ├─ repositories/        # 数据访问
+│  │     ├─ db/                  # 迁移、示例数据、连接管理
+│  │     ├─ desktop.ts           # 桌面版服务端入口（Electron Utility Process 加载）
+│  │     └─ mobile/page.ts       # 手机拍照页（单文件内嵌资源）
+│  └─ desktop/                   # Electron 桌面壳
+│     ├─ main/                   # 主进程与 Utility Process 入口
+│     ├─ scripts/                # 运行时验证 / 打包 / 图标 / 开发编排
+│     ├─ build/                  # 打包资源（icon.ico）
+│     └─ dist/                   # 构建产物（server bundle，gitignore）
 ├─ packages/shared/              # 前后端共享类型与协议
 ├─ scripts/                      # dev / start 启动脚本
 ├─ docs/screenshots/             # README 截图
