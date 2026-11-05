@@ -35,7 +35,7 @@ export function StepCard({ step, active, discussionCount, onDiscuss }: StepCardP
           {step.order}
         </span>
 
-        <h3 className="min-w-0 flex-1 pt-0.5 text-[13.5px] leading-snug font-semibold text-ink">
+        <h3 className="min-w-0 flex-1 pt-0.5 text-[length:calc(var(--md-font-size,15px)*0.9)] leading-snug font-semibold text-ink">
           {step.title}
         </h3>
 

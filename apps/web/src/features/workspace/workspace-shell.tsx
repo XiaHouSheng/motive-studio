@@ -90,7 +90,7 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
   }
 
   return (
-    <div className="flex h-dvh min-h-0 flex-col bg-surface text-ink">
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-surface text-ink">
       <TopBar workspace={workspace} />
 
       {workspace.error ? (
@@ -147,7 +147,9 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
         <div
           className={cn(
             "hidden h-full shrink-0 transition-opacity duration-(--duration-normal) ease-(--ease-standard) xl:block",
-            chatVisible ? "opacity-100" : "pointer-events-none opacity-0",
+            // 收起时把手一并归零：残留的 4px 占位会撑出文档级横向滚动条，
+            // 横向滚动条再压缩 h-dvh 可用高度引发纵向滚动条，两者互相自持
+            chatVisible ? "opacity-100" : "w-0 overflow-hidden pointer-events-none opacity-0",
           )}
           aria-hidden={!chatVisible}
           inert={!chatVisible}
@@ -166,7 +168,8 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
         <aside
           className={cn(
             "hidden shrink-0 overflow-hidden bg-panel transition-[width,border-color] duration-(--duration-normal) ease-(--ease-standard) xl:flex xl:flex-col",
-            chatVisible ? "border-l border-line" : "border-l border-transparent",
+            // 收起时去左边框：width:0 仍会被 border 撑出约 1px 占位
+            chatVisible ? "border-l border-line" : "border-l-0",
           )}
           style={{
             width: chatVisible ? chatWidth : 0,
