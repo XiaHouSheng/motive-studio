@@ -255,6 +255,39 @@ describe("手机拍照导入（凭证机制）", () => {
     expect(JSON.stringify(parts).includes("data:image/png;base64,iVBORw0KGgo=")).toBe(true);
   });
 
+  it("附加要求随拍照识别请求透传给模型", async () => {
+    upstream = await startUpstream(() => JSON.stringify({ questions: [] }));
+    await configureProvider(app, upstream);
+    const token = await registerLink(app);
+
+    const response = await mobileApi(app, token, "/api/mobile/extract", {
+      images: [IMAGE],
+      extraPrompt: " 只要第 5–8 题 ",
+    });
+    expect(response.status).toBe(200);
+
+    expect(upstream.bodies).toHaveLength(1);
+    const messages = upstream.bodies[0].messages as Array<{ role: string; content: unknown }>;
+    expect(String(messages[0].content)).toContain("题目录入助手");
+    const parts = messages[1].content as Array<{ type: string; text?: string }>;
+    const text = parts.find((part) => part.type === "text")?.text ?? "";
+    expect(text).toBe("请转写这张图片中的全部题目。\n\n用户附加要求：只要第 5–8 题");
+  });
+
+  it("附加要求超长时识别返回 400 且不请求模型", async () => {
+    upstream = await startUpstream(() => JSON.stringify({ questions: [] }));
+    await configureProvider(app, upstream);
+    const token = await registerLink(app);
+
+    const response = await mobileApi(app, token, "/api/mobile/extract", {
+      images: [IMAGE],
+      extraPrompt: "a".repeat(2001),
+    });
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe("INVALID_FIELD");
+    expect(upstream.bodies).toHaveLength(0);
+  });
+
   it("未配置 API Key 时识别返回 400", async () => {
     const token = await registerLink(app);
     const response = await mobileApi(app, token, "/api/mobile/extract", { images: [IMAGE] });

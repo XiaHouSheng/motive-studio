@@ -124,6 +124,13 @@ export function renderMobilePage(): string {
     font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   }
   .target { border: 1px solid var(--border); border-radius: 10px; background: var(--panel); padding: 14px; }
+  .sub-inline { font-size: 12px; font-weight: 400; color: var(--muted); }
+  .prompt-box textarea {
+    width: 100%; min-height: 72px; resize: vertical;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+    color: var(--text); font-size: 16px; line-height: 1.5; padding: 10px;
+    font-family: inherit;
+  }
   .radio { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; }
   .radio input[type="radio"] { width: 20px; height: 20px; accent-color: var(--primary); }
   select, .target input[type="text"] {
@@ -165,6 +172,13 @@ export function renderMobilePage(): string {
   </div>
   <button type="button" class="primary" id="btn-extract" disabled>识别题目</button>
   <p class="hint" id="count-hint">已选 0 / 4 张，自动压缩后识别</p>
+</section>
+
+<section id="step-prompt" class="hidden">
+  <h2>识别要求 <span class="sub-inline">可选，仅本次导入有效</span></h2>
+  <div class="prompt-box">
+    <textarea id="extra-prompt" placeholder="例如：只要第 5–8 题；只转写选择题"></textarea>
+  </div>
 </section>
 
 <section id="step-target">
@@ -243,6 +257,7 @@ export function renderMobilePage(): string {
   var MAX_BYTES = 4 * 1024 * 1024;
   var CROP_MIN = 48;
   var CROP_PAD = 16;
+  var MAX_EXTRA_PROMPT = 2000;
   var token = new URLSearchParams(location.search).get('t') || '';
   var state = {
     status: 'idle',
@@ -264,6 +279,7 @@ export function renderMobilePage(): string {
   function setStatus(next) {
     state.status = next;
     el('step-capture').classList.toggle('hidden', next !== 'idle');
+    el('step-prompt').classList.toggle('hidden', next !== 'idle' && next !== 'preview');
     el('step-target').classList.toggle('hidden', next !== 'idle' && next !== 'preview');
     el('step-progress').classList.toggle('hidden', next !== 'recognizing' && next !== 'committing');
     el('step-preview').classList.toggle('hidden', next !== 'preview');
@@ -466,11 +482,19 @@ export function renderMobilePage(): string {
     if (state.images.length === 0) return;
     // 识别或导入进行中不允许同一会话重复发起请求
     if (state.status === 'recognizing' || state.status === 'committing') return;
+    var extraPrompt = el('extra-prompt').value.trim();
+    if (extraPrompt.length > MAX_EXTRA_PROMPT) {
+      showError('附加要求不能超过 ' + MAX_EXTRA_PROMPT + ' 字符');
+      return;
+    }
     setStatus('recognizing');
     var images = state.images.map(function (img) {
       return { mediaType: img.mediaType, data: img.data };
     });
-    api('/api/mobile/extract', { method: 'POST', body: JSON.stringify({ images: images }) })
+    var payload = { images: images };
+    // 识别要求仅本次导入有效，识别与重新识别共用同一输入框
+    if (extraPrompt) payload.extraPrompt = extraPrompt;
+    api('/api/mobile/extract', { method: 'POST', body: JSON.stringify(payload) })
       .then(function (body) {
         state.questions = (body.questions || []).map(function (text) {
           return { content: text, checked: true };
@@ -541,6 +565,8 @@ export function renderMobilePage(): string {
   el('btn-again').onclick = function () {
     state.images = [];
     state.questions = [];
+    // 新一轮导入会话：清空附加要求
+    el('extra-prompt').value = '';
     renderThumbs();
     setStatus('idle');
     loadGroups().catch(function () { /* 保持当前列表 */ });

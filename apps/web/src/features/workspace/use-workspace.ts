@@ -716,13 +716,13 @@ export function useWorkspace() {
   }, []);
 
   const analyzeImages = useCallback(
-    async (images: Array<{ mediaType: string; data: string }>) => {
+    async (images: Array<{ mediaType: string; data: string }>, extraPrompt?: string) => {
       const groupId = imageImportGroupId;
       if (!groupId) return t("workspace.selectGroupFirst");
       setImageImportAnalyzing(true);
       setImageImportError(null);
       try {
-        const result = await api.importQuestionsFromImages(groupId, images);
+        const result = await api.importQuestionsFromImages(groupId, images, extraPrompt);
         setImageImportQuestions(result.questions);
         return null;
       } catch (analyzeError) {

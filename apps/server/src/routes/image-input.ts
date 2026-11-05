@@ -4,6 +4,29 @@ import { HttpError } from "../http-error.js";
 export const MAX_IMAGES = 4;
 export const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
 export const SUPPORTED_MEDIA_TYPES = ["image/png", "image/jpeg", "image/webp"];
+export const MAX_EXTRA_PROMPT_LENGTH = 2000;
+
+/**
+ * 题目识别附加要求（桌面图片导入与手机拍照导入共用）。
+ * 缺失/空串/纯空白视为未提供；非字符串或超长按 400 拒绝。
+ */
+export function readExtraPrompt(body: Record<string, unknown>): string | undefined {
+  const value = body.extraPrompt;
+  if (value === undefined) return undefined;
+  if (typeof value !== "string") {
+    throw new HttpError(400, "INVALID_FIELD", "附加要求必须是字符串");
+  }
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length > MAX_EXTRA_PROMPT_LENGTH) {
+    throw new HttpError(
+      400,
+      "INVALID_FIELD",
+      `附加要求不能超过 ${MAX_EXTRA_PROMPT_LENGTH} 个字符`,
+    );
+  }
+  return trimmed;
+}
 
 export function readImages(body: Record<string, unknown>): ImportImage[] {
   const rawImages = body.images;
