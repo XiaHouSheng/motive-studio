@@ -202,15 +202,33 @@ function addSoftBreaks(content: string): string {
 }
 
 /**
+ * AI 偶尔用数学星号（∗ U+2217）或全角星号（＊ U+FF0A）代替 ASCII 星号，
+ * 而 remark 只认 ASCII 的 * 作为强调标记，导致加粗/斜体原样显示。
+ * 在非代码、公式与链接片段中把形似星号统一归一化为 ASCII 星号。
+ */
+const ASTERISK_LOOKALIKE = /[∗＊]/g;
+
+export function normalizeAsterisks(content: string): string {
+  return content
+    .split(VERBATIM_SEGMENT)
+    .map((part, index) =>
+      index % 2 === 1 ? part : part.replace(ASTERISK_LOOKALIKE, "*"),
+    )
+    .join("");
+}
+
+/**
  * 兼容 AI 常见的 LaTeX 分隔符：\(…\) 行内、\[…\] 块级。
  * remark-math 只识别 $…$ / $$…$$，模型不守约定时公式会原样显示，这里统一归一化。
  */
 function normalizeMath(content: string): string {
   return splitLongFormulas(
     normalizePlainFormulas(
-      content
-        .replace(/\\\(([\s\S]+?)\\\)/g, (_match, inner: string) => `$${inner}$`)
-        .replace(/\\\[([\s\S]+?)\\\]/g, (_match, inner: string) => `\n\n$$\n${inner}\n$$\n\n`),
+      normalizeAsterisks(
+        content
+          .replace(/\\\(([\s\S]+?)\\\)/g, (_match, inner: string) => `$${inner}$`)
+          .replace(/\\\[([\s\S]+?)\\\]/g, (_match, inner: string) => `\n\n$$\n${inner}\n$$\n\n`),
+      ),
     ),
   );
 }
