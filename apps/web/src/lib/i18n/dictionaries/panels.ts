@@ -176,7 +176,7 @@ export const panelsZh = {
   "settings.mdFontSizePreview": "预览",
   "settings.mdFontSizeReset": "恢复默认",
   "settings.mdFontSizeSample":
-    "## 勾股定理\n\n直角三角形满足 $a^2 + b^2 = c^2$。\n\n1. 设两条直角边为 $a$、$b$\n2. 斜边记为 $c$\n\n> 当 $a=3$、$b=4$ 时，$c=5$。\n\n- 支持**加粗**与 `行内代码`",
+    "## 勾股定理\n\n直角三角形满足 $a^2 + b^2 = c^2$。\n\n1. 设两条直角边为 $a$、$b$\n2. 斜边记为 $c$\n\n> 当 $a=3$、$b=4$ 时，$c=5$。\n\n- 支持**加粗**、∗∗形似星号加粗∗∗与 `行内代码`",
   "settings.promptsIntro": "每个环节都可以自定义 system prompt；留空或恢复默认即使用内置提示词。自定义内容会随每次生成记录快照，便于追溯。",
   "settings.loadPromptsFailed": "加载提示词设置失败",
 
@@ -389,7 +389,7 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "settings.mdFontSizePreview": "Preview",
   "settings.mdFontSizeReset": "Reset to default",
   "settings.mdFontSizeSample":
-    "## Pythagorean theorem\n\nA right triangle satisfies $a^2 + b^2 = c^2$.\n\n1. Let the legs be $a$ and $b$\n2. Let the hypotenuse be $c$\n\n> With $a=3$ and $b=4$, $c=5$.\n\n- Supports **bold** and `inline code`",
+    "## Pythagorean theorem\n\nA right triangle satisfies $a^2 + b^2 = c^2$.\n\n1. Let the legs be $a$ and $b$\n2. Let the hypotenuse be $c$\n\n> With $a=3$ and $b=4$, $c=5$.\n\n- Supports **bold**, ∗∗lookalike-star bold∗∗ and `inline code`",
   "settings.promptsIntro": "Customize the system prompt for each AI stage; leave blank or restore default to use the built-in prompt. Custom prompts are snapshotted with every generation for traceability.",
   "settings.loadPromptsFailed": "Failed to load prompt settings",
 
