@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { Check, Crop, Loader2, X } from "lucide-react";
+import { Check, Crop, Loader2, RotateCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/lib/i18n/use-i18n";
 import { cn } from "@/lib/utils";
+import {
+  pointerAngle,
+  rotatedAngle,
+  rotatePoint,
+  shiftAnchor,
+  toLocalDelta,
+} from "./crop-geometry";
 
 const MIN_SIZE = 48;
 const STAGE_PADDING = 16;
@@ -31,6 +38,16 @@ interface DragState {
   startX: number;
   startY: number;
 }
+
+/** 旋转拖动会话：以选框中心为轴，按指针角度差更新角度 */
+interface RotateDragState {
+  mode: "rotate";
+  startAngle: number;
+  center: { x: number; y: number };
+  startPointerAngle: number;
+}
+
+type CropDragState = DragState | RotateDragState;
 
 const HANDLES: HandleId[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 
@@ -111,6 +128,30 @@ interface ImageCropEditorProps {
   onApply: (dataUrl: string) => void;
 }
 
+/** 蒙版路径：舞台矩形 + 旋转选框多边形，evenodd 挖出选框区域 */
+function maskPath(
+  rect: Rect,
+  angle: number,
+  stageSize: { width: number; height: number } | null,
+): string {
+  const width = stageSize?.width ?? 0;
+  const height = stageSize?.height ?? 0;
+  const centerX = rect.x + rect.width / 2;
+  const centerY = rect.y + rect.height / 2;
+  const halfWidth = rect.width / 2;
+  const halfHeight = rect.height / 2;
+  const corners = [
+    [-halfWidth, -halfHeight],
+    [halfWidth, -halfHeight],
+    [halfWidth, halfHeight],
+    [-halfWidth, halfHeight],
+  ]
+    .map(([x, y]) => rotatePoint(x, y, angle))
+    .map((point) => `${(centerX + point.x).toFixed(2)},${(centerY + point.y).toFixed(2)}`)
+    .join(" L");
+  return `M0 0 H${width} V${height} H0 Z M${corners} Z`;
+}
+
 /** 全屏裁剪编辑器：拖动选框移动、拖动 8 个手柄缩放，确认后按原始分辨率输出裁剪图 */
 export function ImageCropEditor({
   dataUrl,
@@ -121,11 +162,13 @@ export function ImageCropEditor({
   const t = useT();
   const stageRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
-  const dragRef = useRef<DragState | null>(null);
+  const dragRef = useRef<CropDragState | null>(null);
   const initializedRef = useRef<string | null>(null);
 
   const [bounds, setBounds] = useState<ImageBounds | null>(null);
   const [rect, setRect] = useState<Rect | null>(null);
+  const [angle, setAngle] = useState(0);
+  const [stageSize, setStageSize] = useState<{ width: number; height: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
 
@@ -156,6 +199,7 @@ export function ImageCropEditor({
       stage.clientHeight - STAGE_PADDING * 2,
       MIN_SIZE,
     );
+    setStageSize({ width: stage.clientWidth, height: stage.clientHeight });
     const scale = Math.min(
       availableWidth / image.naturalWidth,
       availableHeight / image.naturalHeight,
@@ -168,19 +212,20 @@ export function ImageCropEditor({
     };
     setBounds(nextBounds);
 
-    setRect((current) => {
-      if (initializedRef.current !== dataUrl) {
-        initializedRef.current = dataUrl;
-        // 首次量测：居中放置 86% 的初始选框
-        return {
-          x: nextBounds.left + nextBounds.width * 0.07,
-          y: nextBounds.top + nextBounds.height * 0.07,
-          width: nextBounds.width * 0.86,
-          height: nextBounds.height * 0.86,
-        };
-      }
-      return current ? clampRect(current, nextBounds) : null;
-    });
+    // ref 判定放在 updater 外：updater 必须保持纯函数，
+    // 否则 StrictMode 开发模式下的双调用会让初始选框永远为 null
+    if (initializedRef.current !== dataUrl) {
+      initializedRef.current = dataUrl;
+      // 首次量测：居中放置 86% 的初始选框
+      setRect({
+        x: nextBounds.left + nextBounds.width * 0.07,
+        y: nextBounds.top + nextBounds.height * 0.07,
+        width: nextBounds.width * 0.86,
+        height: nextBounds.height * 0.86,
+      });
+      return;
+    }
+    setRect((current) => (current ? clampRect(current, nextBounds) : current));
   }, [dataUrl]);
 
   useEffect(() => {
@@ -200,30 +245,58 @@ export function ImageCropEditor({
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!bounds || !rect || applying || event.button !== 0) return;
     const target = event.target as HTMLElement;
+    const handle = target.dataset.handle;
     const mode =
-      (target.dataset.handle as HandleId | undefined) ??
-      (target.closest("[data-crop-box]") ? ("move" as const) : null);
+      handle === "rotate"
+        ? ("rotate" as const)
+        : ((handle as HandleId | undefined) ??
+          (target.closest("[data-crop-box]") ? ("move" as const) : null));
     if (!mode) return; // 框外按下不响应，避免误建选区
     event.preventDefault();
-    dragRef.current = {
-      mode,
-      startRect: rect,
-      startX: event.clientX,
-      startY: event.clientY,
-    };
+    if (mode === "rotate") {
+      // 旋转期间禁止触发普通选框移动或缩放，仅按指针角度差更新角度。
+      // rect 是舞台相对坐标，clientX/Y 是视口坐标，须先换算到同一坐标系
+      const stageRect = stageRef.current?.getBoundingClientRect();
+      const center = {
+        x: rect.x + rect.width / 2 + (stageRect?.left ?? 0),
+        y: rect.y + rect.height / 2 + (stageRect?.top ?? 0),
+      };
+      dragRef.current = {
+        mode,
+        startAngle: angle,
+        center,
+        startPointerAngle: pointerAngle(center.x, center.y, event.clientX, event.clientY),
+      };
+    } else {
+      dragRef.current = {
+        mode,
+        startRect: rect,
+        startX: event.clientX,
+        startY: event.clientY,
+      };
+    }
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     if (!drag || !bounds) return;
+    if (drag.mode === "rotate") {
+      const current = pointerAngle(drag.center.x, drag.center.y, event.clientX, event.clientY);
+      setAngle(rotatedAngle(drag.startAngle, drag.startPointerAngle, current));
+      return;
+    }
     const dx = event.clientX - drag.startX;
     const dy = event.clientY - drag.startY;
-    setRect(
-      drag.mode === "move"
-        ? moveRect(drag.startRect, dx, dy, bounds)
-        : resizeRect(drag.mode, drag.startRect, dx, dy, bounds),
-    );
+    if (drag.mode === "move") {
+      setRect(moveRect(drag.startRect, dx, dy, bounds));
+      return;
+    }
+    // 缩放：屏幕位移先旋转到选框局部坐标系再复用原有缩放逻辑，
+    // 并按选框角度校正位置，使固定锚点在屏幕上不漂移
+    const local = toLocalDelta(dx, dy, angle);
+    const resized = resizeRect(drag.mode, drag.startRect, local.dx, local.dy, bounds);
+    setRect(shiftAnchor(drag.startRect, resized, angle));
   };
 
   const handlePointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -239,24 +312,30 @@ export function ImageCropEditor({
     if (!image || !bounds || !rect || applying) return;
     setApplying(true);
     try {
-      // 舞台是缩放展示，换算回原始分辨率再裁剪
-      const scale = image.naturalWidth / bounds.width;
+      // 显示坐标 → 原始图片像素（等比缩放下 scaleX ≈ scaleY），只在输出时换算一次
+      const scaleX = image.naturalWidth / bounds.width;
+      const scaleY = image.naturalHeight / bounds.height;
+      const outputWidth = Math.max(Math.round(rect.width * scaleX), 1);
+      const outputHeight = Math.max(Math.round(rect.height * scaleY), 1);
       const canvas = document.createElement("canvas");
-      canvas.width = Math.max(Math.round(rect.width * scale), 1);
-      canvas.height = Math.max(Math.round(rect.height * scale), 1);
+      canvas.width = outputWidth;
+      canvas.height = outputHeight;
       const context = canvas.getContext("2d");
       if (!context) throw new Error("no canvas context");
-      context.drawImage(
-        image,
-        (rect.x - bounds.left) * scale,
-        (rect.y - bounds.top) * scale,
-        rect.width * scale,
-        rect.height * scale,
-        0,
-        0,
-        canvas.width,
-        canvas.height,
-      );
+      // 旋转后超出图片边界的区域以黑色填充
+      context.fillStyle = "#000";
+      context.fillRect(0, 0, outputWidth, outputHeight);
+      // 选框中心在显示坐标系中相对图片左上角的位置
+      const centerX = rect.x + rect.width / 2 - bounds.left;
+      const centerY = rect.y + rect.height / 2 - bounds.top;
+      // 反向旋转并缩放后绘制原图，使选框内容摆正并填满画布：
+      // drawImage 的偏移处于 scale 前的显示坐标系，选框中心落在画布中心
+      context.save();
+      context.translate(outputWidth / 2, outputHeight / 2);
+      context.rotate((-angle * Math.PI) / 180);
+      context.scale(scaleX, scaleY);
+      context.drawImage(image, -centerX, -centerY);
+      context.restore();
       const mime = /^data:([^;]+)/.exec(dataUrl)?.[1] ?? "image/jpeg";
       onApply(canvas.toDataURL(mime, mime === "image/png" ? undefined : 0.92));
     } catch {
@@ -314,16 +393,29 @@ export function ImageCropEditor({
         />
 
         {bounds && rect ? (
-          <div
-            data-crop-box
-            className="absolute cursor-move border border-brand shadow-[0_0_0_9999px_rgba(0,0,0,0.62)]"
-            style={{
-              left: rect.x,
-              top: rect.y,
-              width: rect.width,
-              height: rect.height,
-            }}
-          >
+          <>
+            {/* 蒙版：SVG evenodd 挖洞（旋转安全），替代巨大 spread 的 box-shadow */}
+            <svg
+              className="pointer-events-none absolute inset-0 h-full w-full"
+              aria-hidden="true"
+            >
+              <path
+                fill="rgba(0,0,0,0.62)"
+                fillRule="evenodd"
+                d={maskPath(rect, angle, stageSize)}
+              />
+            </svg>
+            <div
+              data-crop-box
+              className="absolute cursor-move border border-brand"
+              style={{
+                left: rect.x,
+                top: rect.y,
+                width: rect.width,
+                height: rect.height,
+                transform: `rotate(${angle}deg)`,
+              }}
+            >
             <div className="pointer-events-none absolute inset-0">
               <div className="absolute left-1/3 top-0 h-full w-px bg-white/25" />
               <div className="absolute left-2/3 top-0 h-full w-px bg-white/25" />
@@ -340,7 +432,17 @@ export function ImageCropEditor({
                 )}
               />
             ))}
-          </div>
+            {/* 旋转手柄：位于选框顶部中央，作为子元素随选框一起旋转 */}
+            <span className="pointer-events-none absolute -top-6 left-1/2 h-6 w-px -translate-x-1/2 bg-brand" />
+            <span
+              data-handle="rotate"
+              aria-label={t("crop.rotateAria")}
+              className="absolute -top-10 left-1/2 flex h-4 w-4 -translate-x-1/2 cursor-grab items-center justify-center rounded-full border border-black/40 bg-brand active:cursor-grabbing"
+            >
+              <RotateCw size={9} className="text-black/60" />
+            </span>
+            </div>
+          </>
         ) : null}
 
         {error ? (

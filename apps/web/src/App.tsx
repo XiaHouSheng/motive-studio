@@ -28,6 +28,9 @@ export function App() {
       if (!theme.touched) theme.hydrate(preferences.theme);
       const preferencesState = usePreferencesStore.getState();
       if (!preferencesState.touched) preferencesState.hydrateLanguage(preferences.language);
+      if (!preferencesState.fontSizeTouched) {
+        preferencesState.hydrateMarkdownFontSize(preferences.markdownFontSize);
+      }
     });
     return () => {
       cancelled = true;

@@ -1,5 +1,14 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { AlertCircle, Crop, ImagePlus, Loader2, ScanLine, Trash2, Upload } from "lucide-react";
+import {
+  AlertCircle,
+  ChevronDown,
+  Crop,
+  ImagePlus,
+  Loader2,
+  ScanLine,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import type { WorkspaceApi } from "@/features/workspace/use-workspace";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -12,6 +21,7 @@ const MAX_IMAGES = 4;
 const MAX_EDGE = 1600;
 const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
 const SUPPORTED_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const MAX_EXTRA_PROMPT_LENGTH = 2000;
 
 interface PreparedImage {
   id: string;
@@ -119,6 +129,8 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
   const [dragging, setDragging] = useState(false);
   const [croppingId, setCroppingId] = useState<string | null>(null);
   const [attachImages, setAttachImages] = useState(true);
+  const [extraPrompt, setExtraPrompt] = useState("");
+  const [extraPromptOpen, setExtraPromptOpen] = useState(false);
   const t = useT();
 
   const open = imageImportGroupId !== null;
@@ -133,6 +145,8 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
       setDragging(false);
       setCroppingId(null);
       setAttachImages(true);
+      setExtraPrompt("");
+      setExtraPromptOpen(false);
     }
   }, [open]);
 
@@ -214,10 +228,16 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
   });
 
   const selectedCount = drafts.filter((draft) => draft.include && draft.content.trim()).length;
+  const trimmedExtraPrompt = extraPrompt.trim();
+  const extraPromptTooLong = trimmedExtraPrompt.length > MAX_EXTRA_PROMPT_LENGTH;
 
   const handleAnalyze = async () => {
     if (images.length === 0) {
       setLocalError(t("import.selectFirst"));
+      return;
+    }
+    if (extraPromptTooLong) {
+      setLocalError(t("import.extraPromptTooLong"));
       return;
     }
     setLocalError(null);
@@ -226,6 +246,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
         mediaType: image.mediaType,
         data: image.dataUrl.split(",")[1] ?? "",
       })),
+      trimmedExtraPrompt || undefined,
     );
     if (message) setLocalError(message);
   };
@@ -293,7 +314,7 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
                 variant="primary"
                 size="sm"
                 onClick={handleAnalyze}
-                disabled={busy || images.length === 0}
+                disabled={busy || images.length === 0 || extraPromptTooLong}
               >
                 {imageImportAnalyzing ? (
                   <Loader2 size={13} className="animate-spin" />
@@ -413,6 +434,60 @@ export function ImageImportDialog({ workspace }: ImageImportDialogProps) {
               <span className="ml-1 text-ink-faint">{t("import.attachHint")}</span>
             </span>
           </label>
+        ) : null}
+
+        {images.length > 0 ? (
+          <div className="rounded-md border border-line bg-elevated/40">
+            <button
+              type="button"
+              onClick={() => setExtraPromptOpen((value) => !value)}
+              disabled={busy}
+              aria-expanded={extraPromptOpen}
+              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-[11.5px] text-ink-soft transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              <span className="flex items-center gap-1">
+                <ChevronDown
+                  size={13}
+                  className={cn(
+                    "text-ink-faint transition-transform",
+                    extraPromptOpen && "rotate-180",
+                  )}
+                />
+                {t("import.extraPromptToggle")}
+              </span>
+              {trimmedExtraPrompt && !extraPromptOpen ? (
+                <span className="text-ink-faint">
+                  {trimmedExtraPrompt.length} / {MAX_EXTRA_PROMPT_LENGTH}
+                </span>
+              ) : null}
+            </button>
+            {extraPromptOpen ? (
+              <div className="px-3 pb-2.5">
+                <textarea
+                  value={extraPrompt}
+                  rows={2}
+                  disabled={busy}
+                  onChange={(event) => setExtraPrompt(event.target.value)}
+                  placeholder={t("import.extraPromptPlaceholder")}
+                  aria-label={t("import.extraPromptAria")}
+                  className="w-full resize-y rounded border border-line bg-panel px-2 py-1.5 text-[12.5px] leading-relaxed text-ink outline-none placeholder:text-ink-faint focus:border-brand/50"
+                />
+                <p
+                  className={cn(
+                    "mt-1 text-right text-[10.5px] text-ink-faint",
+                    extraPromptTooLong && "text-danger",
+                  )}
+                >
+                  {trimmedExtraPrompt.length} / {MAX_EXTRA_PROMPT_LENGTH}
+                </p>
+                {extraPromptTooLong ? (
+                  <p className="text-[11px] text-danger">
+                    {t("import.extraPromptTooLong")}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         ) : null}
 
         {error ? (

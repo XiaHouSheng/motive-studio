@@ -140,14 +140,18 @@ export const api = {
   importQuestionsFromImages: (
     groupId: string,
     images: Array<{ mediaType: string; data: string }>,
-  ) =>
-    request<{ questions: string[] }>(
+    extraPrompt?: string,
+  ) => {
+    const payload: Record<string, unknown> = { images };
+    if (extraPrompt) payload.extraPrompt = extraPrompt;
+    return request<{ questions: string[] }>(
       `/api/question-groups/${encodeURIComponent(groupId)}/image-import`,
       {
         method: "POST",
-        body: JSON.stringify({ images }),
+        body: JSON.stringify(payload),
       },
-    ),
+    );
+  },
   getMobileLink: (key: string) =>
     request<{ token: string; urls: string[]; preferred: string | null }>(
       "/api/mobile/link",

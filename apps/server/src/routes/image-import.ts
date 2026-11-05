@@ -7,7 +7,7 @@ import { generateQuestionsFromImages } from "../services/ai/image-import-generat
 import { toHttpError } from "../services/ai/errors.js";
 import type { ProviderSettingsStore } from "../services/ai/provider-settings-store.js";
 import type { PromptSettingsStore } from "../services/settings/prompt-settings-store.js";
-import { readImages } from "./image-input.js";
+import { readExtraPrompt, readImages } from "./image-input.js";
 import { readBody, readParam } from "./validation.js";
 
 export function createImageImportRouter(
@@ -23,7 +23,9 @@ export function createImageImportRouter(
       try {
         const groupId = readParam(req.params, "id");
         repository.getGroupTitle(groupId);
-        const images = readImages(readBody(req.body));
+        const body = readBody(req.body);
+        const images = readImages(body);
+        const extraPrompt = readExtraPrompt(body);
 
         const apiKey = settingsStore.getApiKey();
         if (!apiKey) {
@@ -34,6 +36,7 @@ export function createImageImportRouter(
         // 与手机拍照导入（routes/mobile.ts）使用相同的环节提示词配置
         const questions = await generateQuestionsFromImages(provider, images, undefined, {
           systemPrompt: promptStore.getSettings().image_import,
+          extraPrompt,
         });
         res.json({ questions });
       } catch (error) {

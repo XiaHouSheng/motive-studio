@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { UiPreferences } from "@motive/shared";
-import { isUiLanguage, isUiTheme } from "@motive/shared";
+import { isMarkdownFontSize, isUiLanguage, isUiTheme, MD_FONT_SIZE_DEFAULT } from "@motive/shared";
 import { HttpError } from "../../http-error.js";
 
 const SETTINGS_KEY = "ui_preferences";
@@ -8,6 +8,7 @@ const SETTINGS_KEY = "ui_preferences";
 export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   theme: "system",
   language: "zh-CN",
+  markdownFontSize: MD_FONT_SIZE_DEFAULT,
 };
 
 /**
@@ -35,6 +36,9 @@ export class UiPreferencesStore {
         language: isUiLanguage(parsed.language)
           ? parsed.language
           : DEFAULT_UI_PREFERENCES.language,
+        markdownFontSize: isMarkdownFontSize(parsed.markdownFontSize)
+          ? parsed.markdownFontSize
+          : DEFAULT_UI_PREFERENCES.markdownFontSize,
       };
     } catch {
       return { ...DEFAULT_UI_PREFERENCES };
@@ -61,6 +65,15 @@ export class UiPreferencesStore {
           throw new HttpError(400, "INVALID_FIELD", "language 必须是 zh-CN / en");
         }
         next.language = value;
+      } else if (key === "markdownFontSize") {
+        if (!isMarkdownFontSize(value)) {
+          throw new HttpError(
+            400,
+            "INVALID_FIELD",
+            "markdownFontSize 必须是 12 到 20 之间的整数",
+          );
+        }
+        next.markdownFontSize = value;
       } else {
         throw new HttpError(400, "INVALID_FIELD", `不支持的字段：「${key}」`);
       }

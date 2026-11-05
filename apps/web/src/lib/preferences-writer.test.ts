@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { PreferenceFieldQueue } from "./preferences-writer";
+import { PreferenceFieldQueue, type PreferenceFieldName } from "./preferences-writer";
 
-type Field = "theme" | "language";
+type Field = PreferenceFieldName;
 
 interface Deferred {
   resolve: (value: unknown) => void;

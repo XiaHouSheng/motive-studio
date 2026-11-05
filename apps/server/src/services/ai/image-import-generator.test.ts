@@ -65,4 +65,40 @@ describe("buildImageImportMessages", () => {
       image_url: { url: "data:image/jpeg;base64,iVBORw0KGgo=" },
     });
   });
+
+  function userText(messages: ReturnType<typeof buildImageImportMessages>): string {
+    const parts = messages[1].content as Array<{ type: string; text?: string }>;
+    return parts.find((part) => part.type === "text")?.text ?? "";
+  }
+
+  it("未提供或空白附加要求时消息内容保持不变", () => {
+    const baseline = userText(buildImageImportMessages([IMAGE]));
+    expect(baseline).toBe("请转写这张图片中的全部题目。");
+    expect(userText(buildImageImportMessages([IMAGE], { extraPrompt: "" }))).toBe(baseline);
+    expect(userText(buildImageImportMessages([IMAGE], { extraPrompt: "  \n\t " }))).toBe(
+      baseline,
+    );
+  });
+
+  it("附加要求 trim 后追加到用户消息末尾", () => {
+    const messages = buildImageImportMessages([IMAGE], { extraPrompt: " 只要第 5–8 题 " });
+    expect(userText(messages)).toBe("请转写这张图片中的全部题目。\n\n用户附加要求：只要第 5–8 题");
+    // system 仍为内置默认提示词，附加要求不参与 system 覆盖
+    expect(messages[0].content).toContain("题目录入助手");
+  });
+
+  it("2000 字符附加要求正常接受", () => {
+    const long = "a".repeat(2000);
+    const messages = buildImageImportMessages([IMAGE], { extraPrompt: long });
+    expect(userText(messages)).toBe(`请转写这张图片中的全部题目。\n\n用户附加要求：${long}`);
+  });
+
+  it("自定义 systemPrompt 与附加要求组合时互不影响", () => {
+    const messages = buildImageImportMessages([IMAGE], {
+      systemPrompt: "自定义系统提示词",
+      extraPrompt: "只转写选择题",
+    });
+    expect(messages[0].content).toBe("自定义系统提示词");
+    expect(userText(messages)).toBe("请转写这张图片中的全部题目。\n\n用户附加要求：只转写选择题");
+  });
 });

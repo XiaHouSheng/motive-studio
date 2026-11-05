@@ -18,6 +18,10 @@
           document.documentElement.style.colorScheme = resolved;
           var storedLang = localStorage.getItem("motive.language");
           document.documentElement.lang = storedLang === "en" ? "en" : "zh-CN";
+          var storedSize = Number(localStorage.getItem("motive.mdFontSize"));
+          if (Number.isInteger(storedSize) && storedSize >= 12 && storedSize <= 20) {
+            document.documentElement.style.setProperty("--md-font-size", storedSize + "px");
+          }
         } catch (error) {
           document.documentElement.dataset.theme = "light";
         }

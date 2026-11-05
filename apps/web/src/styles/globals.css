@@ -160,22 +160,24 @@
 }
 
 /* ---------- Markdown ---------- */
+/* 基准字号由设置页驱动（--md-font-size 写在 <html> 上，默认 15px）；
+   变体与标题按比例缩放，比例换算自旧的固定像素值 */
 
 .md {
-  font-size: 15px;
+  font-size: var(--md-font-size, 15px);
   line-height: 1.85;
   color: var(--ink);
   word-break: break-word;
 }
 
 .md.md-question-title {
-  font-size: 16.5px;
+  font-size: calc(var(--md-font-size, 15px) * 1.1);
   line-height: 1.9;
   letter-spacing: -0.01em;
 }
 
 .md.md-compact {
-  font-size: 13px;
+  font-size: calc(var(--md-font-size, 15px) * 13 / 15);
   line-height: 1.85;
 }
 
@@ -194,7 +196,7 @@
 .md h2 {
   margin-top: 1.7em;
   padding-bottom: 0.4em;
-  font-size: 1.05rem;
+  font-size: 1.12em;
   border-bottom: 1px solid var(--line);
 }
 
@@ -204,12 +206,12 @@
 
 .md h3 {
   margin-top: 1.4em;
-  font-size: 0.98rem;
+  font-size: 1.045em;
 }
 
 .md h4 {
   margin-top: 1.2em;
-  font-size: 0.92rem;
+  font-size: 0.981em;
 }
 
 .md p {

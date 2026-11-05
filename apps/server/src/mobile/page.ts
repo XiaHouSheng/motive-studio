@@ -75,14 +75,20 @@ export function renderMobilePage(): string {
   .crop-stage img { position: absolute; display: block; pointer-events: none; }
   #crop-box {
     position: absolute; border: 1px solid var(--primary);
-    box-shadow: 0 0 0 9999px rgba(11, 16, 15, 0.62);
     cursor: move;
+    transform-origin: center;
+  }
+  .crop-mask { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .crop-stem {
+    position: absolute; top: -26px; left: 50%; width: 1px; height: 26px;
+    background: var(--primary); pointer-events: none;
   }
   .crop-handle {
     position: absolute; width: 22px; height: 22px; border-radius: 50%;
     background: var(--primary); border: 2px solid rgba(11, 16, 15, 0.55);
   }
   .crop-handle[data-h="nw"] { top: -11px; left: -11px; cursor: nwse-resize; }
+  .crop-handle[data-h="rotate"] { top: -37px; left: 50%; margin-left: -11px; cursor: grab; }
   .crop-handle[data-h="n"] { top: -11px; left: 50%; margin-left: -11px; cursor: ns-resize; }
   .crop-handle[data-h="ne"] { top: -11px; right: -11px; cursor: nesw-resize; }
   .crop-handle[data-h="e"] { top: 50%; right: -11px; margin-top: -11px; cursor: ew-resize; }
@@ -112,21 +118,31 @@ export function renderMobilePage(): string {
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   .q-card { border: 1px solid var(--border); border-radius: 10px; background: var(--panel); padding: 12px; margin-bottom: 10px; }
+  .preview-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 20px 0 8px; }
+  .preview-head h2 { margin: 0; }
+  .preview-head .pick { min-height: 40px; padding: 0 14px; font-size: 14px; }
   .q-head { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); min-height: 24px; }
   .q-head input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--primary); }
   .q-card textarea {
     width: 100%; margin-top: 10px; min-height: 110px; resize: vertical;
     border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
-    color: var(--text); font-size: 14px; line-height: 1.6; padding: 10px;
+    color: var(--text); font-size: 16px; line-height: 1.6; padding: 10px;
     font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   }
   .target { border: 1px solid var(--border); border-radius: 10px; background: var(--panel); padding: 14px; }
+  .sub-inline { font-size: 12px; font-weight: 400; color: var(--muted); }
+  .prompt-box textarea {
+    width: 100%; min-height: 72px; resize: vertical;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+    color: var(--text); font-size: 16px; line-height: 1.5; padding: 10px;
+    font-family: inherit;
+  }
   .radio { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; }
   .radio input[type="radio"] { width: 20px; height: 20px; accent-color: var(--primary); }
   select, .target input[type="text"] {
     width: 100%; min-height: 44px; border-radius: 8px; margin-bottom: 10px;
     border: 1px solid var(--border); background: var(--bg); color: var(--text);
-    font-size: 15px; padding: 0 12px;
+    font-size: 16px; padding: 0 12px;
   }
   #commit-bar {
     position: fixed; left: 0; right: 0; bottom: 0;
@@ -164,6 +180,13 @@ export function renderMobilePage(): string {
   <p class="hint" id="count-hint">已选 0 / 4 张，自动压缩后识别</p>
 </section>
 
+<section id="step-prompt">
+  <h2>识别要求 <span class="sub-inline">可选，仅本次导入有效</span></h2>
+  <div class="prompt-box">
+    <textarea id="extra-prompt" placeholder="例如：只要第 5–8 题；只转写选择题"></textarea>
+  </div>
+</section>
+
 <section id="step-target">
   <h2>导入位置</h2>
   <div class="target">
@@ -184,7 +207,10 @@ export function renderMobilePage(): string {
 </section>
 
 <section id="step-preview" class="hidden">
-  <h2>识别结果 <span id="q-count" class="mono"></span></h2>
+  <div class="preview-head">
+    <h2>识别结果 <span id="q-count" class="mono"></span></h2>
+    <button type="button" class="pick" id="btn-reextract">重新识别</button>
+  </div>
   <p class="sub">勾选需要导入的题目，内容可直接编辑</p>
   <div id="questions" style="margin-top: 12px;"></div>
 </section>
@@ -212,7 +238,12 @@ export function renderMobilePage(): string {
   </div>
   <div class="crop-stage" id="crop-stage">
     <img id="crop-img" alt="待裁剪图片">
+    <svg id="crop-mask" class="crop-mask" aria-hidden="true">
+      <path id="crop-mask-path" fill="rgba(11, 16, 15, 0.62)" fill-rule="evenodd"></path>
+    </svg>
     <div id="crop-box">
+      <span class="crop-stem"></span>
+      <span class="crop-handle" data-h="rotate" aria-label="旋转选框"></span>
       <span class="crop-handle" data-h="nw"></span>
       <span class="crop-handle" data-h="n"></span>
       <span class="crop-handle" data-h="ne"></span>
@@ -223,7 +254,7 @@ export function renderMobilePage(): string {
       <span class="crop-handle" data-h="w"></span>
     </div>
   </div>
-  <p class="crop-hint" id="crop-hint">拖动选框调整区域，拖动圆点缩放，完成后替换原图</p>
+  <p class="crop-hint" id="crop-hint">拖动选框调整区域，拖动圆点缩放，顶部圆点旋转，完成后替换原图</p>
 </div>
 
 <input type="file" id="file-camera" accept="image/*" capture="environment" multiple hidden>
@@ -237,6 +268,7 @@ export function renderMobilePage(): string {
   var MAX_BYTES = 4 * 1024 * 1024;
   var CROP_MIN = 48;
   var CROP_PAD = 16;
+  var MAX_EXTRA_PROMPT = 2000;
   var token = new URLSearchParams(location.search).get('t') || '';
   var state = {
     status: 'idle',
@@ -258,6 +290,7 @@ export function renderMobilePage(): string {
   function setStatus(next) {
     state.status = next;
     el('step-capture').classList.toggle('hidden', next !== 'idle');
+    el('step-prompt').classList.toggle('hidden', next !== 'idle' && next !== 'preview');
     el('step-target').classList.toggle('hidden', next !== 'idle' && next !== 'preview');
     el('step-progress').classList.toggle('hidden', next !== 'recognizing' && next !== 'committing');
     el('step-preview').classList.toggle('hidden', next !== 'preview');
@@ -384,6 +417,8 @@ export function renderMobilePage(): string {
       var select = el('group-select');
       var existingRadio = document.querySelector('input[name="target"][value="existing"]');
       var wasDisabled = existingRadio.disabled;
+      // 刷新列表前记住当前选择，重建后尽量恢复，避免总是回到第一项
+      var previousId = select.value;
       select.innerHTML = '';
       if (state.groups.length === 0) {
         existingRadio.disabled = true;
@@ -397,7 +432,9 @@ export function renderMobilePage(): string {
         select.appendChild(option);
       });
       existingRadio.disabled = false;
-      select.selectedIndex = 0;
+      // 优先恢复此前选中的题组；该题组已不存在时回落到第一个有效题组
+      select.value = previousId;
+      if (select.selectedIndex < 0) select.selectedIndex = 0;
       // 从「暂无题组」恢复为有题组时，切回加入已有题组
       if (wasDisabled) applyTargetMode(false);
     });
@@ -454,18 +491,29 @@ export function renderMobilePage(): string {
 
   el('btn-extract').onclick = function () {
     if (state.images.length === 0) return;
+    // 识别或导入进行中不允许同一会话重复发起请求
+    if (state.status === 'recognizing' || state.status === 'committing') return;
+    var extraPrompt = el('extra-prompt').value.trim();
+    if (extraPrompt.length > MAX_EXTRA_PROMPT) {
+      showError('附加要求不能超过 ' + MAX_EXTRA_PROMPT + ' 字符');
+      return;
+    }
     setStatus('recognizing');
     var images = state.images.map(function (img) {
       return { mediaType: img.mediaType, data: img.data };
     });
-    api('/api/mobile/extract', { method: 'POST', body: JSON.stringify({ images: images }) })
+    var payload = { images: images };
+    // 识别要求仅本次导入有效，识别与重新识别共用同一输入框
+    if (extraPrompt) payload.extraPrompt = extraPrompt;
+    api('/api/mobile/extract', { method: 'POST', body: JSON.stringify(payload) })
       .then(function (body) {
         state.questions = (body.questions || []).map(function (text) {
           return { content: text, checked: true };
         });
         if (state.questions.length === 0) {
-          showError('未识别到题目，请调整图片后重试');
+          // 先切状态再显示错误，避免 setStatus 内部 clearError 把提示吞掉
           setStatus('idle');
+          showError('未识别到题目，请调整图片后重试');
           return null;
         }
         return loadGroups()
@@ -476,9 +524,16 @@ export function renderMobilePage(): string {
           });
       })
       .catch(function (err) {
-        handleErr(err);
         setStatus('idle');
+        handleErr(err);
       });
+  };
+
+  el('btn-reextract').onclick = function () {
+    // 返回拍摄步骤：保留已拍图片、缩略图、题组选择与附加要求，
+    // 仅丢弃上一次识别结果；错误随 setStatus 统一清除
+    state.questions = [];
+    setStatus('idle');
   };
 
   el('btn-commit').onclick = function () {
@@ -513,21 +568,54 @@ export function renderMobilePage(): string {
         setStatus('done');
       })
       .catch(function (err) {
-        handleErr(err);
         setStatus('preview');
+        handleErr(err);
       });
   };
 
   el('btn-again').onclick = function () {
     state.images = [];
     state.questions = [];
+    // 新一轮导入会话：清空附加要求
+    el('extra-prompt').value = '';
     renderThumbs();
     setStatus('idle');
     loadGroups().catch(function () { /* 保持当前列表 */ });
   };
 
   // ---- 裁剪编辑器 ----
-  var CROP_HINT = '拖动选框调整区域，拖动圆点缩放，完成后替换原图';
+  var CROP_HINT = '拖动选框调整区域，拖动圆点缩放，顶部圆点旋转，完成后替换原图';
+
+  // 与桌面端 crop-geometry.ts 完全一致的旋转几何公式（两端必须保持同步）
+  function normalizeAngle(angle) {
+    return (((angle + 180) % 360) + 360) % 360 - 180;
+  }
+  function pointerAngle(centerX, centerY, pointerX, pointerY) {
+    return Math.atan2(pointerY - centerY, pointerX - centerX) * 180 / Math.PI;
+  }
+  function rotatedAngle(startAngle, startPointerAngle, currentPointerAngle) {
+    var delta = normalizeAngle(currentPointerAngle - startPointerAngle);
+    var angle = normalizeAngle(startAngle + delta);
+    return Math.abs(angle) <= 3 ? 0 : angle;
+  }
+  function rotatePoint(x, y, angle) {
+    var rad = angle * Math.PI / 180;
+    var cos = Math.cos(rad);
+    var sin = Math.sin(rad);
+    return { x: x * cos - y * sin, y: x * sin + y * cos };
+  }
+  function toLocalDelta(dx, dy, angle) {
+    var rotated = rotatePoint(dx, dy, -angle);
+    return { dx: rotated.x, dy: rotated.y };
+  }
+  // 缩放后校正选框位置：局部中心位移 s 经 Rot(θ) 后与 s 的差值，
+  // 使固定锚点在屏幕上不漂移；0° 时位移为零，与未旋转版本一致
+  function shiftAnchor(start, resized, angle) {
+    var shiftX = resized.x + resized.w / 2 - (start.x + start.w / 2);
+    var shiftY = resized.y + resized.h / 2 - (start.y + start.h / 2);
+    var rotated = rotatePoint(shiftX, shiftY, angle);
+    return { x: resized.x + rotated.x - shiftX, y: resized.y + rotated.y - shiftY, w: resized.w, h: resized.h };
+  }
 
   function clampNum(value, min, max) {
     return Math.min(Math.max(value, min), max);
@@ -551,6 +639,22 @@ export function renderMobilePage(): string {
     box.style.top = crop.rect.y + 'px';
     box.style.width = crop.rect.w + 'px';
     box.style.height = crop.rect.h + 'px';
+    box.style.transform = 'rotate(' + crop.angle + 'deg)';
+    // 蒙版：舞台矩形 + 旋转选框多边形，evenodd 挖洞（与桌面端 maskPath 公式一致）
+    var cx = crop.rect.x + crop.rect.w / 2;
+    var cy = crop.rect.y + crop.rect.h / 2;
+    var hw = crop.rect.w / 2;
+    var hh = crop.rect.h / 2;
+    var corners = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]]
+      .map(function (p) { return rotatePoint(p[0], p[1], crop.angle); })
+      .map(function (p) {
+        return (cx + p.x).toFixed(2) + ',' + (cy + p.y).toFixed(2);
+      })
+      .join(' L');
+    var stageW = el('crop-stage').clientWidth;
+    var stageH = el('crop-stage').clientHeight;
+    el('crop-mask-path').setAttribute('d',
+      'M0 0 H' + stageW + ' V' + stageH + ' H0 Z M' + corners + ' Z');
   }
 
   function layoutCrop() {
@@ -592,7 +696,7 @@ export function renderMobilePage(): string {
   }
 
   function openCrop(index) {
-    crop = { index: index, initialized: false, rect: null, bounds: null, drag: null };
+    crop = { index: index, initialized: false, rect: null, bounds: null, drag: null, angle: 0 };
     var img = el('crop-img');
     img.src = state.images[index].preview;
     el('crop-done').disabled = true;
@@ -648,7 +752,9 @@ export function renderMobilePage(): string {
     var target = event.target;
     var handle = target.getAttribute ? target.getAttribute('data-h') : null;
     var mode;
-    if (handle) {
+    if (handle === 'rotate') {
+      mode = 'rotate';
+    } else if (handle) {
       mode = handle;
     } else if (target.closest && target.closest('#crop-box')) {
       mode = 'move';
@@ -656,16 +762,44 @@ export function renderMobilePage(): string {
       return; // 框外按下不响应
     }
     event.preventDefault();
-    crop.drag = { mode: mode, start: Object.assign({}, crop.rect), startX: event.clientX, startY: event.clientY };
+    if (mode === 'rotate') {
+      // 旋转期间禁止触发普通选框移动或缩放，仅按指针角度差更新角度。
+      // rect 是舞台相对坐标，clientX/Y 是视口坐标，须先换算到同一坐标系
+      var stageBox = stageEl.getBoundingClientRect();
+      var center = {
+        x: crop.rect.x + crop.rect.w / 2 + stageBox.left,
+        y: crop.rect.y + crop.rect.h / 2 + stageBox.top
+      };
+      crop.drag = {
+        mode: mode,
+        center: center,
+        startAngle: crop.angle,
+        startPointerAngle: pointerAngle(center.x, center.y, event.clientX, event.clientY)
+      };
+    } else {
+      crop.drag = { mode: mode, start: Object.assign({}, crop.rect), startX: event.clientX, startY: event.clientY };
+    }
     stageEl.setPointerCapture(event.pointerId);
   });
   stageEl.addEventListener('pointermove', function (event) {
     if (!crop || !crop.drag) return;
+    if (crop.drag.mode === 'rotate') {
+      var current = pointerAngle(crop.drag.center.x, crop.drag.center.y, event.clientX, event.clientY);
+      crop.angle = rotatedAngle(crop.drag.startAngle, crop.drag.startPointerAngle, current);
+      positionCropBox();
+      return;
+    }
     var dx = event.clientX - crop.drag.startX;
     var dy = event.clientY - crop.drag.startY;
-    crop.rect = crop.drag.mode === 'move'
-      ? cropMoveRect(crop.drag.start, dx, dy)
-      : cropResizeRect(crop.drag.mode, crop.drag.start, dx, dy);
+    if (crop.drag.mode === 'move') {
+      crop.rect = cropMoveRect(crop.drag.start, dx, dy);
+    } else {
+      // 缩放：屏幕位移先旋转到选框局部坐标系再复用原有缩放逻辑，
+      // 并按选框角度校正位置，使固定锚点在屏幕上不漂移
+      var local = toLocalDelta(dx, dy, crop.angle);
+      var resized = cropResizeRect(crop.drag.mode, crop.drag.start, local.dx, local.dy);
+      crop.rect = shiftAnchor(crop.drag.start, resized, crop.angle);
+    }
     positionCropBox();
   });
   function endCropDrag(event) {
@@ -687,16 +821,29 @@ export function renderMobilePage(): string {
   el('crop-done').onclick = function () {
     if (!crop || !crop.bounds || !crop.rect) return;
     var img = el('crop-img');
-    // 舞台是缩放展示，换算回原始分辨率再裁剪
-    var scale = img.naturalWidth / crop.bounds.width;
-    var sx = (crop.rect.x - crop.bounds.left) * scale;
-    var sy = (crop.rect.y - crop.bounds.top) * scale;
-    var sw = crop.rect.w * scale;
-    var sh = crop.rect.h * scale;
+    // 显示坐标 → 原始图片像素（等比缩放下 scaleX ≈ scaleY），只在输出时换算一次
+    var scaleX = img.naturalWidth / crop.bounds.width;
+    var scaleY = img.naturalHeight / crop.bounds.height;
+    var outW = Math.max(Math.round(crop.rect.w * scaleX), 1);
+    var outH = Math.max(Math.round(crop.rect.h * scaleY), 1);
     var canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(sw));
-    canvas.height = Math.max(1, Math.round(sh));
-    canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    canvas.width = outW;
+    canvas.height = outH;
+    var context = canvas.getContext('2d');
+    // 旋转后超出图片边界的区域以黑色填充
+    context.fillStyle = '#000';
+    context.fillRect(0, 0, outW, outH);
+    // 选框中心在显示坐标系中相对图片左上角的位置
+    var centerX = crop.rect.x + crop.rect.w / 2 - crop.bounds.left;
+    var centerY = crop.rect.y + crop.rect.h / 2 - crop.bounds.top;
+    // 反向旋转并缩放后绘制原图，使选框内容摆正并填满画布：
+    // drawImage 的偏移处于 scale 前的显示坐标系，选框中心落在画布中心
+    context.save();
+    context.translate(outW / 2, outH / 2);
+    context.rotate(-crop.angle * Math.PI / 180);
+    context.scale(scaleX, scaleY);
+    context.drawImage(img, -centerX, -centerY);
+    context.restore();
     var dataUrl = canvas.toDataURL('image/jpeg', 0.82);
     var data = dataUrl.slice(dataUrl.indexOf(',') + 1);
     if (Math.ceil(data.length * 3 / 4) > MAX_BYTES) {

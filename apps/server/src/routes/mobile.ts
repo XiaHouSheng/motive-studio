@@ -15,7 +15,7 @@ import type { MobileSessionStore } from "../services/mobile-session.js";
 import { attachImages } from "../services/question-image.js";
 import type { AssetStore } from "../services/asset-store.js";
 import type { MobileRuntime } from "../services/mobile-runtime.js";
-import { readImages } from "./image-input.js";
+import { readExtraPrompt, readImages } from "./image-input.js";
 import { isLoopbackRequest } from "./loopback.js";
 import { readBody } from "./validation.js";
 
@@ -179,7 +179,9 @@ export function createMobileRouter(
     (req: Request, res: Response, next: NextFunction) => {
       try {
         requireToken(req, sessions, runtime);
-        const images = readImages(readBody(req.body));
+        const body = readBody(req.body);
+        const images = readImages(body);
+        const extraPrompt = readExtraPrompt(body);
 
         const apiKey = settingsStore.getApiKey();
         if (!apiKey) {
@@ -190,6 +192,7 @@ export function createMobileRouter(
         // 与桌面端图片导入（routes/image-import.ts）使用相同的环节提示词配置
         generateQuestionsFromImages(provider, images, undefined, {
           systemPrompt: promptStore.getSettings().image_import,
+          extraPrompt,
         })
           .then((questions) => res.json({ questions }))
           .catch(next);

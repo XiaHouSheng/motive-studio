@@ -49,6 +49,10 @@ export const panelsZh = {
   "import.removeAria": "移除 {name}",
   "import.attachLabel": "将截图作为题目上下文",
   "import.attachHint": "（附带原图可提升识图题、几何题的解析准确度；关闭后仅用文字题干）",
+  "import.extraPromptToggle": "附加要求（可选）",
+  "import.extraPromptPlaceholder": "例如：只要第 5–8 题；只转写选择题",
+  "import.extraPromptAria": "附加识别要求",
+  "import.extraPromptTooLong": "附加要求不能超过 2000 字符",
   "import.resultCount": "识别结果 · {count} 道",
   "import.reanalyze": "重新识别",
   "import.draftIncludeAria": "导入第 {index} 道题目",
@@ -57,8 +61,9 @@ export const panelsZh = {
 
   // ── 裁剪编辑器 image-crop-editor ──
   "crop.title": "裁剪图片",
-  "crop.hint": "拖动选框调整区域，拖动边角手柄缩放",
+  "crop.hint": "拖动选框调整区域，拖动边角手柄缩放，拖动顶部手柄旋转",
   "crop.closeAria": "关闭裁剪编辑器",
+  "crop.rotateAria": "旋转选框",
   "crop.failed": "裁剪失败，请重试",
   "crop.loadFailed": "图片加载失败，请返回后重试",
   "crop.cancel": "取消",
@@ -166,6 +171,12 @@ export const panelsZh = {
   "settings.languageHint": "语言偏好保存在本地数据库，重启后保持不变。",
   "settings.themeLabel": "主题",
   "settings.themeHint": "跟随系统时自动匹配操作系统的深浅色模式。",
+  "settings.mdFontSizeLabel": "Markdown 字体大小",
+  "settings.mdFontSizeHint": "调整题目详解、分步题解与讨论消息的渲染字号，拖动即时生效并保存。",
+  "settings.mdFontSizePreview": "预览",
+  "settings.mdFontSizeReset": "恢复默认",
+  "settings.mdFontSizeSample":
+    "## 勾股定理\n\n直角三角形满足 $a^2 + b^2 = c^2$。\n\n1. 设两条直角边为 $a$、$b$\n2. 斜边记为 $c$\n\n> 当 $a=3$、$b=4$ 时，$c=5$。\n\n- 支持**加粗**、∗∗形似星号加粗∗∗与 `行内代码`",
   "settings.promptsIntro": "每个环节都可以自定义 system prompt；留空或恢复默认即使用内置提示词。自定义内容会随每次生成记录快照，便于追溯。",
   "settings.loadPromptsFailed": "加载提示词设置失败",
 
@@ -247,6 +258,10 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "import.attachLabel": "Attach screenshots as question context",
   "import.attachHint":
     "(Attaching the originals improves accuracy for figure and geometry questions; when off, only the text is used)",
+  "import.extraPromptToggle": "Extra instructions (optional)",
+  "import.extraPromptPlaceholder": "e.g. Only questions 5–8; transcribe multiple-choice only",
+  "import.extraPromptAria": "Extra recognition instructions",
+  "import.extraPromptTooLong": "Extra instructions cannot exceed 2000 characters",
   "import.resultCount": "Results · {count}",
   "import.reanalyze": "Detect again",
   "import.draftIncludeAria": "Include question {index}",
@@ -255,8 +270,9 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
 
   // ── Crop editor ──
   "crop.title": "Crop image",
-  "crop.hint": "Drag the selection to move it, drag the corner handles to resize",
+  "crop.hint": "Drag the selection to move it, drag the corner handles to resize, drag the top handle to rotate",
   "crop.closeAria": "Close the crop editor",
+  "crop.rotateAria": "Rotate the crop box",
   "crop.failed": "Crop failed. Please try again.",
   "crop.loadFailed": "Failed to load the image. Go back and try again.",
   "crop.cancel": "Cancel",
@@ -368,6 +384,12 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "settings.languageHint": "The language preference is stored in your local database and persists across restarts.",
   "settings.themeLabel": "Theme",
   "settings.themeHint": "When set to System, the app follows your operating system's light/dark mode.",
+  "settings.mdFontSizeLabel": "Markdown font size",
+  "settings.mdFontSizeHint": "Adjust the rendered size of explanations, step solutions and discussion messages. Changes apply instantly and are saved automatically.",
+  "settings.mdFontSizePreview": "Preview",
+  "settings.mdFontSizeReset": "Reset to default",
+  "settings.mdFontSizeSample":
+    "## Pythagorean theorem\n\nA right triangle satisfies $a^2 + b^2 = c^2$.\n\n1. Let the legs be $a$ and $b$\n2. Let the hypotenuse be $c$\n\n> With $a=3$ and $b=4$, $c=5$.\n\n- Supports **bold**, ∗∗lookalike-star bold∗∗ and `inline code`",
   "settings.promptsIntro": "Customize the system prompt for each AI stage; leave blank or restore default to use the built-in prompt. Custom prompts are snapshotted with every generation for traceability.",
   "settings.loadPromptsFailed": "Failed to load prompt settings",
 

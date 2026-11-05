@@ -185,6 +185,57 @@ describe("题组按图片导入", () => {
     );
   });
 
+  it("附加要求随请求透传给模型且不影响 system 提示词", async () => {
+    upstream = await startUpstream(() => JSON.stringify({ questions: [] }));
+    await configureProvider(app, upstream);
+
+    const response = await importImages(app, {
+      images: [IMAGE],
+      extraPrompt: " 只要第 5–8 题 ",
+    });
+    expect(response.status).toBe(200);
+
+    expect(upstream.bodies).toHaveLength(1);
+    const messages = upstream.bodies[0].messages as Array<{ role: string; content: unknown }>;
+    expect(messages[0].role).toBe("system");
+    expect(String(messages[0].content)).toContain("题目录入助手");
+    const parts = messages[1].content as Array<{ type: string; text?: string }>;
+    const text = parts.find((part) => part.type === "text")?.text ?? "";
+    expect(text).toBe("请转写这张图片中的全部题目。\n\n用户附加要求：只要第 5–8 题");
+  });
+
+  it("附加要求长度与类型校验", async () => {
+    upstream = await startUpstream(() => JSON.stringify({ questions: [] }));
+    await configureProvider(app, upstream);
+
+    // 2000 字符是上限，允许通过
+    const ok = await importImages(app, {
+      images: [IMAGE],
+      extraPrompt: "a".repeat(2000),
+    });
+    expect(ok.status).toBe(200);
+    expect(upstream.bodies).toHaveLength(1);
+
+    // 空白附加要求视为未提供，正常请求
+    const blank = await importImages(app, { images: [IMAGE], extraPrompt: "   " });
+    expect(blank.status).toBe(200);
+    expect(upstream.bodies).toHaveLength(2);
+
+    const tooLong = await importImages(app, {
+      images: [IMAGE],
+      extraPrompt: "a".repeat(2001),
+    });
+    expect(tooLong.status).toBe(400);
+    expect((await tooLong.json()).code).toBe("INVALID_FIELD");
+
+    const wrongType = await importImages(app, { images: [IMAGE], extraPrompt: 123 });
+    expect(wrongType.status).toBe(400);
+    expect((await wrongType.json()).code).toBe("INVALID_FIELD");
+
+    // 校验失败的请求不应到达模型
+    expect(upstream.bodies).toHaveLength(2);
+  });
+
   it("未识别到题目时返回空数组", async () => {
     upstream = await startUpstream(() => JSON.stringify({ questions: [] }));
     await configureProvider(app, upstream);

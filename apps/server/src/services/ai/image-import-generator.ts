@@ -18,8 +18,14 @@ export interface ImportImage {
 
 export function buildImageImportMessages(
   images: ImportImage[],
-  options?: { systemPrompt?: string },
+  options?: { systemPrompt?: string; extraPrompt?: string },
 ): ChatMessage[] {
+  // 附加要求只追加到 user 消息，不参与 system prompt 的覆盖与优先级解析
+  const extraPrompt = options?.extraPrompt?.trim();
+  const baseText =
+    images.length > 1
+      ? `请转写这 ${images.length} 张图片中的全部题目，并按图片顺序合并为一个数组。`
+      : "请转写这张图片中的全部题目。";
   return [
     {
       role: "system",
@@ -30,10 +36,9 @@ export function buildImageImportMessages(
       content: [
         {
           type: "text",
-          text:
-            images.length > 1
-              ? `请转写这 ${images.length} 张图片中的全部题目，并按图片顺序合并为一个数组。`
-              : "请转写这张图片中的全部题目。",
+          text: extraPrompt
+            ? `${baseText}\n\n用户附加要求：${extraPrompt}`
+            : baseText,
         },
         ...images.map((image) => ({
           type: "image_url" as const,
@@ -108,7 +113,7 @@ export async function generateQuestionsFromImages(
   provider: AIProvider,
   images: ImportImage[],
   signal?: AbortSignal,
-  options?: { systemPrompt?: string },
+  options?: { systemPrompt?: string; extraPrompt?: string },
 ): Promise<string[]> {
   const messages = buildImageImportMessages(images, options);
   let lastError: AIError | undefined;
