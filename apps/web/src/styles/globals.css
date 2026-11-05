@@ -177,7 +177,7 @@
 
 div[data-streamdown="table-fullscreen"] {
   /* 缩进 + 卡片化：四周露出暗化遮罩（超大 box-shadow，不影响布局） */
-  inset: 5vh 6vw;
+  inset: 10vh 14vw;
   border: 1px solid var(--line);
   border-radius: 12px;
   overflow: hidden;
