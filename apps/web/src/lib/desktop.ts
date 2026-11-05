@@ -8,6 +8,10 @@ export interface MotiveWindowBridge {
   minimize: () => void;
   toggleMaximize: () => void;
   close: () => void;
+  /** 查询当前最大化状态（最大化/还原图标用） */
+  isMaximized: () => Promise<boolean>;
+  /** 订阅最大化状态变化；返回退订函数 */
+  onMaximizeChange: (callback: (maximized: boolean) => void) => () => void;
 }
 
 declare global {

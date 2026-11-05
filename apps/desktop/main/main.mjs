@@ -104,6 +104,10 @@ function bootstrap() {
       if (win.isMaximized()) win.unmaximize();
       else win.maximize();
     });
+    // 最大化/还原按钮需要知道当前状态：invoke 查询 + 事件推送双通道
+    ipcMain.handle("window:is-maximized", (event) => {
+      return BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false;
+    });
     ipcMain.on("window:close", (event) => {
       // 走 close() 触发 before-quit 优雅关停链（先停服务进程再退出）
       BrowserWindow.fromWebContents(event.sender)?.close();
@@ -278,6 +282,12 @@ function bootstrap() {
     });
 
     win.on("ready-to-show", () => win.show());
+    // 最大化状态变化推送给渲染进程，驱动最大化/还原图标切换
+    const sendMaximizedState = () => {
+      if (!win.isDestroyed()) win.webContents.send("window:maximized-changed", win.isMaximized());
+    };
+    win.on("maximize", sendMaximizedState);
+    win.on("unmaximize", sendMaximizedState);
     win.on("closed", () => {
       mainWindow = null;
     });

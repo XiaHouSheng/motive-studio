@@ -12,6 +12,13 @@ contextBridge.exposeInMainWorld("motiveWindow", {
   minimize: () => ipcRenderer.send("window:minimize"),
   toggleMaximize: () => ipcRenderer.send("window:toggle-maximize"),
   close: () => ipcRenderer.send("window:close"),
+  // 最大化/还原图标状态：invoke 查询初始值 + 订阅变化事件（返回退订函数）
+  isMaximized: () => ipcRenderer.invoke("window:is-maximized"),
+  onMaximizeChange: (callback) => {
+    const listener = (_event, maximized) => callback(maximized);
+    ipcRenderer.on("window:maximized-changed", listener);
+    return () => ipcRenderer.removeListener("window:maximized-changed", listener);
+  },
 });
 
 // 通知主进程桥已注入成功，写入 main.log 供打包后冒烟验证
