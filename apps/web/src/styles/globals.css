@@ -159,6 +159,20 @@
   }
 }
 
+/* ---------- 无边框窗口拖拽区（仅 Electron 桌面壳注入时启用） ---------- */
+
+.app-drag {
+  -webkit-app-region: drag;
+}
+
+.app-drag button,
+.app-drag input,
+.app-drag a,
+.app-drag [role="button"],
+.app-drag [data-no-drag] {
+  -webkit-app-region: no-drag;
+}
+
 /* ---------- Markdown ---------- */
 /* 基准字号由设置页驱动（--md-font-size 写在 <html> 上，默认 15px）；
    变体与标题按比例缩放，比例换算自旧的固定像素值 */

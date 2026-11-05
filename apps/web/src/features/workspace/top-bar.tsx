@@ -19,6 +19,8 @@ import { useUiStore } from "@/stores/ui";
 import { useThemeStore } from "@/stores/theme";
 import { useT } from "@/lib/i18n/use-i18n";
 import { cn } from "@/lib/utils";
+import { isFrameless } from "@/lib/desktop";
+import { WindowControls, onAppDragDoubleClick } from "@/components/shared/window-controls";
 import { ThemeMenu } from "@/features/theme/theme-menu";
 import type { WorkspaceApi } from "./use-workspace";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -80,7 +82,13 @@ export function TopBar({ workspace }: TopBarProps) {
     question && selectedGroup ? selectedGroup.questionIds.indexOf(question.id) + 1 : 0;
 
   return (
-    <header className="flex h-[52px] shrink-0 items-center gap-2 border-b border-line bg-panel px-2.5">
+    <header
+      className={cn(
+        "flex h-[52px] shrink-0 items-center gap-2 border-b border-line bg-panel px-2.5",
+        isFrameless && "app-drag",
+      )}
+      onDoubleClick={isFrameless ? onAppDragDoubleClick : undefined}
+    >
       <button
         type="button"
         onClick={openMobileNav}
@@ -240,6 +248,7 @@ export function TopBar({ workspace }: TopBarProps) {
         >
           <ChatIcon size={17} strokeWidth={1.8} />
         </button>
+        <WindowControls />
       </div>
     </header>
   );

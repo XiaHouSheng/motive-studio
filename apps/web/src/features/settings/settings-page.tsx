@@ -21,6 +21,8 @@ import { useUiStore } from "@/stores/ui";
 import { useT } from "@/lib/i18n/use-i18n";
 import type { DictionaryKey } from "@/lib/i18n/zh-CN";
 import { cn } from "@/lib/utils";
+import { isFrameless } from "@/lib/desktop";
+import { WindowControls, onAppDragDoubleClick } from "@/components/shared/window-controls";
 import { Markdown } from "@/components/shared/markdown";
 import { PromptsSettings } from "./prompts-settings";
 import { ProviderSettingsForm } from "./provider-settings-form";
@@ -175,7 +177,13 @@ export function SettingsPage() {
 
   return (
     <div className="flex h-dvh min-h-0 flex-col bg-surface text-ink">
-      <header className="flex h-[52px] shrink-0 items-center gap-2 border-b border-line px-3 md:px-4">
+      <header
+        className={cn(
+          "flex h-[52px] shrink-0 items-center gap-2 border-b border-line px-3 md:px-4",
+          isFrameless && "app-drag",
+        )}
+        onDoubleClick={isFrameless ? onAppDragDoubleClick : undefined}
+      >
         <button
           type="button"
           onClick={closeSettings}
@@ -191,6 +199,7 @@ export function SettingsPage() {
           </span>
           <span className="text-[12px] font-medium text-ink-soft">Motive Studio</span>
         </span>
+        <WindowControls />
       </header>
 
       <div className="flex min-h-0 flex-1">

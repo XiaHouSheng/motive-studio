@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, shell, utilityProcess } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess } from "electron";
 import { appendFileSync, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,6 +16,8 @@ import { fileURLToPath } from "node:url";
  */
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+// preload 必须为 CJS（sandbox 模式不支持 ESM preload），路径基于本文件所在目录解析
+const preloadPath = path.join(here, "preload.cjs");
 const isDev = process.env.MOTIVE_DESKTOP_DEV === "1";
 const DEV_URL = "http://localhost:5173";
 
@@ -44,6 +46,8 @@ function bootstrap() {
   // 必须显式 setPath，保证开发与打包模式均使用 %APPDATA%/Motive Studio
   app.setName("Motive Studio");
   app.setPath("userData", path.join(app.getPath("appData"), "Motive Studio"));
+
+  registerWindowIpc();
 
   let mainWindow = null;
   let serverProcess = null;
@@ -80,6 +84,30 @@ function bootstrap() {
   function showErrorAndQuit(title, detail) {
     dialog.showErrorBox(title, detail);
     app.exit(1);
+  }
+
+  /**
+   * 无边框窗口的自定义窗口控制 IPC：渲染进程通过 preload 暴露的
+   * window.motiveWindow 发送单向指令，按 sender 定位窗口，不持有全局引用。
+   */
+  function registerWindowIpc() {
+    ipcMain.on("window:bridge-ready", (event) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      log("info", `窗口桥就绪（preload 注入成功，window=${win ? "ok" : "unknown"}）`);
+    });
+    ipcMain.on("window:minimize", (event) => {
+      BrowserWindow.fromWebContents(event.sender)?.minimize();
+    });
+    ipcMain.on("window:toggle-maximize", (event) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (!win) return;
+      if (win.isMaximized()) win.unmaximize();
+      else win.maximize();
+    });
+    ipcMain.on("window:close", (event) => {
+      // 走 close() 触发 before-quit 优雅关停链（先停服务进程再退出）
+      BrowserWindow.fromWebContents(event.sender)?.close();
+    });
   }
 
   /** 启动 Utility Process 中的服务端，解析就绪消息中的实际端口。 */
@@ -222,10 +250,13 @@ function bootstrap() {
       minHeight: 700,
       show: false,
       autoHideMenuBar: true,
+      // 无边框：系统标题栏由应用内 header（拖拽区 + 最小化/关闭按钮）替代
+      frame: false,
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
         sandbox: true,
+        preload: preloadPath,
       },
     });
     mainWindow = win;
