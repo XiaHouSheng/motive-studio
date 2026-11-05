@@ -61,8 +61,9 @@ export const panelsZh = {
 
   // ── 裁剪编辑器 image-crop-editor ──
   "crop.title": "裁剪图片",
-  "crop.hint": "拖动选框调整区域，拖动边角手柄缩放",
+  "crop.hint": "拖动选框调整区域，拖动边角手柄缩放，拖动顶部手柄旋转",
   "crop.closeAria": "关闭裁剪编辑器",
+  "crop.rotateAria": "旋转选框",
   "crop.failed": "裁剪失败，请重试",
   "crop.loadFailed": "图片加载失败，请返回后重试",
   "crop.cancel": "取消",
@@ -263,8 +264,9 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
 
   // ── Crop editor ──
   "crop.title": "Crop image",
-  "crop.hint": "Drag the selection to move it, drag the corner handles to resize",
+  "crop.hint": "Drag the selection to move it, drag the corner handles to resize, drag the top handle to rotate",
   "crop.closeAria": "Close the crop editor",
+  "crop.rotateAria": "Rotate the crop box",
   "crop.failed": "Crop failed. Please try again.",
   "crop.loadFailed": "Failed to load the image. Go back and try again.",
   "crop.cancel": "Cancel",
