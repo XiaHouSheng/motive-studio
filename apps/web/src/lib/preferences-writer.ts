@@ -1,28 +1,31 @@
 import { api } from "@/lib/api";
+import type { UiPreferences } from "@motive/shared";
+
+export type PreferenceFieldName = "theme" | "language" | "markdownFontSize";
 
 /**
  * 界面偏好写入队列：同一字段的 PUT 请求串行化，且始终以最新待写值发送，
  * 保证后发的用户操作具有最终持久化优先级——请求乱序不会让旧值覆盖新值。
  * 同一事件循环内的连续切换会在微任务中合并为一次请求。
- * 主题与语言分别维护独立队列实例，互不阻塞。
+ * 主题、语言与字号分别维护独立队列实例，互不阻塞。
  * 请求失败时静默处理：保留当前 UI 状态与 localStorage，不自动回滚用户操作，
  * 也不无限重试；用户下次操作会以新值再次入队。
  */
-export class PreferenceFieldQueue {
-  private pendingValue: string | undefined;
+export class PreferenceFieldQueue<T extends string | number = string> {
+  private pendingValue: T | undefined;
   private inFlight = false;
   private scheduled = false;
 
   constructor(
-    private readonly field: "theme" | "language",
-    private readonly write: (field: "theme" | "language", value: string) => Promise<unknown> = (
+    private readonly field: PreferenceFieldName,
+    private readonly write: (field: PreferenceFieldName, value: T) => Promise<unknown> = (
       name,
       value,
-    ) => api.saveUiPreferences({ [name]: value }),
+    ) => api.saveUiPreferences({ [name]: value } as Partial<UiPreferences>),
   ) {}
 
   /** 入队一次写入；已有写入进行中时仅更新待写值（合并为最新选择） */
-  push(value: string): void {
+  push(value: T): void {
     this.pendingValue = value;
     if (this.inFlight || this.scheduled) return;
     this.scheduled = true;

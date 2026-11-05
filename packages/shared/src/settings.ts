@@ -35,6 +35,20 @@ export type UiLanguage = "zh-CN" | "en";
 export const UI_THEMES: UiTheme[] = ["light", "dark", "system"];
 export const UI_LANGUAGES: UiLanguage[] = ["zh-CN", "en"];
 
+/** Markdown 渲染字号可配置范围（px，整数） */
+export const MD_FONT_SIZE_MIN = 12;
+export const MD_FONT_SIZE_MAX = 20;
+export const MD_FONT_SIZE_DEFAULT = 15;
+
+export function isMarkdownFontSize(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= MD_FONT_SIZE_MIN &&
+    value <= MD_FONT_SIZE_MAX
+  );
+}
+
 export function isUiTheme(value: unknown): value is UiTheme {
   return typeof value === "string" && UI_THEMES.includes(value as UiTheme);
 }
@@ -48,4 +62,6 @@ export interface UiPreferences {
   /** 用户选择的主题模式（非解析后的实际主题） */
   theme: UiTheme;
   language: UiLanguage;
+  /** Markdown 渲染内容的基准字号（px），驱动 CSS 变量 --md-font-size */
+  markdownFontSize: number;
 }

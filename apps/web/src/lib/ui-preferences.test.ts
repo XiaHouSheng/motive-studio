@@ -8,13 +8,13 @@ describe("fetchUiPreferences", () => {
 
   it("服务端正常返回时返回偏好", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ theme: "dark", language: "en" }), {
+      new Response(JSON.stringify({ theme: "dark", language: "en", markdownFontSize: 16 }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       }),
     );
     const result = await fetchUiPreferences();
-    expect(result).toEqual({ theme: "dark", language: "en" });
+    expect(result).toEqual({ theme: "dark", language: "en", markdownFontSize: 16 });
   });
 
   it("请求失败时返回 null，不抛错", async () => {

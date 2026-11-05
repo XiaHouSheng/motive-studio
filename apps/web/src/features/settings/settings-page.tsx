@@ -4,17 +4,24 @@ import {
   Languages,
   Monitor,
   Moon,
+  RotateCcw,
   Server,
   Sparkles,
   Sun,
 } from "lucide-react";
-import type { UiLanguage } from "@motive/shared";
+import {
+  MD_FONT_SIZE_DEFAULT,
+  MD_FONT_SIZE_MAX,
+  MD_FONT_SIZE_MIN,
+  type UiLanguage,
+} from "@motive/shared";
 import { useThemeStore } from "@/stores/theme";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useUiStore } from "@/stores/ui";
 import { useT } from "@/lib/i18n/use-i18n";
 import type { DictionaryKey } from "@/lib/i18n/zh-CN";
 import { cn } from "@/lib/utils";
+import { Markdown } from "@/components/shared/markdown";
 import { PromptsSettings } from "./prompts-settings";
 import { ProviderSettingsForm } from "./provider-settings-form";
 
@@ -48,13 +55,15 @@ const THEME_OPTIONS: Array<{
 const sectionHeadingClass = "text-[13px] font-semibold text-ink";
 const hintClass = "text-[11px] leading-relaxed text-ink-faint";
 
-/** 通用：界面语言 + 主题模式 */
+/** 通用：界面语言 + 主题模式 + Markdown 字体大小 */
 function GeneralSettings() {
   const t = useT();
   const language = usePreferencesStore((state) => state.language);
   const setLanguage = usePreferencesStore((state) => state.setLanguage);
   const themeMode = useThemeStore((state) => state.mode);
   const setThemeMode = useThemeStore((state) => state.setMode);
+  const markdownFontSize = usePreferencesStore((state) => state.markdownFontSize);
+  const setMarkdownFontSize = usePreferencesStore((state) => state.setMarkdownFontSize);
 
   return (
     <div className="space-y-6">
@@ -112,6 +121,48 @@ function GeneralSettings() {
           })}
         </div>
         <p className={hintClass}>{t("settings.themeHint")}</p>
+      </section>
+
+      <section className="space-y-2.5" aria-label={t("settings.mdFontSizeLabel")}>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className={sectionHeadingClass}>{t("settings.mdFontSizeLabel")}</h2>
+          <div className="flex items-center gap-2">
+            <span className="text-[11.5px] text-ink-faint">{markdownFontSize}px</span>
+            {markdownFontSize !== MD_FONT_SIZE_DEFAULT ? (
+              <button
+                type="button"
+                onClick={() => setMarkdownFontSize(MD_FONT_SIZE_DEFAULT)}
+                className="inline-flex items-center gap-1 text-[11px] text-ink-faint transition-colors hover:text-ink"
+              >
+                <RotateCcw size={11} />
+                {t("settings.mdFontSizeReset")}
+              </button>
+            ) : null}
+          </div>
+        </div>
+        <input
+          type="range"
+          min={MD_FONT_SIZE_MIN}
+          max={MD_FONT_SIZE_MAX}
+          step={1}
+          value={markdownFontSize}
+          aria-label={t("settings.mdFontSizeLabel")}
+          onChange={(event) => setMarkdownFontSize(Number(event.target.value))}
+          className="h-1.5 w-full cursor-pointer accent-[var(--color-brand)]"
+        />
+        <div className="flex justify-between text-[10px] text-ink-faint">
+          <span>{MD_FONT_SIZE_MIN}px</span>
+          <span>{MD_FONT_SIZE_MAX}px</span>
+        </div>
+        <p className={hintClass}>{t("settings.mdFontSizeHint")}</p>
+        <div className="rounded-lg border border-line bg-panel">
+          <div className="border-b border-line px-3 py-1.5 text-[10.5px] font-medium uppercase tracking-wide text-ink-faint">
+            {t("settings.mdFontSizePreview")}
+          </div>
+          <div className="max-h-[320px] overflow-y-auto px-3 py-2">
+            <Markdown content={t("settings.mdFontSizeSample")} />
+          </div>
+        </div>
       </section>
     </div>
   );

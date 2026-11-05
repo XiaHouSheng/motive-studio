@@ -281,32 +281,57 @@ describe("界面偏好接口", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
+  type UiPrefsBody = { theme: string; language: string; markdownFontSize: number };
+
   function putUi(body: unknown) {
-    return call<{ theme: string; language: string }>(running, "PUT", "/api/settings/ui", body);
+    return call<UiPrefsBody>(running, "PUT", "/api/settings/ui", body);
   }
 
   it("GET 返回默认偏好", async () => {
-    const response = await call<{ theme: string; language: string }>(
-      running,
-      "GET",
-      "/api/settings/ui",
-    );
+    const response = await call<UiPrefsBody>(running, "GET", "/api/settings/ui");
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ theme: "system", language: "zh-CN" });
+    expect(response.body).toEqual({
+      theme: "system",
+      language: "zh-CN",
+      markdownFontSize: 15,
+    });
   });
 
   it("仅修改语言时主题保持不变，反之亦然", async () => {
     const languageOnly = await putUi({ language: "en" });
-    expect(languageOnly.body).toEqual({ theme: "system", language: "en" });
+    expect(languageOnly.body).toEqual({
+      theme: "system",
+      language: "en",
+      markdownFontSize: 15,
+    });
 
     const themeOnly = await putUi({ theme: "dark" });
-    expect(themeOnly.body).toEqual({ theme: "dark", language: "en" });
+    expect(themeOnly.body).toEqual({
+      theme: "dark",
+      language: "en",
+      markdownFontSize: 15,
+    });
+  });
+
+  it("Markdown 字号可独立保存与恢复", async () => {
+    const saved = await putUi({ markdownFontSize: 18 });
+    expect(saved.body.markdownFontSize).toBe(18);
+
+    const after = await call<UiPrefsBody>(running, "GET", "/api/settings/ui");
+    expect(after.body).toEqual({ theme: "system", language: "zh-CN", markdownFontSize: 18 });
+
+    const restored = await putUi({ markdownFontSize: 15 });
+    expect(restored.body.markdownFontSize).toBe(15);
   });
 
   it("连续更新两项偏好不发生字段覆盖", async () => {
     await putUi({ theme: "dark" });
     const final = await putUi({ language: "en" });
-    expect(final.body).toEqual({ theme: "dark", language: "en" });
+    expect(final.body).toEqual({
+      theme: "dark",
+      language: "en",
+      markdownFontSize: 15,
+    });
   });
 
   it("两项偏好并发更新最终均正确", async () => {
@@ -317,28 +342,33 @@ describe("界面偏好接口", () => {
     expect(first.status).toBe(200);
     expect(second.status).toBe(200);
 
-    const after = await call<{ theme: string; language: string }>(
-      running,
-      "GET",
-      "/api/settings/ui",
-    );
-    expect(after.body).toEqual({ theme: "dark", language: "en" });
+    const after = await call<UiPrefsBody>(running, "GET", "/api/settings/ui");
+    expect(after.body).toEqual({
+      theme: "dark",
+      language: "en",
+      markdownFontSize: 15,
+    });
   });
 
   it("非法值与未知字段返回 400 且原配置不变", async () => {
-    await putUi({ theme: "dark", language: "en" });
+    await putUi({ theme: "dark", language: "en", markdownFontSize: 16 });
 
     expect((await putUi({ theme: "blue" })).status).toBe(400);
     expect((await putUi({ language: "fr" })).status).toBe(400);
     expect((await putUi({ theme: 1 })).status).toBe(400);
     expect((await putUi({ locale: "zh-CN" })).status).toBe(400);
+    // 字号必须是 12–20 的整数
+    expect((await putUi({ markdownFontSize: 11 })).status).toBe(400);
+    expect((await putUi({ markdownFontSize: 21 })).status).toBe(400);
+    expect((await putUi({ markdownFontSize: 15.5 })).status).toBe(400);
+    expect((await putUi({ markdownFontSize: "16" })).status).toBe(400);
 
-    const after = await call<{ theme: string; language: string }>(
-      running,
-      "GET",
-      "/api/settings/ui",
-    );
-    expect(after.body).toEqual({ theme: "dark", language: "en" });
+    const after = await call<UiPrefsBody>(running, "GET", "/api/settings/ui");
+    expect(after.body).toEqual({
+      theme: "dark",
+      language: "en",
+      markdownFontSize: 16,
+    });
   });
 });
 
