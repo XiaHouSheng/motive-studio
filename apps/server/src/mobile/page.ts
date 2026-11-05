@@ -112,12 +112,15 @@ export function renderMobilePage(): string {
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   .q-card { border: 1px solid var(--border); border-radius: 10px; background: var(--panel); padding: 12px; margin-bottom: 10px; }
+  .preview-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 20px 0 8px; }
+  .preview-head h2 { margin: 0; }
+  .preview-head .pick { min-height: 40px; padding: 0 14px; font-size: 14px; }
   .q-head { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); min-height: 24px; }
   .q-head input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--primary); }
   .q-card textarea {
     width: 100%; margin-top: 10px; min-height: 110px; resize: vertical;
     border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
-    color: var(--text); font-size: 14px; line-height: 1.6; padding: 10px;
+    color: var(--text); font-size: 16px; line-height: 1.6; padding: 10px;
     font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   }
   .target { border: 1px solid var(--border); border-radius: 10px; background: var(--panel); padding: 14px; }
@@ -126,7 +129,7 @@ export function renderMobilePage(): string {
   select, .target input[type="text"] {
     width: 100%; min-height: 44px; border-radius: 8px; margin-bottom: 10px;
     border: 1px solid var(--border); background: var(--bg); color: var(--text);
-    font-size: 15px; padding: 0 12px;
+    font-size: 16px; padding: 0 12px;
   }
   #commit-bar {
     position: fixed; left: 0; right: 0; bottom: 0;
@@ -184,7 +187,10 @@ export function renderMobilePage(): string {
 </section>
 
 <section id="step-preview" class="hidden">
-  <h2>识别结果 <span id="q-count" class="mono"></span></h2>
+  <div class="preview-head">
+    <h2>识别结果 <span id="q-count" class="mono"></span></h2>
+    <button type="button" class="pick" id="btn-reextract">重新识别</button>
+  </div>
   <p class="sub">勾选需要导入的题目，内容可直接编辑</p>
   <div id="questions" style="margin-top: 12px;"></div>
 </section>
@@ -384,6 +390,8 @@ export function renderMobilePage(): string {
       var select = el('group-select');
       var existingRadio = document.querySelector('input[name="target"][value="existing"]');
       var wasDisabled = existingRadio.disabled;
+      // 刷新列表前记住当前选择，重建后尽量恢复，避免总是回到第一项
+      var previousId = select.value;
       select.innerHTML = '';
       if (state.groups.length === 0) {
         existingRadio.disabled = true;
@@ -397,7 +405,9 @@ export function renderMobilePage(): string {
         select.appendChild(option);
       });
       existingRadio.disabled = false;
-      select.selectedIndex = 0;
+      // 优先恢复此前选中的题组；该题组已不存在时回落到第一个有效题组
+      select.value = previousId;
+      if (select.selectedIndex < 0) select.selectedIndex = 0;
       // 从「暂无题组」恢复为有题组时，切回加入已有题组
       if (wasDisabled) applyTargetMode(false);
     });
@@ -454,6 +464,8 @@ export function renderMobilePage(): string {
 
   el('btn-extract').onclick = function () {
     if (state.images.length === 0) return;
+    // 识别或导入进行中不允许同一会话重复发起请求
+    if (state.status === 'recognizing' || state.status === 'committing') return;
     setStatus('recognizing');
     var images = state.images.map(function (img) {
       return { mediaType: img.mediaType, data: img.data };
@@ -464,8 +476,9 @@ export function renderMobilePage(): string {
           return { content: text, checked: true };
         });
         if (state.questions.length === 0) {
-          showError('未识别到题目，请调整图片后重试');
+          // 先切状态再显示错误，避免 setStatus 内部 clearError 把提示吞掉
           setStatus('idle');
+          showError('未识别到题目，请调整图片后重试');
           return null;
         }
         return loadGroups()
@@ -476,9 +489,16 @@ export function renderMobilePage(): string {
           });
       })
       .catch(function (err) {
-        handleErr(err);
         setStatus('idle');
+        handleErr(err);
       });
+  };
+
+  el('btn-reextract').onclick = function () {
+    // 返回拍摄步骤：保留已拍图片、缩略图、题组选择与附加要求，
+    // 仅丢弃上一次识别结果；错误随 setStatus 统一清除
+    state.questions = [];
+    setStatus('idle');
   };
 
   el('btn-commit').onclick = function () {
@@ -513,8 +533,8 @@ export function renderMobilePage(): string {
         setStatus('done');
       })
       .catch(function (err) {
-        handleErr(err);
         setStatus('preview');
+        handleErr(err);
       });
   };
 
