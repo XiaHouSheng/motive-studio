@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   pointerAngle,
   rotatedAngle,
+  rotatePoint,
   shiftAnchor,
   toLocalDelta,
 } from "./crop-geometry";
@@ -127,6 +128,30 @@ interface ImageCropEditorProps {
   onApply: (dataUrl: string) => void;
 }
 
+/** 蒙版路径：舞台矩形 + 旋转选框多边形，evenodd 挖出选框区域 */
+function maskPath(
+  rect: Rect,
+  angle: number,
+  stageSize: { width: number; height: number } | null,
+): string {
+  const width = stageSize?.width ?? 0;
+  const height = stageSize?.height ?? 0;
+  const centerX = rect.x + rect.width / 2;
+  const centerY = rect.y + rect.height / 2;
+  const halfWidth = rect.width / 2;
+  const halfHeight = rect.height / 2;
+  const corners = [
+    [-halfWidth, -halfHeight],
+    [halfWidth, -halfHeight],
+    [halfWidth, halfHeight],
+    [-halfWidth, halfHeight],
+  ]
+    .map(([x, y]) => rotatePoint(x, y, angle))
+    .map((point) => `${(centerX + point.x).toFixed(2)},${(centerY + point.y).toFixed(2)}`)
+    .join(" L");
+  return `M0 0 H${width} V${height} H0 Z M${corners} Z`;
+}
+
 /** 全屏裁剪编辑器：拖动选框移动、拖动 8 个手柄缩放，确认后按原始分辨率输出裁剪图 */
 export function ImageCropEditor({
   dataUrl,
@@ -143,6 +168,7 @@ export function ImageCropEditor({
   const [bounds, setBounds] = useState<ImageBounds | null>(null);
   const [rect, setRect] = useState<Rect | null>(null);
   const [angle, setAngle] = useState(0);
+  const [stageSize, setStageSize] = useState<{ width: number; height: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
 
@@ -173,6 +199,7 @@ export function ImageCropEditor({
       stage.clientHeight - STAGE_PADDING * 2,
       MIN_SIZE,
     );
+    setStageSize({ width: stage.clientWidth, height: stage.clientHeight });
     const scale = Math.min(
       availableWidth / image.naturalWidth,
       availableHeight / image.naturalHeight,
@@ -185,19 +212,20 @@ export function ImageCropEditor({
     };
     setBounds(nextBounds);
 
-    setRect((current) => {
-      if (initializedRef.current !== dataUrl) {
-        initializedRef.current = dataUrl;
-        // 首次量测：居中放置 86% 的初始选框
-        return {
-          x: nextBounds.left + nextBounds.width * 0.07,
-          y: nextBounds.top + nextBounds.height * 0.07,
-          width: nextBounds.width * 0.86,
-          height: nextBounds.height * 0.86,
-        };
-      }
-      return current ? clampRect(current, nextBounds) : null;
-    });
+    // ref 判定放在 updater 外：updater 必须保持纯函数，
+    // 否则 StrictMode 开发模式下的双调用会让初始选框永远为 null
+    if (initializedRef.current !== dataUrl) {
+      initializedRef.current = dataUrl;
+      // 首次量测：居中放置 86% 的初始选框
+      setRect({
+        x: nextBounds.left + nextBounds.width * 0.07,
+        y: nextBounds.top + nextBounds.height * 0.07,
+        width: nextBounds.width * 0.86,
+        height: nextBounds.height * 0.86,
+      });
+      return;
+    }
+    setRect((current) => (current ? clampRect(current, nextBounds) : current));
   }, [dataUrl]);
 
   useEffect(() => {
@@ -226,8 +254,13 @@ export function ImageCropEditor({
     if (!mode) return; // 框外按下不响应，避免误建选区
     event.preventDefault();
     if (mode === "rotate") {
-      // 旋转期间禁止触发普通选框移动或缩放，仅按指针角度差更新角度
-      const center = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+      // 旋转期间禁止触发普通选框移动或缩放，仅按指针角度差更新角度。
+      // rect 是舞台相对坐标，clientX/Y 是视口坐标，须先换算到同一坐标系
+      const stageRect = stageRef.current?.getBoundingClientRect();
+      const center = {
+        x: rect.x + rect.width / 2 + (stageRect?.left ?? 0),
+        y: rect.y + rect.height / 2 + (stageRect?.top ?? 0),
+      };
       dragRef.current = {
         mode,
         startAngle: angle,
@@ -360,17 +393,29 @@ export function ImageCropEditor({
         />
 
         {bounds && rect ? (
-          <div
-            data-crop-box
-            className="absolute cursor-move border border-brand shadow-[0_0_0_9999px_rgba(0,0,0,0.62)]"
-            style={{
-              left: rect.x,
-              top: rect.y,
-              width: rect.width,
-              height: rect.height,
-              transform: `rotate(${angle}deg)`,
-            }}
-          >
+          <>
+            {/* 蒙版：SVG evenodd 挖洞（旋转安全），替代巨大 spread 的 box-shadow */}
+            <svg
+              className="pointer-events-none absolute inset-0 h-full w-full"
+              aria-hidden="true"
+            >
+              <path
+                fill="rgba(0,0,0,0.62)"
+                fillRule="evenodd"
+                d={maskPath(rect, angle, stageSize)}
+              />
+            </svg>
+            <div
+              data-crop-box
+              className="absolute cursor-move border border-brand"
+              style={{
+                left: rect.x,
+                top: rect.y,
+                width: rect.width,
+                height: rect.height,
+                transform: `rotate(${angle}deg)`,
+              }}
+            >
             <div className="pointer-events-none absolute inset-0">
               <div className="absolute left-1/3 top-0 h-full w-px bg-white/25" />
               <div className="absolute left-2/3 top-0 h-full w-px bg-white/25" />
@@ -396,7 +441,8 @@ export function ImageCropEditor({
             >
               <RotateCw size={9} className="text-black/60" />
             </span>
-          </div>
+            </div>
+          </>
         ) : null}
 
         {error ? (

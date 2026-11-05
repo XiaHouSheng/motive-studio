@@ -75,10 +75,10 @@ export function renderMobilePage(): string {
   .crop-stage img { position: absolute; display: block; pointer-events: none; }
   #crop-box {
     position: absolute; border: 1px solid var(--primary);
-    box-shadow: 0 0 0 9999px rgba(11, 16, 15, 0.62);
     cursor: move;
     transform-origin: center;
   }
+  .crop-mask { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   .crop-stem {
     position: absolute; top: -26px; left: 50%; width: 1px; height: 26px;
     background: var(--primary); pointer-events: none;
@@ -180,7 +180,7 @@ export function renderMobilePage(): string {
   <p class="hint" id="count-hint">已选 0 / 4 张，自动压缩后识别</p>
 </section>
 
-<section id="step-prompt" class="hidden">
+<section id="step-prompt">
   <h2>识别要求 <span class="sub-inline">可选，仅本次导入有效</span></h2>
   <div class="prompt-box">
     <textarea id="extra-prompt" placeholder="例如：只要第 5–8 题；只转写选择题"></textarea>
@@ -238,6 +238,9 @@ export function renderMobilePage(): string {
   </div>
   <div class="crop-stage" id="crop-stage">
     <img id="crop-img" alt="待裁剪图片">
+    <svg id="crop-mask" class="crop-mask" aria-hidden="true">
+      <path id="crop-mask-path" fill="rgba(11, 16, 15, 0.62)" fill-rule="evenodd"></path>
+    </svg>
     <div id="crop-box">
       <span class="crop-stem"></span>
       <span class="crop-handle" data-h="rotate" aria-label="旋转选框"></span>
@@ -637,6 +640,21 @@ export function renderMobilePage(): string {
     box.style.width = crop.rect.w + 'px';
     box.style.height = crop.rect.h + 'px';
     box.style.transform = 'rotate(' + crop.angle + 'deg)';
+    // 蒙版：舞台矩形 + 旋转选框多边形，evenodd 挖洞（与桌面端 maskPath 公式一致）
+    var cx = crop.rect.x + crop.rect.w / 2;
+    var cy = crop.rect.y + crop.rect.h / 2;
+    var hw = crop.rect.w / 2;
+    var hh = crop.rect.h / 2;
+    var corners = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]]
+      .map(function (p) { return rotatePoint(p[0], p[1], crop.angle); })
+      .map(function (p) {
+        return (cx + p.x).toFixed(2) + ',' + (cy + p.y).toFixed(2);
+      })
+      .join(' L');
+    var stageW = el('crop-stage').clientWidth;
+    var stageH = el('crop-stage').clientHeight;
+    el('crop-mask-path').setAttribute('d',
+      'M0 0 H' + stageW + ' V' + stageH + ' H0 Z M' + corners + ' Z');
   }
 
   function layoutCrop() {
@@ -745,8 +763,13 @@ export function renderMobilePage(): string {
     }
     event.preventDefault();
     if (mode === 'rotate') {
-      // 旋转期间禁止触发普通选框移动或缩放，仅按指针角度差更新角度
-      var center = { x: crop.rect.x + crop.rect.w / 2, y: crop.rect.y + crop.rect.h / 2 };
+      // 旋转期间禁止触发普通选框移动或缩放，仅按指针角度差更新角度。
+      // rect 是舞台相对坐标，clientX/Y 是视口坐标，须先换算到同一坐标系
+      var stageBox = stageEl.getBoundingClientRect();
+      var center = {
+        x: crop.rect.x + crop.rect.w / 2 + stageBox.left,
+        y: crop.rect.y + crop.rect.h / 2 + stageBox.top
+      };
       crop.drag = {
         mode: mode,
         center: center,
