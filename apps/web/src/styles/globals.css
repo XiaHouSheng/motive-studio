@@ -173,6 +173,20 @@
   -webkit-app-region: no-drag;
 }
 
+/* ---------- 表格全屏层窗口化（Streamdown 原生层为铺满 fixed，改为居中窗口卡片） ---------- */
+
+div[data-streamdown="table-fullscreen"] {
+  /* 缩进 + 卡片化：四周露出暗化遮罩（超大 box-shadow，不影响布局） */
+  inset: 5vh 6vw;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow:
+    0 0 0 100vmax color-mix(in oklab, var(--bg) 55%, transparent),
+    0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
 /* ---------- Markdown ---------- */
 /* 基准字号由设置页驱动（--md-font-size 写在 <html> 上，默认 15px）；
    变体与标题按比例缩放，比例换算自旧的固定像素值 */
