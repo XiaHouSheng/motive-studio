@@ -1,10 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import type {
-  ArchiveApplyResult,
-  ArchiveChange,
-  ArchiveProposal,
-  ArchiveProposalStatus,
   BackupPayload,
   ConversationTurn,
   ConversationView,
@@ -22,7 +18,6 @@ import type {
   SolutionStepDraft,
   SubConversation,
   TokenUsage,
-  TurnArchiveStatus,
   TurnGenerationStatus,
   TurnStepTag,
   TurnTagStatus,
@@ -124,7 +119,6 @@ interface TurnRow {
   user_message: string;
   assistant_message: string;
   created_at: number;
-  archive_status: string;
   tag_status: string;
   generation_status: string;
   tag_input_tokens: number | null;
@@ -163,18 +157,6 @@ interface RevisionRow {
   steps: string;
   created_at: number;
   created_by: string;
-}
-
-interface ProposalRow {
-  id: string;
-  sub_conversation_id: string;
-  question_id: string;
-  status: string;
-  summary: string;
-  changes: string;
-  source_turn_ids: string;
-  created_at: number;
-  applied_at: number | null;
 }
 
 export interface QuestionPatch {
@@ -222,28 +204,11 @@ export interface ChatContextData {
   history: ConversationTurn[];
 }
 
-export interface ArchiveContextData {
-  question: Question;
-  steps: SolutionStep[];
-  entryStep: SolutionStep;
-  discussion: SubConversation;
-  turns: ConversationTurn[];
-  tags: TurnStepTag[];
-}
-
 export interface ExplanationContextData {
   question: Question;
   steps: SolutionStep[];
   turns: ConversationTurn[];
   tags: TurnStepTag[];
-}
-
-export interface CreateArchiveProposalInput {
-  subConversationId: string;
-  questionId: string;
-  summary: string;
-  changes: ArchiveChange[];
-  sourceTurnIds: string[];
 }
 
 export interface QuestionExportData {
@@ -336,7 +301,6 @@ function toTurn(row: TurnRow): ConversationTurn {
     userMessage: row.user_message,
     assistantMessage: row.assistant_message,
     createdAt: row.created_at,
-    archiveStatus: row.archive_status as TurnArchiveStatus,
     tagStatus: row.tag_status as TurnTagStatus,
     generationStatus: row.generation_status as TurnGenerationStatus,
     tagUsage: usageOf(row.tag_input_tokens, row.tag_output_tokens),
@@ -385,26 +349,13 @@ function toRevision(row: RevisionRow): SolutionRevision {
     revisionNumber: row.revision_number,
     steps: JSON.parse(row.steps) as SolutionStepDraft[],
     createdAt: row.created_at,
+    // "archive" 为已移除的归档功能遗留值，仅保证存量快照显示正确
     createdBy:
       row.created_by === "manual"
         ? "manual"
         : row.created_by === "archive"
           ? "archive"
           : "ai",
-  };
-}
-
-function toProposal(row: ProposalRow): ArchiveProposal {
-  return {
-    id: row.id,
-    subConversationId: row.sub_conversation_id,
-    questionId: row.question_id,
-    status: row.status as ArchiveProposalStatus,
-    summary: row.summary,
-    changes: JSON.parse(row.changes) as ArchiveChange[],
-    sourceTurnIds: JSON.parse(row.source_turn_ids) as string[],
-    createdAt: row.created_at,
-    appliedAt: row.applied_at ?? undefined,
   };
 }
 
@@ -788,9 +739,26 @@ export class WorkspaceRepository {
           .run(order, now, stepId);
       });
     } else {
-      this.db
-        .prepare("UPDATE solution_steps SET title = ?, content = ?, updated_at = ? WHERE id = ?")
-        .run(title, content, now, stepId);
+      withTransaction(this.db, () => {
+        this.db
+          .prepare("UPDATE solution_steps SET title = ?, content = ?, updated_at = ? WHERE id = ?")
+          .run(title, content, now, stepId);
+
+        // 内容实际变化时在同一事务内写入手动编辑快照，保证步骤与版本原子一致
+        if (title !== row.title || content !== row.content) {
+          const stepRows = this.db
+            .prepare("SELECT * FROM solution_steps WHERE question_id = ? ORDER BY step_order")
+            .all(row.question_id) as unknown as StepRow[];
+          const drafts = stepRows.map((step) => ({
+            title: step.title,
+            content: step.content,
+          }));
+          this.writeRevision(row.question_id, drafts, "manual", now);
+          this.db
+            .prepare("UPDATE questions SET updated_at = ? WHERE id = ?")
+            .run(now, row.question_id);
+        }
+      });
     }
 
     const updated = this.requireStep(stepId);
@@ -969,48 +937,7 @@ export class WorkspaceRepository {
     };
   }
 
-  getArchiveContext(subConversationId: string): ArchiveContextData {
-    const subRow = this.requireSub(subConversationId);
-    const entryRow = this.requireStep(subRow.entry_step_id);
-    const questionRow = this.requireQuestion(entryRow.question_id);
-
-    const stepRows = this.db
-      .prepare("SELECT * FROM solution_steps WHERE question_id = ? ORDER BY step_order")
-      .all(entryRow.question_id) as unknown as StepRow[];
-    const steps = stepRows.map(toStep);
-
-    const turnRows = this.db
-      .prepare(
-        "SELECT * FROM conversation_turns WHERE sub_conversation_id = ? ORDER BY created_at, rowid",
-      )
-      .all(subConversationId) as unknown as TurnRow[];
-    const tagRows = this.db
-      .prepare(
-        `SELECT tags.* FROM turn_step_tags tags
-         JOIN conversation_turns turns ON turns.id = tags.turn_id
-         WHERE turns.sub_conversation_id = ?
-         ORDER BY tags.created_at`,
-      )
-      .all(subConversationId) as unknown as TagRow[];
-
-    return {
-      question: toQuestion(
-        questionRow,
-        steps.map((step) => step.id),
-        this.listQuestionAssets(questionRow.id),
-      ),
-      steps,
-      entryStep: steps.find((step) => step.id === entryRow.id) ?? toStep(entryRow),
-      discussion: toSub(
-        subRow,
-        turnRows.map((row) => row.id),
-      ),
-      turns: turnRows.map(toTurn),
-      tags: tagRows.map(toTag),
-    };
-  }
-
-  /** 题目级详解上下文：所有未纳入讨论的轮次及其步骤关联 */
+  /** 题目级详解上下文：全部已完成讨论轮次及其步骤关联（轮次永不消费） */
   getExplanationContext(questionId: string): ExplanationContextData {
     const questionRow = this.requireQuestion(questionId);
 
@@ -1025,7 +952,6 @@ export class WorkspaceRepository {
          JOIN sub_conversations subs ON subs.id = turns.sub_conversation_id
          JOIN solution_steps steps ON steps.id = subs.entry_step_id
          WHERE steps.question_id = ?
-           AND turns.archive_status = 'unarchived'
            AND turns.generation_status = 'completed'
          ORDER BY turns.created_at, turns.rowid`,
       )
@@ -1053,152 +979,6 @@ export class WorkspaceRepository {
       turns: turnRows.map(toTurn),
       tags: tagRows.filter((row) => turnIds.has(row.turn_id)).map(toTag),
     };
-  }
-
-  markTurnsArchived(turnIds: string[]): void {
-    const statement = this.db.prepare(
-      "UPDATE conversation_turns SET archive_status = 'archived' WHERE id = ?",
-    );
-    withTransaction(this.db, () => {
-      for (const turnId of turnIds) statement.run(turnId);
-    });
-  }
-
-  createArchiveProposal(input: CreateArchiveProposalInput): ArchiveProposal {
-    this.requireSub(input.subConversationId);
-    this.requireQuestion(input.questionId);
-    const id = randomUUID();
-    const now = Date.now();
-
-    this.db
-      .prepare(
-        `INSERT INTO archive_proposals (
-           id, sub_conversation_id, question_id, status, summary, changes,
-           source_turn_ids, created_at
-         ) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)`,
-      )
-      .run(
-        id,
-        input.subConversationId,
-        input.questionId,
-        input.summary,
-        JSON.stringify(input.changes),
-        JSON.stringify(input.sourceTurnIds),
-        now,
-      );
-
-    return this.requireProposal(id);
-  }
-
-  getArchiveProposal(proposalId: string): ArchiveProposal {
-    return this.requireProposal(proposalId);
-  }
-
-  listArchiveProposals(questionId: string): ArchiveProposal[] {
-    this.requireQuestion(questionId);
-    const rows = this.db
-      .prepare(
-        "SELECT * FROM archive_proposals WHERE question_id = ? ORDER BY created_at DESC",
-      )
-      .all(questionId) as unknown as ProposalRow[];
-    return rows.map(toProposal);
-  }
-
-  rejectArchiveProposal(proposalId: string): ArchiveProposal {
-    const row = this.requireProposalRow(proposalId);
-    if (row.status !== "pending") {
-      throw new HttpError(409, "PROPOSAL_NOT_PENDING", "该提案已处理，不能重复操作");
-    }
-    this.db
-      .prepare("UPDATE archive_proposals SET status = 'rejected' WHERE id = ?")
-      .run(proposalId);
-    return this.requireProposal(proposalId);
-  }
-
-  applyArchiveProposal(proposalId: string): ArchiveApplyResult {
-    return withTransaction(this.db, () => {
-      const row = this.requireProposalRow(proposalId);
-      if (row.status !== "pending") {
-        throw new HttpError(409, "PROPOSAL_NOT_PENDING", "该提案已处理，不能重复应用");
-      }
-
-      const questionId = row.question_id;
-      this.requireQuestion(questionId);
-
-      const stepRows = this.db
-        .prepare("SELECT * FROM solution_steps WHERE question_id = ? ORDER BY step_order")
-        .all(questionId) as unknown as StepRow[];
-      const stepMap = new Map(stepRows.map((step) => [step.id, step]));
-      const changes = JSON.parse(row.changes) as ArchiveChange[];
-      const now = Date.now();
-      let effective = 0;
-
-      for (const change of changes) {
-        if (change.action !== "add_explanation" && change.action !== "revise_content") {
-          continue;
-        }
-        const step = stepMap.get(change.stepId);
-        if (!step) {
-          throw new HttpError(
-            409,
-            "PROPOSAL_CONFLICT",
-            "提案中的步骤已不存在，请重新生成提案",
-          );
-        }
-        const proposed = change.proposedContent?.trim();
-        if (!proposed) {
-          throw new HttpError(
-            409,
-            "PROPOSAL_CONFLICT",
-            "提案缺少可应用的内容，请重新生成提案",
-          );
-        }
-
-        const content =
-          change.action === "add_explanation"
-            ? `${step.content}\n\n${proposed}`
-            : proposed;
-        this.db
-          .prepare("UPDATE solution_steps SET content = ?, updated_at = ? WHERE id = ?")
-          .run(content, now, step.id);
-        step.content = content;
-        effective += 1;
-      }
-
-      let revision: SolutionRevision | null = null;
-      if (effective > 0) {
-        const drafts = stepRows.map((step) => ({
-          title: step.title,
-          content: step.content,
-        }));
-        revision = this.writeRevision(questionId, drafts, "archive", now);
-        this.db
-          .prepare("UPDATE questions SET updated_at = ? WHERE id = ?")
-          .run(now, questionId);
-      }
-
-      this.db
-        .prepare(
-          "UPDATE archive_proposals SET status = 'applied', applied_at = ? WHERE id = ?",
-        )
-        .run(now, proposalId);
-
-      const sourceTurnIds = JSON.parse(row.source_turn_ids) as string[];
-      const markTurn = this.db.prepare(
-        "UPDATE conversation_turns SET archive_status = 'archived' WHERE id = ?",
-      );
-      for (const turnId of sourceTurnIds) markTurn.run(turnId);
-
-      const finalRows = this.db
-        .prepare("SELECT * FROM solution_steps WHERE question_id = ? ORDER BY step_order")
-        .all(questionId) as unknown as StepRow[];
-
-      return {
-        steps: finalRows.map(toStep),
-        revision,
-        proposal: this.requireProposal(proposalId),
-      };
-    });
   }
 
   appendTurn(
@@ -1236,9 +1016,9 @@ export class WorkspaceRepository {
         .prepare(
           `INSERT INTO conversation_turns (
              id, sub_conversation_id, user_message, assistant_message, created_at,
-             archive_status, tag_status, generation_status,
+             tag_status, generation_status,
              chat_input_tokens, chat_output_tokens
-           ) VALUES (?, ?, ?, ?, ?, 'unarchived', 'tagged', ?, ?, ?)`,
+           ) VALUES (?, ?, ?, ?, ?, 'tagged', ?, ?, ?)`,
         )
         .run(
           turnId,
@@ -1417,7 +1197,6 @@ export class WorkspaceRepository {
         DELETE FROM explanation_turns;
         DELETE FROM turn_step_tags;
         DELETE FROM conversation_turns;
-        DELETE FROM archive_proposals;
         DELETE FROM sub_conversations;
         DELETE FROM solution_explanations;
         DELETE FROM solution_revisions;
@@ -1590,25 +1369,5 @@ export class WorkspaceRepository {
       .get(stepId) as unknown as StepRow | undefined;
     if (!row) throw new HttpError(404, "NOT_FOUND", "步骤不存在");
     return row;
-  }
-
-  private requireSub(subConversationId: string): SubRow {
-    const row = this.db
-      .prepare("SELECT * FROM sub_conversations WHERE id = ?")
-      .get(subConversationId) as unknown as SubRow | undefined;
-    if (!row) throw new HttpError(404, "NOT_FOUND", "讨论不存在");
-    return row;
-  }
-
-  private requireProposalRow(proposalId: string): ProposalRow {
-    const row = this.db
-      .prepare("SELECT * FROM archive_proposals WHERE id = ?")
-      .get(proposalId) as unknown as ProposalRow | undefined;
-    if (!row) throw new HttpError(404, "NOT_FOUND", "归档提案不存在");
-    return row;
-  }
-
-  private requireProposal(proposalId: string): ArchiveProposal {
-    return toProposal(this.requireProposalRow(proposalId));
   }
 }

@@ -9,7 +9,6 @@ import { WorkspaceRepository } from "./repositories/workspace-repository.js";
 import { ProviderSettingsStore } from "./services/ai/provider-settings-store.js";
 import { PromptSettingsStore } from "./services/settings/prompt-settings-store.js";
 import { UiPreferencesStore } from "./services/settings/ui-preferences-store.js";
-import { createArchiveRouter } from "./routes/archive.js";
 import { createBackupRouter } from "./routes/backup.js";
 import { createBootstrapRouter } from "./routes/bootstrap.js";
 import { createExplanationsRouter } from "./routes/explanations.js";
@@ -66,7 +65,6 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use("/api", createQuestionsRouter(repository));
   app.use("/api", createQuestionAssetsRouter(repository, assetStore));
   app.use("/api", createSolutionRouter(repository, settingsStore, assetStore, promptSettingsStore));
-  app.use("/api", createArchiveRouter(repository, settingsStore, promptSettingsStore));
   app.use("/api", createStepsRouter(repository, settingsStore, promptSettingsStore));
   app.use("/api", createExplanationsRouter(repository, settingsStore, promptSettingsStore));
   app.use("/api", createExportRouter(repository));

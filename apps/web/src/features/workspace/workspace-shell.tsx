@@ -8,7 +8,6 @@ import { GroupSidebar } from "@/features/question-groups/group-sidebar";
 import { SolutionPanel } from "@/features/solutions/solution-panel";
 import { ChatPanel } from "@/features/discussions/chat-panel";
 import { SettingsPage } from "@/features/settings/settings-page";
-import { ArchiveProposalDialog } from "@/features/archive/archive-proposal-dialog";
 import { ImageImportDialog } from "@/features/question-groups/image-import-dialog";
 import { MobileCaptureDialog } from "@/features/mobile-capture/mobile-capture-dialog";
 import { ResizeHandle } from "@/components/shared/resize-handle";
@@ -251,7 +250,6 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
       >
         <ChatPanel workspace={workspace} onClose={closeMobileChat} />
       </aside>
-      <ArchiveProposalDialog workspace={workspace} />
       <ImageImportDialog workspace={workspace} />
       <MobileCaptureDialog workspace={workspace} />
     </div>

@@ -372,7 +372,7 @@ describe("界面偏好接口", () => {
   });
 });
 
-describe("五个环节生效自定义提示词", () => {
+describe("各环节生效自定义提示词", () => {
   let dir: string;
   let app: RunningApp;
   let upstream: RunningUpstream | undefined;
@@ -472,17 +472,6 @@ describe("五个环节生效自定义提示词", () => {
       "POST",
       "/api/questions/q-quad/explanations/generate",
     );
-    expect(response.status).toBe(201);
-    expect(lastSystemPrompt(upstream)).toBe(CUSTOM);
-  });
-
-  it("归档提案", async () => {
-    upstream = await startUpstream(() => JSON.stringify({ summary: "概述", changes: [] }));
-    await configureProvider(app, upstream);
-    await setPrompt("archive_proposal", CUSTOM);
-    const subId = await appendTurn();
-
-    const response = await call<unknown>(app, "POST", `/api/discussions/${subId}/archive`);
     expect(response.status).toBe(201);
     expect(lastSystemPrompt(upstream)).toBe(CUSTOM);
   });

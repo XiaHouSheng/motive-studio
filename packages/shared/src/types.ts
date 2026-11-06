@@ -61,45 +61,6 @@ export interface SolutionGenerationResult {
   revision: SolutionRevision;
 }
 
-export type ArchiveAction =
-  | "add_explanation"
-  | "revise_content"
-  | "no_change"
-  | "needs_review";
-
-export interface ArchiveChange {
-  stepId: ID;
-  action: ArchiveAction;
-  proposedContent?: string;
-  rationale: string;
-  sourceTurnIds: ID[];
-}
-
-export interface ArchiveProposalDraft {
-  summary: string;
-  changes: ArchiveChange[];
-}
-
-export type ArchiveProposalStatus = "pending" | "applied" | "rejected";
-
-export interface ArchiveProposal {
-  id: ID;
-  subConversationId: ID;
-  questionId: ID;
-  status: ArchiveProposalStatus;
-  summary: string;
-  changes: ArchiveChange[];
-  sourceTurnIds: ID[];
-  createdAt: number;
-  appliedAt?: number;
-}
-
-export interface ArchiveApplyResult {
-  steps: SolutionStep[];
-  revision: SolutionRevision | null;
-  proposal: ArchiveProposal;
-}
-
 export interface SubConversation {
   id: ID;
   entryStepId: ID;
@@ -109,7 +70,6 @@ export interface SubConversation {
 }
 
 export type TurnTagStatus = "pending" | "tagged" | "failed";
-export type TurnArchiveStatus = "unarchived" | "archived";
 export type TurnGenerationStatus = "completed" | "interrupted";
 
 export interface TokenUsage {
@@ -123,7 +83,6 @@ export interface ConversationTurn {
   userMessage: string;
   assistantMessage: string;
   createdAt: number;
-  archiveStatus: TurnArchiveStatus;
   tagStatus: TurnTagStatus;
   generationStatus?: TurnGenerationStatus;
   tagUsage?: TokenUsage;

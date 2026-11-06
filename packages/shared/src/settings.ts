@@ -7,7 +7,6 @@ export const PROMPT_STAGES = [
   "solution_generation",
   "step_discussion",
   "explanation_generation",
-  "archive_proposal",
 ] as const;
 
 export type PromptStage = (typeof PROMPT_STAGES)[number];

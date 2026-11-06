@@ -186,4 +186,12 @@ export const migrations: Migration[] = [
         ON ai_context_snapshots(question_id, created_at)`,
     ],
   },
+  {
+    // 归档提案功能移除：清空提案表与轮次归档标记列（详见 v1 建表结构）
+    version: 6,
+    statements: [
+      `DROP TABLE archive_proposals`,
+      `ALTER TABLE conversation_turns DROP COLUMN archive_status`,
+    ],
+  },
 ];

@@ -1,4 +1,4 @@
-/** Agent panels 域词条：题组侧栏 / 图片导入与裁剪 / 手机拍照 / 归档提案 / 模型设置 */
+/** Agent panels 域词条：题组侧栏 / 图片导入与裁剪 / 手机拍照 / 模型设置 */
 
 export const panelsZh = {
   // ── 题组侧栏 group-sidebar ──
@@ -91,27 +91,6 @@ export const panelsZh = {
   "mobile.step3": "拍照上传题目，识别确认后导入对应题组。",
   "mobile.tokenInfo": "访问凭证由本机生成，24 小时内有效且仅限局域网访问；服务重启后需重新扫码，不带凭证的设备无法打开该页面。",
 
-  // ── 归档提案 archive-proposal-dialog ──
-  "archive.title": "归档提案预览",
-  "archive.description": "确认后才会写入正式题解，应用过程会生成新版本。",
-  "archive.changeCount": "{count} 项变更将写入正式题解",
-  "archive.noChanges": "本次没有需要写入的变更",
-  "archive.reject": "拒绝提案",
-  "archive.applying": "正在应用…",
-  "archive.apply": "确认应用",
-  "archive.overview": "提案概述",
-  "archive.empty": "讨论暂未产生需要修改的正式内容。",
-  "archive.actionAddExplanation": "追加说明",
-  "archive.actionReviseContent": "重写内容",
-  "archive.actionNoChange": "无需修改",
-  "archive.actionNeedsReview": "需人工确认",
-  "archive.stepMissing": "步骤已不存在",
-  "archive.currentContent": "当前内容",
-  "archive.willAppend": "将追加",
-  "archive.proposedContent": "提案后内容",
-  "archive.sourceTurns": "来源讨论",
-  "archive.userLabel": "用户：",
-
   // ── 模型设置 provider-settings-dialog ──
   "settings.title": "模型设置",
   "settings.description":
@@ -185,12 +164,10 @@ export const panelsZh = {
   "prompts.stageSolutionGeneration": "分步题解",
   "prompts.stageStepDiscussion": "步骤讨论",
   "prompts.stageExplanationGeneration": "题目详解",
-  "prompts.stageArchiveProposal": "归档提案",
   "prompts.descImageImport": "从图片识别题目内容时使用",
   "prompts.descSolutionGeneration": "生成结构化分步题解时使用",
   "prompts.descStepDiscussion": "步骤讨论对话回复时使用",
-  "prompts.descExplanationGeneration": "基于讨论生成题目详解时使用",
-  "prompts.descArchiveProposal": "把讨论整理为归档提案时使用",
+  "prompts.descExplanationGeneration": "生成题目详解时使用",
   "prompts.customPromptLabel": "自定义提示词",
   "prompts.customPromptPlaceholder": "留空则使用默认提示词",
   "prompts.defaultBadge": "默认",
@@ -302,28 +279,6 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "mobile.tokenInfo":
     "Access credentials are generated locally and stay valid for 24 hours within the LAN only. After the service restarts you need to scan again; devices without credentials cannot open the page.",
 
-  // ── Archive proposal dialog ──
-  "archive.title": "Archive proposal preview",
-  "archive.description":
-    "Content is written to the official solution only after you confirm; applying creates a new version.",
-  "archive.changeCount": "{count} changes will be written to the official solution",
-  "archive.noChanges": "No changes to apply this time",
-  "archive.reject": "Reject proposal",
-  "archive.applying": "Applying…",
-  "archive.apply": "Apply",
-  "archive.overview": "Overview",
-  "archive.empty": "The discussion has not produced any official content to change yet.",
-  "archive.actionAddExplanation": "Add explanation",
-  "archive.actionReviseContent": "Rewrite content",
-  "archive.actionNoChange": "No change",
-  "archive.actionNeedsReview": "Needs review",
-  "archive.stepMissing": "This step no longer exists",
-  "archive.currentContent": "Current content",
-  "archive.willAppend": "Will append",
-  "archive.proposedContent": "Proposed content",
-  "archive.sourceTurns": "Source discussion",
-  "archive.userLabel": "User: ",
-
   // ── Provider settings dialog ──
   "settings.title": "Model settings",
   "settings.description":
@@ -398,12 +353,10 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "prompts.stageSolutionGeneration": "Step-by-step solution",
   "prompts.stageStepDiscussion": "Step discussion",
   "prompts.stageExplanationGeneration": "Explanation",
-  "prompts.stageArchiveProposal": "Archive proposal",
   "prompts.descImageImport": "Used when recognizing questions from images",
   "prompts.descSolutionGeneration": "Used when generating the structured solution",
   "prompts.descStepDiscussion": "Used for step discussion replies",
-  "prompts.descExplanationGeneration": "Used when generating the explanation from a discussion",
-  "prompts.descArchiveProposal": "Used when turning a discussion into an archive proposal",
+  "prompts.descExplanationGeneration": "Used when generating the explanation",
   "prompts.customPromptLabel": "Custom prompt",
   "prompts.customPromptPlaceholder": "Leave blank to use the default prompt",
   "prompts.defaultBadge": "Default",

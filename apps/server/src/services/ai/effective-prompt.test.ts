@@ -2,7 +2,6 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildArchiveMessages } from "./archive-context-builder.js";
 import { buildChatMessages } from "./context-builder.js";
 import { DEFAULT_PROMPTS, resolveSystemPrompt } from "./effective-prompt.js";
 import { buildExplanationMessages } from "./explanation-context-builder.js";
@@ -33,7 +32,7 @@ describe("resolveSystemPrompt", () => {
   });
 });
 
-describe("五个环节的 build*Messages 注入自定义提示词", () => {
+describe("各环节的 build*Messages 注入自定义提示词", () => {
   it("分步题解：自定义生效，缺省回退默认", () => {
     expect(systemOf(buildSolutionMessages("题目内容", { systemPrompt: CUSTOM }))).toBe(CUSTOM);
     expect(systemOf(buildSolutionMessages("题目内容"))).toBe(DEFAULT_PROMPTS.solution_generation);
@@ -61,18 +60,6 @@ describe("五个环节的 build*Messages 注入自定义提示词", () => {
     expect(systemOf(buildExplanationMessages(context))).toBe(
       DEFAULT_PROMPTS.explanation_generation,
     );
-  });
-
-  it("归档提案：自定义生效，缺省回退默认", () => {
-    const context = {
-      question: { id: "q-1", content: "题目" },
-      entryStep: { id: "s-1", title: "步骤", order: 1 },
-      steps: [],
-      turns: [],
-      tags: [],
-    } as unknown as Parameters<typeof buildArchiveMessages>[0];
-    expect(systemOf(buildArchiveMessages(context, { systemPrompt: CUSTOM }))).toBe(CUSTOM);
-    expect(systemOf(buildArchiveMessages(context))).toBe(DEFAULT_PROMPTS.archive_proposal);
   });
 
   it("题目图片识别：自定义生效，缺省回退默认", () => {

@@ -15,7 +15,6 @@ function emptySettings(): Record<PromptStage, string> {
     solution_generation: "",
     step_discussion: "",
     explanation_generation: "",
-    archive_proposal: "",
   };
 }
 

@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
-  ArchiveProposal,
   ImagePolicy,
   Question,
   SolutionRevision,
   SolutionStep,
-  TurnArchiveStatus,
   TurnGenerationStatus,
   TurnTagStatus,
   WorkspaceData,
@@ -26,7 +24,6 @@ export interface ChatMessage {
   content: string;
   createdAt: number;
   tagStatus?: TurnTagStatus;
-  archiveStatus?: TurnArchiveStatus;
   generationStatus?: TurnGenerationStatus;
   tags: ChatTag[];
   streaming?: boolean;
@@ -80,11 +77,6 @@ export function useWorkspace() {
   } | null>(null);
   const [generatingExplanation, setGeneratingExplanation] = useState(false);
   const [explanationError, setExplanationError] = useState<string | null>(null);
-  const [pendingProposal, setPendingProposal] = useState<ArchiveProposal | null>(null);
-  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
-  const [archiveGenerating, setArchiveGenerating] = useState(false);
-  const [archiveApplying, setArchiveApplying] = useState(false);
-  const [archiveError, setArchiveError] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<SolutionRevision[]>([]);
   const [revisionsLoading, setRevisionsLoading] = useState(false);
   const [restoringRevision, setRestoringRevision] = useState(false);
@@ -181,29 +173,6 @@ export function useWorkspace() {
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [mobileLinkOpen, load]);
-
-  // 切换题目时同步该题最新的待确认归档提案
-  useEffect(() => {
-    setPendingProposal(null);
-    setArchiveDialogOpen(false);
-    setArchiveError(null);
-    if (!selectedQuestionId) return;
-
-    let cancelled = false;
-    void api
-      .listArchiveProposals(selectedQuestionId)
-      .then((list) => {
-        if (cancelled) return;
-        setPendingProposal(
-          list.find((proposal) => proposal.status === "pending") ?? null,
-        );
-      })
-      .catch(() => undefined);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedQuestionId]);
 
   useEffect(() => {
     const active = controllers.current;
@@ -335,7 +304,6 @@ export function useWorkspace() {
           content: turn.assistantMessage,
           createdAt: turn.createdAt,
           tagStatus: turn.tagStatus,
-          archiveStatus: turn.archiveStatus,
           generationStatus: turn.generationStatus,
           tags,
         });
@@ -583,62 +551,19 @@ export function useWorkspace() {
     }
   }, [generatingExplanation, load, toMessage]);
 
-  const generateArchive = useCallback(
-    async (subConversationId: string) => {
-      if (archiveGenerating) return;
-      setArchiveGenerating(true);
-      setArchiveError(null);
+  // 手动编辑步骤：保存成功后刷新数据（后端在同一事务内写 manual 版本快照）
+  const updateStep = useCallback(
+    async (stepId: string, patch: { title?: string; content?: string }): Promise<string | null> => {
       try {
-        const proposal = await api.generateArchiveProposal(subConversationId);
-        setPendingProposal(proposal);
-        setArchiveDialogOpen(true);
-      } catch (generationError) {
-        setArchiveError(toMessage(generationError));
-    } finally {
-      setArchiveGenerating(false);
-    }
-  },
-    [archiveGenerating, toMessage],
+        await api.updateStep(stepId, patch);
+        await load();
+        return null;
+      } catch (updateError) {
+        return toMessage(updateError);
+      }
+    },
+    [load, toMessage],
   );
-
-  const openArchiveDialog = useCallback(() => {
-    if (!pendingProposal) return;
-    setArchiveError(null);
-    setArchiveDialogOpen(true);
-  }, [pendingProposal]);
-
-  const closeArchiveDialog = useCallback(() => {
-    if (archiveApplying) return;
-    setArchiveDialogOpen(false);
-  }, [archiveApplying]);
-
-  const applyArchive = useCallback(async (): Promise<string | null> => {
-    if (!pendingProposal || archiveApplying) return null;
-    setArchiveApplying(true);
-    try {
-      await api.applyArchiveProposal(pendingProposal.id);
-      setPendingProposal(null);
-      setArchiveDialogOpen(false);
-      await load();
-      return null;
-    } catch (applyError) {
-      return toMessage(applyError);
-    } finally {
-      setArchiveApplying(false);
-    }
-  }, [archiveApplying, load, pendingProposal, toMessage]);
-
-  const rejectArchive = useCallback(async (): Promise<string | null> => {
-    if (!pendingProposal) return null;
-    try {
-      await api.rejectArchiveProposal(pendingProposal.id);
-      setPendingProposal(null);
-      setArchiveDialogOpen(false);
-      return null;
-    } catch (rejectError) {
-      return toMessage(rejectError);
-    }
-  }, [pendingProposal, toMessage]);
 
   const loadRevisions = useCallback(async () => {
     const questionId = useUiStore.getState().selectedQuestionId;
@@ -987,16 +912,7 @@ export function useWorkspace() {
     explanationError,
     generateExplanation,
     turns: data.turns,
-    pendingProposal,
-    archiveDialogOpen,
-    archiveGenerating,
-    archiveApplying,
-    archiveError,
-    openArchiveDialog,
-    closeArchiveDialog,
-    generateArchive,
-    applyArchive,
-    rejectArchive,
+    updateStep,
     revisions,
     revisionsLoading,
     loadRevisions,

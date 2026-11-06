@@ -56,9 +56,9 @@ export function insertWorkspaceData(db: DatabaseSync, data: WorkspaceData): void
   const turnStmt = db.prepare(
     `INSERT INTO conversation_turns (
        id, sub_conversation_id, user_message, assistant_message, created_at,
-       archive_status, tag_status, generation_status, tag_input_tokens, tag_output_tokens,
+       tag_status, generation_status, tag_input_tokens, tag_output_tokens,
        chat_input_tokens, chat_output_tokens
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const turn of data.turns) {
     turnStmt.run(
@@ -67,7 +67,6 @@ export function insertWorkspaceData(db: DatabaseSync, data: WorkspaceData): void
       turn.userMessage,
       turn.assistantMessage,
       turn.createdAt,
-      turn.archiveStatus,
       turn.tagStatus,
       turn.generationStatus ?? "completed",
       turn.tagUsage?.inputTokens ?? null,

@@ -16,8 +16,6 @@ export const errorsZh = {
   "error.INVALID_RESPONSE": "模型返回的内容无法解析，请重试",
   "error.SCHEMA_VALIDATION_FAILED": "模型返回的结构不符合要求，请重试",
   "error.NO_STEPS": "请先生成分步题解，再生成详解",
-  "error.NO_DISCUSSION": "没有可纳入的讨论：先在步骤讨论中提问，再生成详解",
-  "error.EMPTY_DISCUSSION": "该讨论还没有可用于归档的内容",
   "error.VISION_UNSUPPORTED": "当前模型不支持图片输入，请更换模型",
   "error.CREDENTIAL_STORE_FAILED": "API Key 写入本机凭据存储失败",
 } as const;
@@ -39,9 +37,6 @@ export const errorsEn: Record<keyof typeof errorsZh, string> = {
   "error.INVALID_RESPONSE": "The model response could not be parsed. Try again.",
   "error.SCHEMA_VALIDATION_FAILED": "The model response has an unexpected structure. Try again.",
   "error.NO_STEPS": "Generate the step-by-step solution first, then create an explanation.",
-  "error.NO_DISCUSSION":
-    "Nothing to include yet: ask questions in the step discussion first, then generate an explanation.",
-  "error.EMPTY_DISCUSSION": "This discussion has no content to archive yet.",
   "error.VISION_UNSUPPORTED": "The current model does not support image input. Switch models.",
   "error.CREDENTIAL_STORE_FAILED": "Failed to store the API key in the local credential store.",
 };

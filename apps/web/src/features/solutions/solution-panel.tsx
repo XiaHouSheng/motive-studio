@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   AlertCircle,
-  Archive,
   BookOpen,
   ChevronDown,
   CircleHelp,
@@ -16,6 +15,7 @@ import type {
   ImagePolicy,
   QuestionAsset,
   SolutionExplanation,
+  SolutionStep,
 } from "@motive/shared";
 import { useUiStore } from "@/stores/ui";
 import { useI18n } from "@/lib/i18n/use-i18n";
@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StepCard } from "./step-card";
+import { StepEditDialog } from "./step-edit-dialog";
 import { RevisionHistoryDialog } from "./revision-history-dialog";
 
 const policyLabels: Record<ImagePolicy, DictionaryKey> = {
@@ -130,8 +131,6 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
     generatingExplanation,
     explanationError,
     generateExplanation,
-    pendingProposal,
-    openArchiveDialog,
     exportQuestionMarkdown,
     providerSupportsVision,
     setQuestionImagePolicy,
@@ -142,6 +141,7 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
   const { t, locale } = useI18n();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [revisionOpen, setRevisionOpen] = useState(false);
+  const [editingStep, setEditingStep] = useState<SolutionStep | null>(null);
   const [previewAsset, setPreviewAsset] = useState<QuestionAsset | null>(null);
 
   if (loading) {
@@ -256,21 +256,6 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
           </Badge>
         ) : null}
       </div>
-
-      {pendingProposal ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-brand/30 bg-brand/8 px-3 py-2.5">
-          <Archive size={13} strokeWidth={1.9} className="shrink-0 text-brand" />
-          <span className="text-[12px] font-medium text-ink-soft">
-            {t("solution.proposal.pending", { count: pendingProposal.changes.length })}
-          </span>
-          <span className="min-w-0 flex-1 truncate text-[11px] text-ink-faint">
-            {pendingProposal.summary}
-          </span>
-          <Button variant="secondary" size="sm" onClick={openArchiveDialog}>
-            {t("solution.proposal.view")}
-          </Button>
-        </div>
-      ) : null}
 
       <section className="mt-8">
         <div className="mb-2.5 flex items-center gap-2">
@@ -407,6 +392,10 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
                 active={step.id === activeStepId}
                 discussionCount={tagCountByStep[step.id] ?? 0}
                 onDiscuss={openDiscussion}
+                onEdit={(stepId) => {
+                  const target = steps.find((item) => item.id === stepId);
+                  if (target) setEditingStep(target);
+                }}
               />
             ))}
           </div>
@@ -487,6 +476,14 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
         onClose={() => setRevisionOpen(false)}
         workspace={workspace}
       />
+
+      {editingStep ? (
+        <StepEditDialog
+          step={editingStep}
+          onClose={() => setEditingStep(null)}
+          onSave={workspace.updateStep}
+        />
+      ) : null}
     </div>
   );
 }

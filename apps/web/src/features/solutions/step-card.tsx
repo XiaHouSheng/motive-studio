@@ -1,4 +1,4 @@
-import { MessageCircle, MessageSquarePlus } from "lucide-react";
+import { MessageCircle, MessageSquarePlus, Pencil } from "lucide-react";
 import type { SolutionStep } from "@motive/shared";
 import { Markdown } from "@/components/shared/markdown";
 import { useT } from "@/lib/i18n/use-i18n";
@@ -9,9 +9,10 @@ interface StepCardProps {
   active: boolean;
   discussionCount: number;
   onDiscuss: (stepId: string) => void;
+  onEdit: (stepId: string) => void;
 }
 
-export function StepCard({ step, active, discussionCount, onDiscuss }: StepCardProps) {
+export function StepCard({ step, active, discussionCount, onDiscuss, onEdit }: StepCardProps) {
   const t = useT();
 
   return (
@@ -38,6 +39,16 @@ export function StepCard({ step, active, discussionCount, onDiscuss }: StepCardP
         <h3 className="min-w-0 flex-1 pt-0.5 text-[length:calc(var(--md-font-size,15px)*0.9)] leading-snug font-semibold text-ink">
           {step.title}
         </h3>
+
+        <button
+          type="button"
+          onClick={() => onEdit(step.id)}
+          aria-label={t("steps.edit")}
+          title={t("steps.edit")}
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-soft opacity-100 transition-colors hover:bg-selection hover:text-ink md:opacity-0 md:group-hover/step:opacity-100 md:focus-visible:opacity-100"
+        >
+          <Pencil size={13} strokeWidth={1.9} />
+        </button>
 
         <button
           type="button"

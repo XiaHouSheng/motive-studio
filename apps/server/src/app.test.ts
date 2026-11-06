@@ -6,6 +6,8 @@ import type { DatabaseSync } from "node:sqlite";
 import type {
   BackupPayload,
   QuestionGroup,
+  SolutionGenerationResult,
+  SolutionRevision,
   SolutionStep,
   SubConversation,
   TurnStepTag,
@@ -219,6 +221,43 @@ describe("Motive Studio 数据层", () => {
       .sort((a, b) => a.order - b.order);
     expect(forwardOrders.map((step) => step.order)).toEqual([1, 2, 3, 4, 5]);
     expect(forwardOrders[3].id).toBe(target.id);
+  });
+
+  it("手动编辑步骤写入 manual 快照并可恢复", async () => {
+    const before = await call<WorkspaceData>(running, "GET", "/api/bootstrap");
+    const target = before.body.steps.find((step) => step.id === "s-quad-2");
+    expect(target).toBeDefined();
+    expect(target?.content).not.toBe("手动修正后的步骤内容。");
+
+    const patched = await call<SolutionStep>(running, "PATCH", "/api/steps/s-quad-2", {
+      content: "手动修正后的步骤内容。",
+    });
+    expect(patched.status).toBe(200);
+    expect(patched.body.content).toBe("手动修正后的步骤内容。");
+
+    // 步骤更新与 manual 快照原子落库：快照内容反映编辑后的全部步骤
+    const revisions = await call<SolutionRevision[]>(
+      running,
+      "GET",
+      "/api/questions/q-quad/revisions",
+    );
+    expect(revisions.status).toBe(200);
+    const manual = revisions.body
+      .filter((revision) => revision.createdBy === "manual")
+      .sort((a, b) => b.revisionNumber - a.revisionNumber)[0];
+    expect(manual).toBeDefined();
+    const snapshotDraft = manual.steps.find((draft) => draft.title === target?.title);
+    expect(snapshotDraft?.content).toBe("手动修正后的步骤内容。");
+
+    // 快照可恢复：步骤内容回到快照记录的状态
+    const restored = await call<SolutionGenerationResult>(
+      running,
+      "POST",
+      `/api/questions/q-quad/revisions/${manual.id}/restore`,
+    );
+    expect(restored.status).toBe(200);
+    const restoredStep = restored.body.steps.find((step) => step.title === target?.title);
+    expect(restoredStep?.content).toBe("手动修正后的步骤内容。");
   });
 
   it("备份可以导出并以替换方式导入", async () => {

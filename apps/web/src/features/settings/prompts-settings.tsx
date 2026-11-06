@@ -7,7 +7,7 @@ import { translateApiError } from "@/lib/i18n/errors";
 import type { DictionaryKey } from "@/lib/i18n/zh-CN";
 import { cn } from "@/lib/utils";
 
-/** 五个 AI 环节：顺序与展示文案统一在此维护 */
+/** 各 AI 环节：顺序与展示文案统一在此维护 */
 const STAGES: Array<{
   stage: PromptStage;
   labelKey: DictionaryKey;
@@ -33,11 +33,6 @@ const STAGES: Array<{
     labelKey: "prompts.stageExplanationGeneration",
     descKey: "prompts.descExplanationGeneration",
   },
-  {
-    stage: "archive_proposal",
-    labelKey: "prompts.stageArchiveProposal",
-    descKey: "prompts.descArchiveProposal",
-  },
 ];
 
 type StageStatus = "idle" | "saving" | "saved" | "error";
@@ -57,7 +52,6 @@ function initialStages(): Record<PromptStage, StageState> {
     solution_generation: { draft: "", saved: "", status: "idle", error: null },
     step_discussion: { draft: "", saved: "", status: "idle", error: null },
     explanation_generation: { draft: "", saved: "", status: "idle", error: null },
-    archive_proposal: { draft: "", saved: "", status: "idle", error: null },
   };
 }
 
@@ -67,7 +61,6 @@ function initialDefaults(): Record<PromptStage, boolean> {
     solution_generation: false,
     step_discussion: false,
     explanation_generation: false,
-    archive_proposal: false,
   };
 }
 
@@ -77,7 +70,7 @@ const textareaClass =
 const labelClass = "text-[11.5px] font-medium text-ink-soft";
 
 /**
- * 提示词设置：五个环节各一张卡片。
+ * 提示词设置：各环节一张卡片。
  * - 显式保存（每卡「保存」按钮），不逐字符自动保存
  * - 卡片展示：未保存修改 / 保存中 / 保存成功 / 保存失败（失败保留草稿）
  * - 「查看默认提示词」渲染服务端返回的 defaults，前端不复制默认文案

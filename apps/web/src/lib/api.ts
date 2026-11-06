@@ -1,7 +1,5 @@
 import {
   createSseParser,
-  type ArchiveApplyResult,
-  type ArchiveProposal,
   type BackupPayload,
   type ChatStreamEvent,
   type ConversationTurn,
@@ -224,26 +222,6 @@ export const api = {
   restoreRevision: (questionId: string, revisionId: string) =>
     request<SolutionGenerationResult>(
       `/api/questions/${encodeURIComponent(questionId)}/revisions/${encodeURIComponent(revisionId)}/restore`,
-      { method: "POST" },
-    ),
-
-  generateArchiveProposal: (subConversationId: string) =>
-    request<ArchiveProposal>(
-      `/api/discussions/${encodeURIComponent(subConversationId)}/archive`,
-      { method: "POST" },
-    ),
-  listArchiveProposals: (questionId: string) =>
-    request<ArchiveProposal[]>(
-      `/api/questions/${encodeURIComponent(questionId)}/archive-proposals`,
-    ),
-  applyArchiveProposal: (proposalId: string) =>
-    request<ArchiveApplyResult>(
-      `/api/archive-proposals/${encodeURIComponent(proposalId)}/apply`,
-      { method: "POST" },
-    ),
-  rejectArchiveProposal: (proposalId: string) =>
-    request<ArchiveProposal>(
-      `/api/archive-proposals/${encodeURIComponent(proposalId)}/reject`,
       { method: "POST" },
     ),
 

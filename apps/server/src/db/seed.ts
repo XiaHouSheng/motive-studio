@@ -234,7 +234,6 @@ export function createSeedWorkspace(): WorkspaceData {
 
 如果只算顶点，就会漏掉更大的端值。`,
       createdAt: minutes(6),
-      archiveStatus: "unarchived",
       tagStatus: "tagged",
     },
     {
@@ -245,7 +244,6 @@ export function createSeedWorkspace(): WorkspaceData {
 
 例如把区间改成 $[4,6]$，对称轴 $x=3$ 落在区间外，$f$ 在 $[4,6]$ 上单调递增，所以只需要比较 $f(4)$ 和 $f(6)$。`,
       createdAt: minutes(8),
-      archiveStatus: "unarchived",
       tagStatus: "tagged",
     },
     {
@@ -260,7 +258,6 @@ export function createSeedWorkspace(): WorkspaceData {
 
 另外可以记住：一次项系数 $-6$ 的一半是 $-3$，平方后是 $9$，所以常数项要减掉 $9$ 再加回原来的 $5$。`,
       createdAt: minutes(11),
-      archiveStatus: "unarchived",
       tagStatus: "pending",
     },
     {
@@ -271,7 +268,6 @@ export function createSeedWorkspace(): WorkspaceData {
 
 最大值是在全部候选值里挑最大的，不是默认取右端点。`,
       createdAt: minutes(13),
-      archiveStatus: "archived",
       tagStatus: "tagged",
     },
   ];

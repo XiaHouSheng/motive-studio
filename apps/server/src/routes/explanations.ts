@@ -31,13 +31,6 @@ export function createExplanationsRouter(
         if (context.steps.length === 0) {
           throw new HttpError(400, "NO_STEPS", "请先生成分步题解，再生成详解");
         }
-        if (context.turns.length === 0) {
-          throw new HttpError(
-            400,
-            "NO_DISCUSSION",
-            "没有可纳入的讨论：先在步骤讨论中提问，再生成详解",
-          );
-        }
 
         const config = settingsStore.getConfig();
         const provider = new OpenAIProvider(config, apiKey);
@@ -65,7 +58,6 @@ export function createExplanationsRouter(
             turnIds,
             usage: draft.usage,
           });
-          repository.markTurnsArchived(turnIds);
           res.status(201).json(explanation);
         } finally {
           settled = true;

@@ -1,7 +1,7 @@
 import type { PromptStage } from "@motive/shared";
 
 /**
- * 五个 AI 环节的内置默认 system prompt。
+ * 各 AI 环节的内置默认 system prompt。
  * defaults 始终以这里的常量为准，不写入数据库；
  * 用户自定义提示词留空（含纯空白）时回退到对应默认值。
  */
@@ -35,7 +35,7 @@ export const DEFAULT_PROMPTS: Record<PromptStage, string> = {
 要求：
 1. 回答要具体、准确，紧扣用户的疑问。
 2. 必要时引用其他步骤的结论，并说明依据。
-3. 不要修改正式题解，那由用户触发归档另行处理。
+3. 不要修改正式题解，题解内容由用户手动编辑维护。
 4. 数学公式必须用 LaTeX：行内公式用 $...$，独立公式用 $$...$$；禁止用 Unicode 上下标（如 x²、a₁）或裸文本表示公式。
 5. 用中文回答，适度使用 Markdown。`,
   explanation_generation: `你是一个严谨的解题学习助手。你的回答必须基于给定的上下文，不确定的内容要明确说明，不得编造。
@@ -49,22 +49,11 @@ export const DEFAULT_PROMPTS: Record<PromptStage, string> = {
 6. 数学公式必须用 LaTeX：行内公式用 $...$，独立公式用 $$...$$；禁止用 Unicode 上下标（如 x²、a₁）或裸文本表示公式。
 只输出 JSON，格式：
 {"explanation":"完整 Markdown 详解","summary":"一句话概述本详解"}`,
-  archive_proposal: `你是一个严谨的解题归档助手。你的任务是把一段围绕题目展开的讨论，整理成对正式题解的更新提案。
-要求：
-1. 只依据给定材料提炼，不得编造讨论中不存在的事实。
-2. 只能引用提供的「步骤 ID」和「讨论轮次 ID」，不得虚构 ID。
-3. 只有讨论确实带来新增理解或修正时才提议修改；无变化或证据不足时使用 no_change / needs_review。
-4. add_explanation 只写需要追加的补充说明，不要重复步骤原文；revise_content 重写整段步骤内容。
-5. add_explanation / revise_content 必须至少引用 1 个讨论轮次 ID。
-6. 数学公式必须用 LaTeX：行内公式用 $...$，独立公式用 $$...$$；禁止用 Unicode 上下标（如 x²、a₁）或裸文本表示公式。
-7. 用中文，适度使用 Markdown。
-只输出 JSON，格式：
-{"summary":"提案概述","changes":[{"stepId":"步骤ID","action":"add_explanation|revise_content|no_change|needs_review","proposedContent":"要写入的内容（no_change 与 needs_review 省略此字段）","rationale":"修改依据","sourceTurnIds":["讨论轮次ID"]}]}`,
 };
 
 /**
  * 解析最终生效的 system prompt：自定义值 trim 后为空（含纯空白/undefined）即回退默认。
- * 五个环节统一经此解析，各生成器不再单独实现回退逻辑。
+ * 各环节统一经此解析，各生成器不再单独实现回退逻辑。
  */
 export function resolveSystemPrompt(
   stage: PromptStage,

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
-  Archive,
   Link2,
   Loader2,
   MessageSquareText,
@@ -31,7 +30,6 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
   const {
     loading,
     activeStep,
-    activeSubId,
     messages,
     thinking,
     streaming,
@@ -39,9 +37,6 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
     sendMessage,
     stopGeneration,
     retryFailedSend,
-    archiveGenerating,
-    archiveError,
-    generateArchive,
   } = workspace;
   const openSettings = useUiStore((state) => state.openSettings);
   const { t, locale } = useI18n();
@@ -89,27 +84,6 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
             {t("chat.header")}
           </span>
           <div className="ml-auto flex items-center gap-0.5">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={t("chat.archive")}
-              title={t("chat.archive")}
-              onClick={() => {
-                if (activeSubId) void generateArchive(activeSubId);
-              }}
-              disabled={
-                !activeSubId ||
-                messages.length === 0 ||
-                isStreaming ||
-                archiveGenerating
-              }
-            >
-              {archiveGenerating ? (
-                <Loader2 size={13} className="animate-spin" />
-              ) : (
-                <Archive size={13} strokeWidth={1.9} />
-              )}
-            </Button>
             <button
               type="button"
               onClick={onClose}
@@ -139,13 +113,6 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
         <p className="mt-1.5 text-[11px] leading-relaxed text-ink-faint">
           {t("chat.entryHint")}
         </p>
-
-        {archiveError ? (
-          <div className="mt-2 flex items-start gap-1.5 rounded-md border border-danger/30 bg-danger/10 px-2 py-1.5 text-[11px] leading-relaxed text-danger">
-            <AlertCircle size={12} className="mt-0.5 shrink-0" />
-            <span className="min-w-0 flex-1">{t("chat.archiveFailed", { message: archiveError })}</span>
-          </div>
-        ) : null}
       </div>
 
       <div
@@ -243,9 +210,6 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
                     )}
                     {message.generationStatus === "interrupted" ? (
                       <span className="text-[10.5px] text-warning">· {t("chat.interrupted")}</span>
-                    ) : null}
-                    {message.archiveStatus === "archived" ? (
-                      <span className="text-[10.5px] text-ink-faint">· {t("chat.archived")}</span>
                     ) : null}
                     <span className="ml-auto text-[10px] text-ink-faint">
                       {formatTime(message.createdAt, locale)}
