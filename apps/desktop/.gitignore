@@ -1,0 +1,3 @@
+# 内嵌 frpc 二进制不入库（Apache-2.0，随包分发时手动放入）
+resources/bin/*.exe
+resources/bin/frpc

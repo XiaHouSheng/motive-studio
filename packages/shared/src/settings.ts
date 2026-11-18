@@ -64,3 +64,32 @@ export interface UiPreferences {
   /** Markdown 渲染内容的基准字号（px），驱动 CSS 变量 --md-font-size */
   markdownFontSize: number;
 }
+
+/** 桌面端内嵌 frpc 状态；web 方式部署无 frpc 字段 */
+export interface FrpcState {
+  /** frpc 可执行文件是否可用（不可用时无法广播） */
+  available: boolean;
+  status: "stopped" | "running" | "error";
+  /** 非运行状态的补充说明（二进制缺失原因 / 退出码与最近日志） */
+  detail?: string;
+}
+
+/** 远程接入状态视图；token/accessUrl 仅对本机回环请求返回 */
+export interface RemoteAccessView {
+  /** 启用后：非本机请求必须携带访问密钥（并启动内嵌 frpc 广播） */
+  enabled: boolean;
+  /** 公网入口 origin（如 https://motive.example.duckdns.org:39222）；空串表示未配置 */
+  publicOrigin: string;
+  /** frps 服务器地址（IP 或域名；控制通道端口固定 39220） */
+  serverAddr: string;
+  /** 是否已设置 frps 认证令牌（令牌本体永不回传） */
+  frpsTokenSet: boolean;
+  /** 是否已生成访问密钥；门卫实际激活需要 enabled 且已生成 */
+  hasToken: boolean;
+  /** 完整访问密钥（仅本机回环返回） */
+  token?: string;
+  /** 带 ?t= 的一键访问链接（仅本机回环且已配置公网入口时返回） */
+  accessUrl?: string | null;
+  /** 桌面版内嵌 frpc 状态；web 方式无此字段 */
+  frpc?: FrpcState;
+}

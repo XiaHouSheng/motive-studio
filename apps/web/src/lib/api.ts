@@ -13,6 +13,7 @@ import {
   type Question,
   type QuestionAsset,
   type QuestionGroup,
+  type RemoteAccessView,
   type SolutionExplanation,
   type SolutionGenerationResult,
   type SolutionRevision,
@@ -330,6 +331,26 @@ export const api = {
     request<UiPreferences>("/api/settings/ui", {
       method: "PUT",
       body: JSON.stringify(input),
+    }),
+
+  getRemoteAccess: () => request<RemoteAccessView>("/api/settings/remote-access"),
+  saveRemoteAccess: (input: { enabled?: boolean; publicOrigin?: string; serverAddr?: string }) =>
+    request<RemoteAccessView>("/api/settings/remote-access", {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }),
+  setFrpsToken: (token: string) =>
+    request<RemoteAccessView>("/api/settings/remote-access/frps-token", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    }),
+  rotateRemoteAccessToken: () =>
+    request<{ token: string; accessUrl: string | null }>("/api/settings/remote-access/rotate", {
+      method: "POST",
+    }),
+  deleteRemoteAccessToken: () =>
+    request<{ ok: true }>("/api/settings/remote-access/token", {
+      method: "DELETE",
     }),
 
   deleteExplanation: (id: string) =>

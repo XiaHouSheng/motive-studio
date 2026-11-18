@@ -13,6 +13,7 @@ import { AssetStore } from "./services/asset-store.js";
 import { getLanAddresses } from "./services/lan.js";
 import { MobileSessionStore } from "./services/mobile-session.js";
 import type { MobileRuntime } from "./services/mobile-runtime.js";
+import { FrpcManager, FRPC_BINARY_NAME } from "./services/frpc-manager.js";
 import { HttpError } from "./http-error.js";
 
 /**
@@ -293,9 +294,19 @@ export async function startDesktopServer(options: DesktopServerOptions): Promise
   const port = resolvePort(options.port);
   const dataDir = path.resolve(options.dataDir);
   const dbPath = path.join(dataDir, "motive.db");
-  // 目录布局：motive.db / uploads / secrets / logs / backups
+  // 目录布局：motive.db / uploads / secrets / logs / backups / bin
   mkdirSync(path.join(dataDir, "logs"), { recursive: true });
   mkdirSync(path.join(dataDir, "backups"), { recursive: true });
+
+  // 内嵌 frpc（服务广播）：二进制查找顺序 = 显式环境变量 → 随应用打包 → userData/bin（用户自放）
+  const frpc = new FrpcManager({
+    candidatePaths: [
+      process.env.MOTIVE_FRPC_PATH ?? "",
+      path.join(process.env.MOTIVE_RESOURCES_DIR ?? "", "bin", FRPC_BINARY_NAME),
+      path.join(dataDir, "bin", FRPC_BINARY_NAME),
+    ],
+    dataDir,
+  });
 
   const manager = new LanListenerManager({
     idleTimeoutMs: options.lanIdleTimeoutMs ?? DEFAULT_LAN_IDLE_TIMEOUT_MS,
@@ -342,6 +353,7 @@ export async function startDesktopServer(options: DesktopServerOptions): Promise
     uploadsDir: path.join(dataDir, "uploads"),
     secretsDir: path.join(dataDir, "secrets"),
     mobileRuntime: runtime,
+    frpcManager: frpc,
   });
 
   /** 监听主服务；仅固定端口的 EADDRINUSE 回退到随机端口，其他错误原样抛出。 */
@@ -402,11 +414,16 @@ export async function startDesktopServer(options: DesktopServerOptions): Promise
   // 均不影响 SSE 响应的持续时长
   mainServer.requestTimeout = 0;
 
+  // frpc 配置里的 localPort 需要主服务实际端口（EADDRINUSE 回退随机端口后以实际值为准）
+  frpc.setLocalPort(actualPort);
+
   let closePromise: Promise<void> | null = null;
   const closeOnce = async (): Promise<void> => {
     const errors: unknown[] = [];
     // 1-2. 进入关闭流程：禁止新的局域网监听启动
     manager.forbidStarts();
+    // 内嵌 frpc 随主服务一并停止（配置保留，重开应用后可再次开启广播）
+    frpc.shutdown();
     // 3. 关闭局域网监听（同步于主服务退出）
     await manager.close("shutdown").catch((error: unknown) => errors.push(error));
     // 4-6. 主服务停止接受新连接，等待在途请求结束，超时强制关闭剩余连接

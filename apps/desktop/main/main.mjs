@@ -138,6 +138,8 @@ function bootstrap() {
           MOTIVE_DATA_DIR: app.getPath("userData"),
           MOTIVE_WEB_DIST: path.join(resourcesDir, "web"),
           MOTIVE_PORT: expectedPort,
+          // 供服务端定位随应用打包的辅助可执行文件（如内嵌 frpc）
+          MOTIVE_RESOURCES_DIR: resourcesDir,
         },
       });
       serverProcess = child;

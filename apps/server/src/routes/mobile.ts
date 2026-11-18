@@ -15,6 +15,7 @@ import type { MobileSessionStore } from "../services/mobile-session.js";
 import { attachImages } from "../services/question-image.js";
 import type { AssetStore } from "../services/asset-store.js";
 import type { MobileRuntime } from "../services/mobile-runtime.js";
+import type { RemoteAccessStore } from "../services/remote-access-store.js";
 import { readExtraPrompt, readImages } from "./image-input.js";
 import { isLoopbackRequest } from "./loopback.js";
 import { readBody } from "./validation.js";
@@ -98,6 +99,7 @@ export function createMobileRouter(
   assetStore: AssetStore,
   promptStore: PromptSettingsStore,
   runtime?: MobileRuntime,
+  remoteAccess?: RemoteAccessStore,
 ): Router {
   const router = Router();
 
@@ -114,6 +116,9 @@ export function createMobileRouter(
       runtime?.touch();
       const origins = lan ? lan.urls : getLanAddresses(resolvePort(req));
       const urls = origins.map((origin) => `${origin}/m?t=${token}`);
+      // 已配置公网入口时优先展示：隧道地址内外网均可访问
+      const publicOrigin = remoteAccess?.getConfig().publicOrigin;
+      if (publicOrigin) urls.unshift(`${publicOrigin}/m?t=${token}`);
       res.json({ token, urls, preferred: urls[0] ?? null });
     } catch (error) {
       next(error instanceof HttpError ? error : toHttpError(error));
@@ -134,7 +139,10 @@ export function createMobileRouter(
       const allowedPorts = [resolvePort(req)];
       const lanPort = runtime?.getLanPort();
       if (typeof lanPort === "number") allowedPorts.push(lanPort);
-      if (!isAllowedQrUrl(rawUrl, allowedPorts)) {
+      // 已配置公网入口时放行其 origin（含 https 隧道地址）
+      const publicOrigin = remoteAccess?.getConfig().publicOrigin;
+      const allowedOrigins = publicOrigin ? [publicOrigin] : [];
+      if (!isAllowedQrUrl(rawUrl, allowedPorts, allowedOrigins)) {
         throw new HttpError(400, "INVALID_PARAM", "二维码地址必须是本机地址");
       }
       QRCode.toString(rawUrl, { type: "svg", margin: 1 })

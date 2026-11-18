@@ -17,6 +17,10 @@ extraResources:
     to: server-entry.mjs
   - from: ../web/dist
     to: web
+  # 内嵌 frpc（服务广播）：把 frpc.exe 放入 resources/bin 即随包分发；
+  # 缺省时远程访问面板会提示程序不可用，也可放到 userData/bin 由用户自行放置
+  - from: resources/bin
+    to: bin
 win:
   target:
     - target: nsis

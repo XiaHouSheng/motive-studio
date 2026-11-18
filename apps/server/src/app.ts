@@ -8,7 +8,9 @@ import { errorHandler } from "./middleware/error-handler.js";
 import { WorkspaceRepository } from "./repositories/workspace-repository.js";
 import { ProviderSettingsStore } from "./services/ai/provider-settings-store.js";
 import { PromptSettingsStore } from "./services/settings/prompt-settings-store.js";
+import { RemoteAccessStore } from "./services/remote-access-store.js";
 import { UiPreferencesStore } from "./services/settings/ui-preferences-store.js";
+import { createAccessGate } from "./middleware/access-gate.js";
 import { createBackupRouter } from "./routes/backup.js";
 import { createBootstrapRouter } from "./routes/bootstrap.js";
 import { createExplanationsRouter } from "./routes/explanations.js";
@@ -26,6 +28,7 @@ import { AssetStore } from "./services/asset-store.js";
 import { createCredentialStore } from "./services/credentials/index.js";
 import { MobileSessionStore } from "./services/mobile-session.js";
 import type { MobileRuntime } from "./services/mobile-runtime.js";
+import type { FrpcManager } from "./services/frpc-manager.js";
 
 export interface CreateAppOptions {
   dbPath?: string;
@@ -37,6 +40,11 @@ export interface CreateAppOptions {
    * Web 版本缺省，移动路由保持原有行为。
    */
   mobileRuntime?: MobileRuntime;
+  /**
+   * 桌面版内嵌 frpc 管理器（服务广播开关联动）；Web 版本缺省，
+   * 设置路由降级为仅门卫开关。
+   */
+  frpcManager?: FrpcManager;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -49,6 +57,7 @@ export function createApp(options: CreateAppOptions = {}) {
   const settingsStore = new ProviderSettingsStore(db, credentialStore);
   const promptSettingsStore = new PromptSettingsStore(db);
   const uiPreferencesStore = new UiPreferencesStore(db);
+  const remoteAccessStore = new RemoteAccessStore(db, credentialStore);
   const mobileSessions = new MobileSessionStore();
   const assetStore = new AssetStore(options.uploadsDir ?? UPLOADS_DIR);
 
@@ -57,6 +66,8 @@ export function createApp(options: CreateAppOptions = {}) {
   app.disable("x-powered-by");
   // 桌面端 4×6MB base64 ≈32MB，移动端 4×4MB ≈21.4MB，均需覆盖
   app.use(express.json({ limit: "40mb" }));
+  // 远程接入门卫：在所有业务路由之前；未启用时零影响
+  app.use(createAccessGate(remoteAccessStore));
 
   app.use("/api/health", healthRouter);
   app.use("/api", createBootstrapRouter(repository));
@@ -69,7 +80,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use("/api", createExplanationsRouter(repository, settingsStore, promptSettingsStore));
   app.use("/api", createExportRouter(repository));
   app.use("/api", createBackupRouter(repository));
-  app.use("/api", createSettingsRouter(settingsStore, promptSettingsStore, uiPreferencesStore));
+  app.use("/api", createSettingsRouter(settingsStore, promptSettingsStore, uiPreferencesStore, remoteAccessStore, options.frpcManager));
   app.use(
     createMobileRouter(
       repository,
@@ -78,6 +89,7 @@ export function createApp(options: CreateAppOptions = {}) {
       assetStore,
       promptSettingsStore,
       options.mobileRuntime,
+      remoteAccessStore,
     ),
   );
 
@@ -105,6 +117,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.locals.settingsStore = settingsStore;
   app.locals.promptSettingsStore = promptSettingsStore;
   app.locals.uiPreferencesStore = uiPreferencesStore;
+  app.locals.remoteAccessStore = remoteAccessStore;
   // 暴露给桌面版组装独立的局域网移动监听（共享同一批实例，不重复初始化）
   app.locals.assetStore = assetStore;
   app.locals.mobileSessions = mobileSessions;
