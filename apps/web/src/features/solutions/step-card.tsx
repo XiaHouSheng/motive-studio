@@ -65,7 +65,7 @@ export function StepCard({ step, active, discussionCount, onDiscuss, onEdit }: S
         </button>
       </div>
 
-      <div className="px-4 pb-3.5 sm:pl-[52px]">
+      <div className="px-4 pb-3.5">
         <Markdown content={step.content} className="md-compact" />
         {discussionCount > 0 ? (
           <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-ink-faint">
