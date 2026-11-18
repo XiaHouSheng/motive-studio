@@ -9,6 +9,7 @@ import { buildQuestionContext } from "../services/ai/question-context.js";
 import { generateSolution } from "../services/ai/solution-generator.js";
 import type { ProviderSettingsStore } from "../services/ai/provider-settings-store.js";
 import type { PromptSettingsStore } from "../services/settings/prompt-settings-store.js";
+import type { UiPreferencesStore } from "../services/settings/ui-preferences-store.js";
 import type { AssetStore } from "../services/asset-store.js";
 
 export function createSolutionRouter(
@@ -16,6 +17,7 @@ export function createSolutionRouter(
   settingsStore: ProviderSettingsStore,
   assetStore: AssetStore,
   promptStore: PromptSettingsStore,
+  uiStore: UiPreferencesStore,
 ): Router {
   const router = Router();
 
@@ -39,6 +41,7 @@ export function createSolutionRouter(
           },
           store: assetStore,
           systemPrompt: promptStore.getSettings().solution_generation,
+          enableMermaid: uiStore.get().enableMermaid,
         });
 
         // 快照只用于追溯，写入失败不影响题解生成

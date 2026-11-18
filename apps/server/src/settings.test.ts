@@ -6,7 +6,11 @@ import type { Express } from "express";
 import type { ProviderSettingsView } from "@motive/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "./app.js";
-import { DEFAULT_PROMPTS } from "./services/ai/effective-prompt.js";
+import {
+  DEFAULT_PROMPTS,
+  MERMAID_DIAGRAM_RULE,
+  PLAIN_DIAGRAM_RULE,
+} from "./services/ai/effective-prompt.js";
 import type { PromptStage } from "@motive/shared";
 
 const IMAGE = { mediaType: "image/png", data: "iVBORw0KGgo=" };
@@ -281,7 +285,12 @@ describe("界面偏好接口", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  type UiPrefsBody = { theme: string; language: string; markdownFontSize: number };
+  type UiPrefsBody = {
+    theme: string;
+    language: string;
+    markdownFontSize: number;
+    enableMermaid: boolean;
+  };
 
   function putUi(body: unknown) {
     return call<UiPrefsBody>(running, "PUT", "/api/settings/ui", body);
@@ -294,6 +303,7 @@ describe("界面偏好接口", () => {
       theme: "system",
       language: "zh-CN",
       markdownFontSize: 15,
+      enableMermaid: false,
     });
   });
 
@@ -303,6 +313,7 @@ describe("界面偏好接口", () => {
       theme: "system",
       language: "en",
       markdownFontSize: 15,
+      enableMermaid: false,
     });
 
     const themeOnly = await putUi({ theme: "dark" });
@@ -310,6 +321,7 @@ describe("界面偏好接口", () => {
       theme: "dark",
       language: "en",
       markdownFontSize: 15,
+      enableMermaid: false,
     });
   });
 
@@ -318,7 +330,12 @@ describe("界面偏好接口", () => {
     expect(saved.body.markdownFontSize).toBe(18);
 
     const after = await call<UiPrefsBody>(running, "GET", "/api/settings/ui");
-    expect(after.body).toEqual({ theme: "system", language: "zh-CN", markdownFontSize: 18 });
+    expect(after.body).toEqual({
+      theme: "system",
+      language: "zh-CN",
+      markdownFontSize: 18,
+      enableMermaid: false,
+    });
 
     const restored = await putUi({ markdownFontSize: 15 });
     expect(restored.body.markdownFontSize).toBe(15);
@@ -331,6 +348,7 @@ describe("界面偏好接口", () => {
       theme: "dark",
       language: "en",
       markdownFontSize: 15,
+      enableMermaid: false,
     });
   });
 
@@ -347,6 +365,7 @@ describe("界面偏好接口", () => {
       theme: "dark",
       language: "en",
       markdownFontSize: 15,
+      enableMermaid: false,
     });
   });
 
@@ -362,13 +381,25 @@ describe("界面偏好接口", () => {
     expect((await putUi({ markdownFontSize: 21 })).status).toBe(400);
     expect((await putUi({ markdownFontSize: 15.5 })).status).toBe(400);
     expect((await putUi({ markdownFontSize: "16" })).status).toBe(400);
+    // mermaid 开关必须是布尔值
+    expect((await putUi({ enableMermaid: "yes" })).status).toBe(400);
 
     const after = await call<UiPrefsBody>(running, "GET", "/api/settings/ui");
     expect(after.body).toEqual({
       theme: "dark",
       language: "en",
       markdownFontSize: 16,
+      enableMermaid: false,
     });
+  });
+
+  it("Mermaid 开关可独立保存", async () => {
+    const saved = await putUi({ enableMermaid: true });
+    expect(saved.body.enableMermaid).toBe(true);
+
+    const after = await call<UiPrefsBody>(running, "GET", "/api/settings/ui");
+    expect(after.body.enableMermaid).toBe(true);
+    expect(after.body.theme).toBe("system");
   });
 });
 
@@ -434,11 +465,21 @@ describe("各环节生效自定义提示词", () => {
     expect(response.status).toBe(201);
     expect(lastSystemPrompt(upstream)).toBe(CUSTOM);
 
-    // 恢复默认（存空串）后发送内置默认
+    // 恢复默认（存空串）后发送内置默认 + 关闭 Mermaid 的示意图规则
     await setPrompt("solution_generation", "");
     response = await call<unknown>(app, "POST", "/api/questions/q-quad/solution/generate");
     expect(response.status).toBe(201);
-    expect(lastSystemPrompt(upstream)).toBe(DEFAULT_PROMPTS.solution_generation);
+    expect(lastSystemPrompt(upstream)).toBe(
+      `${DEFAULT_PROMPTS.solution_generation}\n${PLAIN_DIAGRAM_RULE}`,
+    );
+
+    // 设置中开启 Mermaid 后，默认提示词改用 Mermaid 示意图规则
+    await call<unknown>(app, "PUT", "/api/settings/ui", { enableMermaid: true });
+    response = await call<unknown>(app, "POST", "/api/questions/q-quad/solution/generate");
+    expect(response.status).toBe(201);
+    expect(lastSystemPrompt(upstream)).toBe(
+      `${DEFAULT_PROMPTS.solution_generation}\n${MERMAID_DIAGRAM_RULE}`,
+    );
   });
 
   it("步骤讨论", async () => {

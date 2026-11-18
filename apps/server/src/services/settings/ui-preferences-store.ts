@@ -1,6 +1,12 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { UiPreferences } from "@motive/shared";
-import { isMarkdownFontSize, isUiLanguage, isUiTheme, MD_FONT_SIZE_DEFAULT } from "@motive/shared";
+import {
+  isBoolean,
+  isMarkdownFontSize,
+  isUiLanguage,
+  isUiTheme,
+  MD_FONT_SIZE_DEFAULT,
+} from "@motive/shared";
 import { HttpError } from "../../http-error.js";
 
 const SETTINGS_KEY = "ui_preferences";
@@ -9,6 +15,7 @@ export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   theme: "system",
   language: "zh-CN",
   markdownFontSize: MD_FONT_SIZE_DEFAULT,
+  enableMermaid: false,
 };
 
 /**
@@ -39,6 +46,9 @@ export class UiPreferencesStore {
         markdownFontSize: isMarkdownFontSize(parsed.markdownFontSize)
           ? parsed.markdownFontSize
           : DEFAULT_UI_PREFERENCES.markdownFontSize,
+        enableMermaid: isBoolean(parsed.enableMermaid)
+          ? parsed.enableMermaid
+          : DEFAULT_UI_PREFERENCES.enableMermaid,
       };
     } catch {
       return { ...DEFAULT_UI_PREFERENCES };
@@ -74,6 +84,11 @@ export class UiPreferencesStore {
           );
         }
         next.markdownFontSize = value;
+      } else if (key === "enableMermaid") {
+        if (!isBoolean(value)) {
+          throw new HttpError(400, "INVALID_FIELD", "enableMermaid 必须是布尔值");
+        }
+        next.enableMermaid = value;
       } else {
         throw new HttpError(400, "INVALID_FIELD", `不支持的字段：「${key}」`);
       }

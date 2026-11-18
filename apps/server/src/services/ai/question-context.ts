@@ -37,9 +37,11 @@ export function buildQuestionContext(input: {
   provider: ContextProvider;
   store: AssetStore;
   systemPrompt?: string;
+  /** 示意图提示词开关（设置中的 enableMermaid），透传给默认 system prompt */
+  enableMermaid?: boolean;
 }): BuiltQuestionContext {
-  const { question, provider, store, systemPrompt } = input;
-  const base = buildSolutionMessages(question.content, { systemPrompt });
+  const { question, provider, store, systemPrompt, enableMermaid } = input;
+  const base = buildSolutionMessages(question.content, { systemPrompt, enableMermaid });
   const reasons: string[] = [];
   const warnings: string[] = [];
 

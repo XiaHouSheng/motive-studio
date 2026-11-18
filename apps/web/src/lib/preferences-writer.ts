@@ -1,17 +1,17 @@
 import { api } from "@/lib/api";
 import type { UiPreferences } from "@motive/shared";
 
-export type PreferenceFieldName = "theme" | "language" | "markdownFontSize";
+export type PreferenceFieldName = "theme" | "language" | "markdownFontSize" | "enableMermaid";
 
 /**
  * 界面偏好写入队列：同一字段的 PUT 请求串行化，且始终以最新待写值发送，
  * 保证后发的用户操作具有最终持久化优先级——请求乱序不会让旧值覆盖新值。
  * 同一事件循环内的连续切换会在微任务中合并为一次请求。
- * 主题、语言与字号分别维护独立队列实例，互不阻塞。
+ * 主题、语言、字号与 Mermaid 开关分别维护独立队列实例，互不阻塞。
  * 请求失败时静默处理：保留当前 UI 状态与 localStorage，不自动回滚用户操作，
  * 也不无限重试；用户下次操作会以新值再次入队。
  */
-export class PreferenceFieldQueue<T extends string | number = string> {
+export class PreferenceFieldQueue<T extends string | number | boolean = string> {
   private pendingValue: T | undefined;
   private inFlight = false;
   private scheduled = false;

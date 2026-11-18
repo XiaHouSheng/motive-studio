@@ -1,6 +1,16 @@
 import type { PromptStage } from "@motive/shared";
 
 /**
+ * 示意图规则（仅 solution_generation 默认提示词按设置追加）：
+ * 开启 Mermaid 时要求模型用 ```mermaid 代码块画示意图；关闭时禁止输出
+ * mermaid 语法（客户端不会渲染，只会显示源码），改用简洁文字描述。
+ */
+export const MERMAID_DIAGRAM_RULE = `8. 需要示意图（流程、时序、结构关系、消息收发等）时，使用 Mermaid 绘制：写成 \`\`\`mermaid 围栏代码块，选用合适图型（flowchart / sequenceDiagram / stateDiagram-v2 等）。
+   - mermaid 语法必须可直接渲染：节点文字避免使用 ( ) { } [ ] " 等特殊符号，必要时改用全角或去掉；箭头与连线语法规范。
+   - 简单内容不必强行画图；示意图与正文之间空一行。`;
+export const PLAIN_DIAGRAM_RULE = `8. 不要输出 mermaid 代码块或 ASCII 排版的长示意图；需要表达流程、时序等结构时，用有序列表逐条说明即可，避免消耗大量字符的字符画。`;
+
+/**
  * 各 AI 环节的内置默认 system prompt。
  * defaults 始终以这里的常量为准，不写入数据库；
  * 用户自定义提示词留空（含纯空白）时回退到对应默认值。
@@ -55,11 +65,19 @@ export const DEFAULT_PROMPTS: Record<PromptStage, string> = {
 /**
  * 解析最终生效的 system prompt：自定义值 trim 后为空（含纯空白/undefined）即回退默认。
  * 各环节统一经此解析，各生成器不再单独实现回退逻辑。
+ *
+ * solution_generation 且使用默认提示词时，按 enableMermaid 追加示意图规则
+ * （自定义提示词完全接管，不追加）；enableMermaid 未提供时保持原默认文案。
  */
 export function resolveSystemPrompt(
   stage: PromptStage,
   custom: string | undefined,
+  options?: { enableMermaid?: boolean },
 ): string {
   if (custom !== undefined && custom.trim().length > 0) return custom;
-  return DEFAULT_PROMPTS[stage];
+  const base = DEFAULT_PROMPTS[stage];
+  if (stage === "solution_generation" && options?.enableMermaid !== undefined) {
+    return `${base}\n${options.enableMermaid ? MERMAID_DIAGRAM_RULE : PLAIN_DIAGRAM_RULE}`;
+  }
+  return base;
 }

@@ -92,6 +92,11 @@ export const solutionsZh = {
   "markdown.copied": "已复制",
   "markdown.copyTable": "复制表格",
   "markdown.downloadTable": "下载表格",
+  "markdown.mermaidError": "示意图渲染失败，请检查 mermaid 语法",
+  "markdown.mermaidAriaLabel": "Mermaid 示意图",
+  "markdown.mermaidFormatMmd": "下载 .mmd 源码",
+  "markdown.mermaidFormatPng": "下载 PNG",
+  "markdown.mermaidFormatSvg": "下载 SVG",
 
   // chat-panel.tsx
   "chat.header": "深度理解",
@@ -222,6 +227,11 @@ export const solutionsEn: Record<keyof typeof solutionsZh, string> = {
   "markdown.copied": "Copied",
   "markdown.copyTable": "Copy table",
   "markdown.downloadTable": "Download table",
+  "markdown.mermaidError": "Diagram failed to render, check the mermaid syntax",
+  "markdown.mermaidAriaLabel": "Mermaid diagram",
+  "markdown.mermaidFormatMmd": "Download .mmd source",
+  "markdown.mermaidFormatPng": "Download PNG",
+  "markdown.mermaidFormatSvg": "Download SVG",
 
   // chat-panel.tsx
   "chat.header": "Deep understanding",

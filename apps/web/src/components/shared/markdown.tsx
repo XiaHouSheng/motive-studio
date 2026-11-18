@@ -1,9 +1,12 @@
 import { isValidElement, useMemo, type ReactNode } from "react";
 import { Streamdown } from "streamdown";
-import type { Components, StreamdownTranslations } from "streamdown";
+import type { Components, MermaidOptions, StreamdownTranslations } from "streamdown";
 import { createMathPlugin } from "@streamdown/math";
+import { createMermaidPlugin } from "@streamdown/mermaid";
 import type { Element } from "hast";
 import { useT } from "@/lib/i18n/use-i18n";
+import { usePreferencesStore } from "@/stores/preferences";
+import { useThemeStore } from "@/stores/theme";
 import { cn } from "@/lib/utils";
 
 function flattenText(node: ReactNode): string {
@@ -54,6 +57,9 @@ const math = createMathPlugin({
   singleDollarTextMath: true,
   errorColor: "var(--warning)",
 });
+
+/** mermaid 插件本身无状态，主题等配置经 Streamdown 的 mermaid prop 按需传入 */
+const mermaidPlugin = createMermaidPlugin();
 
 const SUPERSCRIPT_MAP: Record<string, string> = {
   "⁰": "0",
@@ -249,6 +255,9 @@ interface MarkdownProps {
 
 export function Markdown({ content, className }: MarkdownProps) {
   const t = useT();
+  // Mermaid 开关关闭时不注册插件、不传 mermaid 配置：```mermaid 代码块按普通代码渲染
+  const enableMermaid = usePreferencesStore((state) => state.enableMermaid);
+  const themeResolved = useThemeStore((state) => state.resolved);
   // Streamdown 的 UI 文案随语言重建；t 随语言切换变化，useMemo 相应失效
   const translations = useMemo<Partial<StreamdownTranslations>>(
     () => ({
@@ -256,8 +265,24 @@ export function Markdown({ content, className }: MarkdownProps) {
       copied: t("markdown.copied"),
       copyTable: t("markdown.copyTable"),
       downloadTable: t("markdown.downloadTable"),
+      errorMermaid: t("markdown.mermaidError"),
+      mermaidAriaLabel: t("markdown.mermaidAriaLabel"),
+      mermaidFormatMmd: t("markdown.mermaidFormatMmd"),
+      mermaidFormatPng: t("markdown.mermaidFormatPng"),
+      mermaidFormatSvg: t("markdown.mermaidFormatSvg"),
     }),
     [t],
+  );
+  // 主题切换时重建配置；Streamdown 会把 config 传给 getMermaid 并重新 initialize
+  const mermaid = useMemo<MermaidOptions>(
+    () => ({
+      config: {
+        theme: themeResolved === "dark" ? "dark" : "default",
+        // 示意图多为中文标签，跟随界面 sans-serif 字体而不是等宽字体
+        fontFamily: "system-ui, 'Microsoft YaHei', sans-serif",
+      },
+    }),
+    [themeResolved],
   );
 
   return (
@@ -265,7 +290,8 @@ export function Markdown({ content, className }: MarkdownProps) {
       <Streamdown
         className="md-streamdown"
         components={components}
-        plugins={{ math }}
+        plugins={enableMermaid ? { math, mermaid: mermaidPlugin } : { math }}
+        mermaid={enableMermaid ? mermaid : undefined}
         translations={translations}
       >
         {addSoftBreaks(normalizeMath(content))}

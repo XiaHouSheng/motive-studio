@@ -43,20 +43,27 @@ function initialMarkdownFontSize(): number {
 interface PreferencesState {
   language: UiLanguage;
   markdownFontSize: number;
+  /** 是否启用 Mermaid 示意图渲染与提示词（服务端权威，无首帧预绘需求） */
+  enableMermaid: boolean;
   /** 用户在启动偏好加载完成前是否手动改过语言（竞态守卫） */
   touched: boolean;
   /** 用户在启动偏好加载完成前是否手动改过字号（竞态守卫） */
   fontSizeTouched: boolean;
+  /** 用户在启动偏好加载完成前是否手动改过 Mermaid 开关（竞态守卫） */
+  mermaidTouched: boolean;
   setLanguage: (language: UiLanguage) => void;
   /** 应用服务端权威值：更新状态与 <html lang>，回写 localStorage，但不再次发请求 */
   hydrateLanguage: (language: UiLanguage) => void;
   setMarkdownFontSize: (size: number) => void;
   hydrateMarkdownFontSize: (size: number) => void;
+  setEnableMermaid: (enabled: boolean) => void;
+  hydrateEnableMermaid: (enabled: boolean) => void;
 }
 
 /** 界面偏好写入队列（主题、语言、字号各自独立） */
 export const languageWriteQueue = new PreferenceFieldQueue("language");
 export const markdownFontSizeWriteQueue = new PreferenceFieldQueue<number>("markdownFontSize");
+export const enableMermaidWriteQueue = new PreferenceFieldQueue<boolean>("enableMermaid");
 
 function persistMarkdownFontSize(size: number): void {
   try {
@@ -70,8 +77,10 @@ function persistMarkdownFontSize(size: number): void {
 export const usePreferencesStore = create<PreferencesState>((set) => ({
   language: initialLanguage(),
   markdownFontSize: initialMarkdownFontSize(),
+  enableMermaid: false,
   touched: false,
   fontSizeTouched: false,
+  mermaidTouched: false,
   setLanguage: (language) => {
     try {
       window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
@@ -99,5 +108,12 @@ export const usePreferencesStore = create<PreferencesState>((set) => ({
   hydrateMarkdownFontSize: (size) => {
     persistMarkdownFontSize(size);
     set({ markdownFontSize: size });
+  },
+  setEnableMermaid: (enabled) => {
+    set({ enableMermaid: enabled, mermaidTouched: true });
+    enableMermaidWriteQueue.push(enabled);
+  },
+  hydrateEnableMermaid: (enabled) => {
+    set({ enableMermaid: enabled });
   },
 }));

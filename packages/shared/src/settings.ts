@@ -63,6 +63,15 @@ export interface UiPreferences {
   language: UiLanguage;
   /** Markdown 渲染内容的基准字号（px），驱动 CSS 变量 --md-font-size */
   markdownFontSize: number;
+  /**
+   * 是否启用 Mermaid 示意图：开启后客户端把 ```mermaid 代码块渲染成图，
+   * 且题解生成的默认提示词改为要求模型输出 mermaid；会增加 token 消耗。
+   */
+  enableMermaid: boolean;
+}
+
+export function isBoolean(value: unknown): value is boolean {
+  return typeof value === "boolean";
 }
 
 /** 桌面端内嵌 frpc 状态；web 方式部署无 frpc 字段 */

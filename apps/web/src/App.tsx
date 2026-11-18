@@ -31,6 +31,9 @@ export function App() {
       if (!preferencesState.fontSizeTouched) {
         preferencesState.hydrateMarkdownFontSize(preferences.markdownFontSize);
       }
+      if (!preferencesState.mermaidTouched) {
+        preferencesState.hydrateEnableMermaid(preferences.enableMermaid);
+      }
     });
     return () => {
       cancelled = true;

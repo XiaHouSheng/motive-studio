@@ -194,6 +194,9 @@ export const panelsZh = {
   "settings.languageHint": "语言偏好保存在本地数据库，重启后保持不变。",
   "settings.themeLabel": "主题",
   "settings.themeHint": "跟随系统时自动匹配操作系统的深浅色模式。",
+  "settings.mermaidLabel": "Mermaid 示意图",
+  "settings.mermaidHint":
+    "开启后，分步题解会用 Mermaid 绘制流程、时序等示意图，并渲染为图形显示；示意图代码会明显增加 token 消耗，默认关闭。",
   "settings.mdFontSizeLabel": "Markdown 字体大小",
   "settings.mdFontSizeHint": "调整题目详解、分步题解与讨论消息的渲染字号，拖动即时生效并保存。",
   "settings.mdFontSizePreview": "预览",
@@ -433,6 +436,9 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "settings.languageHint": "The language preference is stored in your local database and persists across restarts.",
   "settings.themeLabel": "Theme",
   "settings.themeHint": "When set to System, the app follows your operating system's light/dark mode.",
+  "settings.mermaidLabel": "Mermaid diagrams",
+  "settings.mermaidHint":
+    "When enabled, step solutions draw flow / sequence diagrams as Mermaid code blocks rendered as graphics. Diagram code noticeably increases token usage; disabled by default.",
   "settings.mdFontSizeLabel": "Markdown font size",
   "settings.mdFontSizeHint": "Adjust the rendered size of explanations, step solutions and discussion messages. Changes apply instantly and are saved automatically.",
   "settings.mdFontSizePreview": "Preview",

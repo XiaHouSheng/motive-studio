@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildChatMessages } from "./context-builder.js";
-import { DEFAULT_PROMPTS, resolveSystemPrompt } from "./effective-prompt.js";
+import {
+  DEFAULT_PROMPTS,
+  MERMAID_DIAGRAM_RULE,
+  PLAIN_DIAGRAM_RULE,
+  resolveSystemPrompt,
+} from "./effective-prompt.js";
 import { buildExplanationMessages } from "./explanation-context-builder.js";
 import { buildImageImportMessages } from "./image-import-generator.js";
 import { buildQuestionContext } from "./question-context.js";
@@ -30,12 +35,36 @@ describe("resolveSystemPrompt", () => {
   it("非空自定义值原样生效", () => {
     expect(resolveSystemPrompt("solution_generation", CUSTOM)).toBe(CUSTOM);
   });
+
+  it("solution_generation 按开关追加示意图规则；自定义提示词不追加", () => {
+    expect(resolveSystemPrompt("solution_generation", undefined, { enableMermaid: false })).toBe(
+      `${DEFAULT_PROMPTS.solution_generation}\n${PLAIN_DIAGRAM_RULE}`,
+    );
+    expect(resolveSystemPrompt("solution_generation", undefined, { enableMermaid: true })).toBe(
+      `${DEFAULT_PROMPTS.solution_generation}\n${MERMAID_DIAGRAM_RULE}`,
+    );
+    // 未提供开关时保持原默认文案（不含规则附录）
+    expect(resolveSystemPrompt("solution_generation", undefined)).toBe(
+      DEFAULT_PROMPTS.solution_generation,
+    );
+    // 自定义提示词完全接管，不追加任何规则
+    expect(resolveSystemPrompt("solution_generation", CUSTOM, { enableMermaid: true })).toBe(
+      CUSTOM,
+    );
+    // 其他环节不受开关影响
+    expect(resolveSystemPrompt("step_discussion", undefined, { enableMermaid: true })).toBe(
+      DEFAULT_PROMPTS.step_discussion,
+    );
+  });
 });
 
 describe("各环节的 build*Messages 注入自定义提示词", () => {
   it("分步题解：自定义生效，缺省回退默认", () => {
     expect(systemOf(buildSolutionMessages("题目内容", { systemPrompt: CUSTOM }))).toBe(CUSTOM);
     expect(systemOf(buildSolutionMessages("题目内容"))).toBe(DEFAULT_PROMPTS.solution_generation);
+    expect(systemOf(buildSolutionMessages("题目内容", { enableMermaid: true }))).toBe(
+      `${DEFAULT_PROMPTS.solution_generation}\n${MERMAID_DIAGRAM_RULE}`,
+    );
   });
 
   it("步骤讨论：自定义生效，缺省回退默认", () => {

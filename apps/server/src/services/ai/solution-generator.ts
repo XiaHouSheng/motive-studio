@@ -11,12 +11,14 @@ const MAX_TITLE_LENGTH = 60;
 
 export function buildSolutionMessages(
   questionContent: string,
-  options?: { systemPrompt?: string },
+  options?: { systemPrompt?: string; enableMermaid?: boolean },
 ): ChatMessage[] {
   return [
     {
       role: "system",
-      content: resolveSystemPrompt("solution_generation", options?.systemPrompt),
+      content: resolveSystemPrompt("solution_generation", options?.systemPrompt, {
+        enableMermaid: options?.enableMermaid,
+      }),
     },
     { role: "user", content: `# 题目\n${questionContent}` },
   ];
