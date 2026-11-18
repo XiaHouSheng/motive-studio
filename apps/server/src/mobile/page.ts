@@ -837,12 +837,14 @@ export function renderMobilePage(): string {
     var centerX = crop.rect.x + crop.rect.w / 2 - crop.bounds.left;
     var centerY = crop.rect.y + crop.rect.h / 2 - crop.bounds.top;
     // 反向旋转并缩放后绘制原图，使选框内容摆正并填满画布：
-    // drawImage 的偏移处于 scale 前的显示坐标系，选框中心落在画布中心
+    // 原图按「显示尺寸」绘制（宽高必须是 bounds.width/height，否则图片会按
+    // 原始像素再被 scale 放大 scaleX 倍，导致输出错位且只截到局部），
+    // 偏移处于 scale 前的显示坐标系，选框中心落在画布中心
     context.save();
     context.translate(outW / 2, outH / 2);
     context.rotate(-crop.angle * Math.PI / 180);
     context.scale(scaleX, scaleY);
-    context.drawImage(img, -centerX, -centerY);
+    context.drawImage(img, -centerX, -centerY, crop.bounds.width, crop.bounds.height);
     context.restore();
     var dataUrl = canvas.toDataURL('image/jpeg', 0.82);
     var data = dataUrl.slice(dataUrl.indexOf(',') + 1);
