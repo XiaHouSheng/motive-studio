@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeAsterisks } from "./markdown";
+import { normalizeAsterisks, normalizePlainFormulas } from "./markdown";
 
 describe("normalizeAsterisks", () => {
   it("把数学星号 ∗（U+2217）的加粗结构归一化为 ASCII 星号", () => {
@@ -31,5 +31,31 @@ describe("normalizeAsterisks", () => {
   it("无星号文本原样返回", () => {
     const text = "普通文本，不含任何星号。";
     expect(normalizeAsterisks(text)).toBe(text);
+  });
+});
+
+describe("normalizePlainFormulas", () => {
+  it("Markdown 加粗标记 ** 不被误判为公式，保持原样", () => {
+    const text = "本题要求输出 **房间号** 及其 **最高温度**。";
+    expect(normalizePlainFormulas(text)).toBe(text);
+  });
+
+  it("紧贴正文的加粗标记同样保持原样", () => {
+    const text = "输出**房间号**及其**最高温度**，斜体 *x* 亦然。";
+    expect(normalizePlainFormulas(text)).toBe(text);
+  });
+
+  it("纯符号串（如 --、==）不包裹公式", () => {
+    expect(normalizePlainFormulas("a -- b == c")).toBe("a -- b == c");
+  });
+
+  it("裸文本公式仍会被包上行内 $…$", () => {
+    expect(normalizePlainFormulas("其中 x=3 时取等")).toBe("其中 $x=3$ 时取等");
+    expect(normalizePlainFormulas("由 a₁>0 可知")).toBe("由 $a_{1}>0$ 可知");
+  });
+
+  it("代码与公式片段内的内容不做处理", () => {
+    const text = "记 `x=3` 或 $y=4$ 即可";
+    expect(normalizePlainFormulas(text)).toBe(text);
   });
 });

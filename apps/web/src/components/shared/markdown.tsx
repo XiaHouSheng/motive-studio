@@ -93,10 +93,16 @@ const SUBSCRIPT_MAP: Record<string, string> = {
 
 const SUPERSCRIPT_RUN = /[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾]+/g;
 const SUBSCRIPT_RUN = /[₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎]+/g;
-/** 形如 x²-6x+5、aₙ 这类不带分隔符的纯文本公式片段 */
-const PLAIN_FORMULA_TOKEN = /[A-Za-z0-9()+\-*/=<>×÷−.,[\]⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎]{2,}/g;
+/**
+ * 形如 x²-6x+5、aₙ 这类不带分隔符的纯文本公式片段。
+ * 不含星号 *：星号几乎总是 Markdown 加粗/斜体标记（如 **房间号**），
+ * 若纳入会被误判成公式并包上 $…$，导致加粗失效、星号被 KaTeX 渲染成数学星号。
+ */
+const PLAIN_FORMULA_TOKEN = /[A-Za-z0-9()+\-/=<>×÷−.,[\]⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎]{2,}/g;
 const VERBATIM_SEGMENT = /(```[\s\S]*?```|`[^`\n]*`|\$\$[\s\S]*?\$\$|\$[^$\n]*\$|\[[^\]]*\]\([^)]*\))/g;
 const SCRIPT_CHAR = /[⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉]/;
+/** 纯符号串（无字母数字与上下标）不是公式，如加粗标记 **、分隔符 -- */
+const HAS_ALNUM = /[A-Za-z0-9]/;
 
 function unicodeScriptToLatex(token: string): string {
   return token
@@ -109,8 +115,10 @@ function unicodeScriptToLatex(token: string): string {
 
 /** 判定纯文本片段是否值得当公式处理；宁可漏判，也不要把英文单词、文件名误当公式 */
 function looksLikeFormula(token: string): boolean {
+  // 纯符号串（如加粗标记 **、分隔符 --）不含可计算的量，直接排除
+  if (!HAS_ALNUM.test(token) && !SCRIPT_CHAR.test(token)) return false;
   if (SCRIPT_CHAR.test(token)) return true;
-  if (/[=*×÷^]/.test(token)) return true;
+  if (/[=×÷^]/.test(token)) return true;
   // 除法形式（如 -b/(2a)、6/2）需同时含数字，避免把 TCP/IP 之类的词当公式
   return token.includes("/") && /\d/.test(token);
 }
@@ -127,7 +135,8 @@ function normalizePlainFormula(segment: string): string {
   });
 }
 
-function normalizePlainFormulas(content: string): string {
+/** 导出仅供单元测试；把无分隔符的纯文本公式片段包上行内 $…$ */
+export function normalizePlainFormulas(content: string): string {
   return content
     .split(VERBATIM_SEGMENT)
     .map((part) => (/^(```|`|\$)/.test(part) ? part : normalizePlainFormula(part)))
