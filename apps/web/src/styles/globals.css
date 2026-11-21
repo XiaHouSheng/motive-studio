@@ -187,6 +187,61 @@ div[data-streamdown="table-fullscreen"] {
     0 24px 60px rgba(0, 0, 0, 0.35);
 }
 
+/* ---------- 表格卡片融合（覆盖 Streamdown 双层结构） ----------
+   Streamdown 的 table-wrapper 是「工具栏占位一行 + 内层独立边框滚动容器」，
+   视觉上是两张叠起来的卡片且顶部留白过多。这里融合为单张卡片：
+   工具栏悬浮右上角，hover 卡片时显现。 */
+
+/* 单卡片：去掉内边距与工具栏占位的纵向 gap，工具栏改为悬浮 */
+.md div[data-streamdown="table-wrapper"] {
+  position: relative;
+  gap: 0;
+  padding: 0;
+}
+
+/* 内层滚动容器与表格去掉自身边框，只保留外层卡片一条边框 */
+.md div[data-streamdown="table-wrapper"] > div:last-child,
+.md div[data-streamdown="table-wrapper"] table[data-streamdown="table"] {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* 工具栏（复制/下载/全屏）悬浮右上角，hover 卡片时显现 */
+.md div[data-streamdown="table-wrapper"] > div:first-child:not(:last-child) {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--panel) 88%, transparent);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+}
+
+.md div[data-streamdown="table-wrapper"]:hover > div:first-child:not(:last-child) {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 触屏无 hover：工具栏常显 */
+@media (hover: none) {
+  .md div[data-streamdown="table-wrapper"] > div:first-child:not(:last-child) {
+    pointer-events: auto;
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* ---------- Markdown ---------- */
 /* 基准字号由设置页驱动（--md-font-size 写在 <html> 上，默认 15px）；
    变体与标题按比例缩放，比例换算自旧的固定像素值 */

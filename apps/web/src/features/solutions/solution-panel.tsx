@@ -24,6 +24,7 @@ import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { WorkspaceApi } from "@/features/workspace/use-workspace";
 import { Markdown } from "@/components/shared/markdown";
+import { ZoomableImage } from "@/components/shared/zoomable-image";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -463,10 +464,11 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
         className="max-w-[820px]"
       >
         {previewAsset ? (
-          <img
+          <ZoomableImage
             src={previewAsset.url}
             alt={t("solution.asset.original")}
-            className="mx-auto max-h-[70vh] w-auto rounded-lg border border-line"
+            className="h-[70vh]"
+            hint={t("solution.asset.zoomHint")}
           />
         ) : null}
       </Dialog>
