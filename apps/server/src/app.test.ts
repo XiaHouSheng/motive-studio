@@ -283,6 +283,69 @@ describe("Motive Studio 数据层", () => {
     expect(invalid.body.code).toBe("INVALID_BACKUP");
   });
 
+  it("备份可携带图片导出，导入后还原题目图片", async () => {
+    // 1×1 PNG
+    const pngBase64 =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const attached = await call<{ assets: Array<{ id: string }> }>(
+      running,
+      "POST",
+      "/api/questions/q-quad/assets",
+      { images: [{ mediaType: "image/png", data: pngBase64 }] },
+    );
+    expect(attached.status).toBe(201);
+    const assetId = attached.body.assets[0]?.id;
+    expect(assetId).toBeTruthy();
+
+    // 默认导出不带图片，勾选后内嵌图片
+    const plain = await call<BackupPayload>(running, "GET", "/api/backup");
+    expect(plain.status).toBe(200);
+    expect(plain.body.images).toBeUndefined();
+
+    const withImages = await call<BackupPayload>(running, "GET", "/api/backup?images=1");
+    expect(withImages.status).toBe(200);
+    expect(withImages.body.images).toHaveLength(1);
+    expect(withImages.body.images?.[0]?.id).toBe(assetId);
+    expect(withImages.body.images?.[0]?.data).toBe(pngBase64);
+
+    // 删除题目后用带图片的备份整体还原
+    const deleted = await call<{ ok: true }>(running, "DELETE", "/api/questions/q-quad");
+    expect(deleted.status).toBe(200);
+    const imported = await call<WorkspaceData>(
+      running,
+      "POST",
+      "/api/backup/import",
+      withImages.body,
+    );
+    expect(imported.status).toBe(200);
+
+    // 关联顺序与资源 id 与备份一致
+    const restored = await call<{ assets: Array<{ id: string }> }>(
+      running,
+      "GET",
+      "/api/questions/q-quad/assets",
+    );
+    expect(restored.status).toBe(200);
+    expect(restored.body.assets.map((asset) => asset.id)).toEqual([assetId]);
+
+    // 图片二进制已落盘还原：资源接口可读回同样的字节
+    const image = await fetch(`${running.baseUrl}/api/assets/${assetId}`);
+    expect(image.status).toBe(200);
+    expect(image.headers.get("content-type")).toBe("image/png");
+    expect(Buffer.from(await image.arrayBuffer()).toString("base64")).toBe(pngBase64);
+
+    // 不带 images 的旧备份也能导入（图片关联会被清空，但不报错）
+    const legacyImport = await call<WorkspaceData>(running, "POST", "/api/backup/import", plain.body);
+    expect(legacyImport.status).toBe(200);
+    const afterLegacy = await call<{ assets: Array<{ id: string }> }>(
+      running,
+      "GET",
+      "/api/questions/q-quad/assets",
+    );
+    expect(afterLegacy.status).toBe(200);
+    expect(afterLegacy.body.assets).toHaveLength(0);
+  });
+
   it("无效请求返回明确的业务错误", async () => {
     const missingGroup = await call<{ code: string }>(running, "POST", "/api/questions", {
       groupId: "not-exists",

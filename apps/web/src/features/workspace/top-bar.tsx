@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
+  Check,
   ChevronRight,
   DatabaseBackup,
   Download,
@@ -10,7 +11,6 @@ import {
   PanelLeftClose,
   PanelRightClose,
   PanelRightOpen,
-  Settings2,
   Smartphone,
   Terminal,
   Upload,
@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { isFrameless } from "@/lib/desktop";
 import { WindowControls, onAppDragDoubleClick } from "@/components/shared/window-controls";
 import { ThemeMenu } from "@/features/theme/theme-menu";
+import { ProviderQuickSwitch } from "@/features/settings/provider-switch-menu";
 import type { WorkspaceApi } from "./use-workspace";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -69,6 +70,8 @@ export function TopBar({ workspace }: TopBarProps) {
   } = workspace;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
+  const backupIncludeImages = useUiStore((state) => state.backupIncludeImages);
+  const setBackupIncludeImages = useUiStore((state) => state.setBackupIncludeImages);
   const resolved = useThemeStore((state) => state.resolved);
   const chatVisible = useUiStore((state) => state.chatVisible);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
@@ -174,15 +177,7 @@ export function TopBar({ workspace }: TopBarProps) {
         >
           <Smartphone size={16} strokeWidth={1.8} />
         </button>
-        <button
-          type="button"
-          onClick={openSettings}
-          aria-label={t("topbar.modelSettings")}
-          title={t("topbar.modelSettings")}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-selection hover:text-ink"
-        >
-          <Settings2 size={16} strokeWidth={1.8} />
-        </button>
+        <ProviderQuickSwitch onOpenSettings={openSettings} />
         <ThemeMenu />
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
@@ -203,7 +198,22 @@ export function TopBar({ workspace }: TopBarProps) {
               <DropdownMenu.Label className="px-2.5 pt-1.5 pb-1 text-[10.5px] font-semibold tracking-[0.08em] text-ink-faint uppercase">
                 {t("topbar.localData")}
               </DropdownMenu.Label>
-              <DropdownMenu.Item onSelect={exportBackup} className={menuItemClass}>
+              <DropdownMenu.CheckboxItem
+                checked={backupIncludeImages}
+                onCheckedChange={(checked) => setBackupIncludeImages(checked === true)}
+                className={menuItemClass}
+              >
+                <span className="flex h-3.5 w-3.5 items-center justify-center">
+                  <DropdownMenu.ItemIndicator>
+                    <Check size={14} strokeWidth={2} className="text-brand" />
+                  </DropdownMenu.ItemIndicator>
+                </span>
+                <span className="flex-1">{t("topbar.exportIncludeImages")}</span>
+              </DropdownMenu.CheckboxItem>
+              <DropdownMenu.Item
+                onSelect={() => exportBackup(backupIncludeImages)}
+                className={menuItemClass}
+              >
                 <Download size={14} strokeWidth={1.8} className="text-ink-faint" />
                 <span className="flex-1">{t("topbar.exportBackup")}</span>
               </DropdownMenu.Item>

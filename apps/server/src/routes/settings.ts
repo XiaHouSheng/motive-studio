@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import type { ProviderTestResult } from "@motive/shared";
 import { HttpError } from "../http-error.js";
-import { readBody } from "./validation.js";
+import { readBody, readParam } from "./validation.js";
 import { isLocalRequest } from "./loopback.js";
 import { AIError, toHttpError } from "../services/ai/errors.js";
 import { OpenAIProvider } from "../services/ai/openai-provider.js";
@@ -13,7 +13,8 @@ import type { RemoteAccessStore } from "../services/remote-access-store.js";
 import { parseServerAddr } from "../services/remote-access-store.js";
 import type { FrpcManager } from "../services/frpc-manager.js";
 
-const TEST_TIMEOUT_MS = 15_000;
+// 推理类模型（思考内容不算正文）首个正文可能较慢，放宽到 60 秒
+const TEST_TIMEOUT_MS = 60_000;
 
 export function createSettingsRouter(
   store: ProviderSettingsStore,
@@ -55,6 +56,37 @@ export function createSettingsRouter(
       }),
     );
   });
+
+  // ---- 模型配置（profile）管理 ----
+
+  router.get("/settings/provider/profiles", async (_req: Request, res: Response) => {
+    res.json(await store.listProfiles());
+  });
+
+  // 把传入配置另存为新配置并激活；body 为 { name, provider }（provider 为完整表单配置）
+  router.post("/settings/provider/profiles", async (req: Request, res: Response) => {
+    const body = readBody(req.body);
+    if (typeof body.name !== "string") {
+      throw new HttpError(400, "INVALID_FIELD", "配置名称必须是字符串");
+    }
+    res.json(await store.saveAsNewProfile(body.provider, body.name));
+  });
+
+  router.post("/settings/provider/profiles/switch", async (req: Request, res: Response) => {
+    const body = readBody(req.body);
+    if (typeof body.profileId !== "string" || !body.profileId.trim()) {
+      throw new HttpError(400, "INVALID_FIELD", "profileId 必须是非空字符串");
+    }
+    res.json(await store.switchProfile(body.profileId.trim()));
+  });
+
+  router.delete(
+    "/settings/provider/profiles/:id",
+    async (req: Request, res: Response) => {
+      const profileId = readParam(req.params, "id");
+      res.json(await store.deleteProfile(profileId));
+    },
+  );
 
   router.get("/settings/prompts", (_req: Request, res: Response) => {
     res.json(promptStore.getView());
@@ -183,32 +215,47 @@ export function createSettingsRouter(
       const timer = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS);
       const startedAt = Date.now();
       let received = false;
+      let finishReason: string | undefined;
 
       try {
+        // 请求参数与实际生成路径保持一致：不强制 max_tokens。
+        // 旧的 maxTokens: 16 会让推理类模型把预算耗在思考内容上（正文为空），
+        // 而部分模型 API 也会直接拒绝该参数，均导致"实际可用但测试失败"。
         for await (const event of provider.streamChat(
-          {
-            messages: [{ role: "user", content: "请只回复 OK" }],
-            maxTokens: 16,
-          },
+          { messages: [{ role: "user", content: "请只回复 OK" }] },
           controller.signal,
         )) {
-          if (event.type === "text-delta") received = true;
+          if (event.type === "text-delta") {
+            received = true;
+            // 收到首个正文即可确认连通，主动中止剩余流
+            controller.abort();
+            break;
+          }
+          if (event.type === "completed") {
+            finishReason = event.finishReason;
+          }
           if (event.type === "error") {
             throw new AIError(event.code, event.message);
           }
-          if (event.type === "completed") break;
         }
       } catch (error) {
-        if (controller.signal.aborted && !(error instanceof AIError)) {
-          throw new AIError("NETWORK_ERROR", "连接测试超时，请检查 Base URL 与网络");
+        // 超时中止且未收到正文 → 明确的超时报错；收到正文后的主动中止 → 成功路径吞掉取消错误
+        if (controller.signal.aborted && !received) {
+          throw new AIError("NETWORK_ERROR", "连接测试超时：60 秒内未收到模型回复，请检查 Base URL 与网络");
         }
-        throw error;
+        if (!controller.signal.aborted) {
+          throw error;
+        }
       } finally {
         clearTimeout(timer);
       }
 
       if (!received) {
-        throw new AIError("INVALID_RESPONSE", "模型未返回有效内容，请检查模型名称");
+        const hint =
+          finishReason && finishReason !== "stop"
+            ? `（finish_reason: ${finishReason}）。推理类模型可能把 max tokens 耗在思考内容上，或该模型未输出正文`
+            : "，请检查模型名称";
+        throw new AIError("INVALID_RESPONSE", `模型未返回有效内容${hint}`);
       }
 
       const result: ProviderTestResult = {

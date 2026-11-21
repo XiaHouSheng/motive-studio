@@ -76,6 +76,15 @@ interface NewAsset {
   sha256: string;
 }
 
+/** 导入备份时已落盘的题目原图，id 保持备份里的资源 id */
+export interface BackupAssetFile {
+  id: string;
+  storagePath: string;
+  mimeType: string;
+  fileSize: number;
+  sha256: string;
+}
+
 export interface QuestionAssetContext {
   id: string;
   mimeType: string;
@@ -1191,7 +1200,7 @@ export class WorkspaceRepository {
     return { version: 1, exportedAt: Date.now(), data: this.getWorkspace() };
   }
 
-  replaceWorkspace(data: WorkspaceData): WorkspaceData {
+  replaceWorkspace(data: WorkspaceData, images?: BackupAssetFile[]): WorkspaceData {
     withTransaction(this.db, () => {
       this.db.exec(`
         DELETE FROM explanation_turns;
@@ -1201,13 +1210,50 @@ export class WorkspaceRepository {
         DELETE FROM solution_explanations;
         DELETE FROM solution_revisions;
         DELETE FROM solution_steps;
+        DELETE FROM question_assets;
+        DELETE FROM assets;
         DELETE FROM questions;
         DELETE FROM question_groups;
       `);
       insertWorkspaceData(this.db, data);
+
+      if (images && images.length > 0) {
+        this.insertAssetsFromBackup(data, images);
+      }
     });
 
     return this.getWorkspace();
+  }
+
+  /** 备份导入：重建 assets 表并按备份里的题目→图片顺序恢复关联 */
+  private insertAssetsFromBackup(data: WorkspaceData, images: BackupAssetFile[]): void {
+    const createdAtById = new Map<string, number>();
+    for (const question of data.questions) {
+      for (const asset of question.assets) {
+        if (!createdAtById.has(asset.id)) createdAtById.set(asset.id, asset.createdAt);
+      }
+    }
+    const fallbackCreatedAt = Date.now();
+
+    const insertAsset = this.db.prepare(
+      `INSERT INTO assets (id, storage_path, mime_type, file_size, sha256, status, created_at)
+       VALUES (?, ?, ?, ?, ?, 'ready', ?)`,
+    );
+    const unique = new Map(images.map((image) => [image.id, image]));
+    for (const image of unique.values()) {
+      insertAsset.run(
+        image.id,
+        image.storagePath,
+        image.mimeType,
+        image.fileSize,
+        image.sha256,
+        createdAtById.get(image.id) ?? fallbackCreatedAt,
+      );
+    }
+    for (const question of data.questions) {
+      const assetIds = question.assets.map((asset) => asset.id);
+      if (assetIds.length > 0) this.linkAssets(question.id, assetIds);
+    }
   }
 
   // ---------- 题目图片资源 ----------
@@ -1216,6 +1262,19 @@ export class WorkspaceRepository {
     return this.db
       .prepare("SELECT * FROM assets WHERE sha256 = ? LIMIT 1")
       .get(sha256) as unknown as AssetRow | undefined;
+  }
+
+  /** 备份导出用：所有被题目引用的原图资源行（含落盘路径与哈希） */
+  listLinkedAssetRows(): AssetRow[] {
+    return this.db
+      .prepare(
+        `SELECT assets.*
+         FROM assets
+         JOIN question_assets links ON links.asset_id = assets.id
+         GROUP BY assets.id
+         ORDER BY assets.created_at`,
+      )
+      .all() as unknown as AssetRow[];
   }
 
   getAsset(assetId: string): AssetRow | undefined {

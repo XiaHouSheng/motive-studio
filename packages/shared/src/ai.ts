@@ -42,6 +42,18 @@ export interface ProviderSettingsUpdate {
   clearApiKey?: boolean;
 }
 
+/** 单个已保存的模型配置摘要（不含任何密钥信息，仅有无标记） */
+export interface ProviderProfileSummary {
+  config: ProviderConfig;
+  hasApiKey: boolean;
+  isActive: boolean;
+}
+
+export interface ProviderProfilesView {
+  activeId: string;
+  profiles: ProviderProfileSummary[];
+}
+
 export interface ProviderTestResult {
   ok: true;
   model: string;

@@ -35,6 +35,25 @@ function persistWidth(key: string, width: number) {
   }
 }
 
+function readStoredFlag(key: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(STORAGE_PREFIX + key) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function persistFlag(key: string, value: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    if (value) window.localStorage.setItem(STORAGE_PREFIX + key, "1");
+    else window.localStorage.removeItem(STORAGE_PREFIX + key);
+  } catch {
+    // 持久化失败时静默忽略，偏好仍会在当前会话生效
+  }
+}
+
 interface UiState {
   selectedGroupId: string | null;
   selectedQuestionId: string | null;
@@ -46,6 +65,9 @@ interface UiState {
   mobileNavOpen: boolean;
   mobileChatOpen: boolean;
   settingsOpen: boolean;
+  /** 导出备份时是否内嵌题目图片 */
+  backupIncludeImages: boolean;
+  setBackupIncludeImages: (value: boolean) => void;
   selectGroup: (groupId: string) => void;
   selectQuestion: (questionId: string) => void;
   initializeSelection: (groupId: string, questionId: string | null) => void;
@@ -74,6 +96,11 @@ export const useUiStore = create<UiState>((set) => ({
   mobileNavOpen: false,
   mobileChatOpen: false,
   settingsOpen: false,
+  backupIncludeImages: readStoredFlag("backupIncludeImages"),
+  setBackupIncludeImages: (value) => {
+    persistFlag("backupIncludeImages", value);
+    set({ backupIncludeImages: value });
+  },
   selectGroup: (groupId) =>
     set({
       selectedGroupId: groupId,

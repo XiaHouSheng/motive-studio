@@ -5,10 +5,14 @@ import {
   CheckCircle2,
   KeyRound,
   Loader2,
+  Plus,
+  X,
 } from "lucide-react";
 import type {
   CredentialStorageMode,
   ProviderConfig,
+  ProviderProfileSummary,
+  ProviderProfilesView,
   ProviderSettingsView,
   ProviderTestResult,
 } from "@motive/shared";
@@ -119,6 +123,19 @@ export function ProviderSettingsForm() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<ProviderTestResult | null>(null);
+  const [profiles, setProfiles] = useState<ProviderProfilesView | null>(null);
+  const [profileBusy, setProfileBusy] = useState(false);
+
+  const refreshProfiles = useCallback(() => {
+    api
+      .getProviderProfiles()
+      .then((next) => setProfiles(next))
+      .catch(() => setProfiles(null));
+  }, []);
+
+  useEffect(() => {
+    refreshProfiles();
+  }, [refreshProfiles]);
 
   useEffect(() => {
     let cancelled = false;
@@ -174,6 +191,64 @@ export function ProviderSettingsForm() {
     setError(null);
     setTestResult(null);
   }, []);
+
+  /** 表单相对当前已保存配置是否有未保存修改（切换配置前提示用） */
+  const isFormDirty = useCallback((): boolean => {
+    if (!view) return false;
+    const baseline = toForm(view.provider);
+    return (Object.keys(baseline) as Array<keyof FormState>).some(
+      (key) => baseline[key] !== form[key],
+    );
+  }, [form, view]);
+
+  const handleSwitchProfile = useCallback(
+    async (profile: ProviderProfileSummary) => {
+      if (profile.isActive || profileBusy) return;
+      if (isFormDirty() && !window.confirm(t("settings.profileSwitchDirtyConfirm"))) return;
+
+      setProfileBusy(true);
+      setError(null);
+      setNotice(null);
+      setTestResult(null);
+      try {
+        const next = await api.switchProviderProfile(profile.config.id);
+        setView(next);
+        setForm(toForm(next.provider));
+        setApiKey("");
+        setActivePreset(null);
+        refreshProfiles();
+        setNotice(t("settings.profileSwitched", { name: next.provider.name }));
+      } catch (switchError) {
+        setError(describeError(t, switchError));
+      } finally {
+        setProfileBusy(false);
+      }
+    },
+    [isFormDirty, profileBusy, refreshProfiles, t],
+  );
+
+  const handleDeleteProfile = useCallback(
+    async (profile: ProviderProfileSummary) => {
+      if (profile.isActive || profileBusy) return;
+      if (!window.confirm(t("settings.profileDeleteConfirm", { name: profile.config.name }))) {
+        return;
+      }
+
+      setProfileBusy(true);
+      setError(null);
+      setNotice(null);
+      try {
+        const next = await api.deleteProviderProfile(profile.config.id);
+        setProfiles(next);
+        setNotice(t("settings.profileDeleted", { name: profile.config.name }));
+      } catch (deleteError) {
+        setError(describeError(t, deleteError));
+      } finally {
+        setProfileBusy(false);
+      }
+    },
+    [profileBusy, t],
+  );
 
   const buildProvider = useCallback((): ProviderConfig | null => {
     if (!form.name.trim()) {
@@ -243,6 +318,7 @@ export function ProviderSettingsForm() {
       try {
         const saved = await persist();
         if (!saved) return;
+        refreshProfiles();
 
         if (withTest) {
           const result = await api.testProvider();
@@ -256,8 +332,37 @@ export function ProviderSettingsForm() {
         setSaving(false);
       }
     },
-    [persist, t],
+    [persist, refreshProfiles, t],
   );
+
+  /** 以表单当前内容另存为新配置（名称取表单服务名称，重名由客户端预检 + 服务端兜底） */
+  const handleSaveAsNewProfile = useCallback(async () => {
+    const provider = buildProvider();
+    if (!provider) return;
+    const name = provider.name;
+    if (profiles?.profiles.some((profile) => profile.config.name === name)) {
+      setError(t("settings.profileDuplicateName", { name }));
+      return;
+    }
+
+    setProfileBusy(true);
+    setError(null);
+    setNotice(null);
+    setTestResult(null);
+    try {
+      const next = await api.saveProviderProfile({ name, provider });
+      setView(next);
+      setForm(toForm(next.provider));
+      setApiKey("");
+      setActivePreset(null);
+      refreshProfiles();
+      setNotice(t("settings.profileSavedNew", { name: next.provider.name }));
+    } catch (saveError) {
+      setError(describeError(t, saveError));
+    } finally {
+      setProfileBusy(false);
+    }
+  }, [buildProvider, profiles, refreshProfiles, t]);
 
   const handleClearKey = useCallback(async () => {
     const provider = buildProvider();
@@ -275,13 +380,14 @@ export function ProviderSettingsForm() {
       });
       setView(next);
       setApiKey("");
+      refreshProfiles();
       setNotice(t("settings.keyCleared"));
     } catch (clearError) {
       setError(describeError(t, clearError));
     } finally {
       setSaving(false);
     }
-  }, [buildProvider, t]);
+  }, [buildProvider, refreshProfiles, t]);
 
   const hasApiKey = view?.hasApiKey ?? false;
 
@@ -323,6 +429,72 @@ export function ProviderSettingsForm() {
         </div>
       ) : (
         <div className="space-y-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className={labelClass}>{t("settings.profilesLabel")}</span>
+              <button
+                type="button"
+                onClick={() => void handleSaveAsNewProfile()}
+                disabled={profileBusy || loading}
+                title={t("settings.profileSaveAsNewHint")}
+                className="inline-flex h-6 items-center gap-1 rounded-md border border-line bg-field px-2 text-[11px] text-ink-soft transition-colors hover:bg-selection hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Plus size={12} />
+                {t("settings.profileSaveAsNew")}
+              </button>
+            </div>
+            {profiles && profiles.profiles.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {profiles.profiles.map((profile) => (
+                  <div key={profile.config.id} className="group/profile relative">
+                    <button
+                      type="button"
+                      onClick={() => void handleSwitchProfile(profile)}
+                      disabled={profileBusy || loading || profile.isActive}
+                      title={`${profile.config.name} · ${profile.config.model}`}
+                      className={cn(
+                        "inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[11.5px] transition-colors",
+                        profile.isActive
+                          ? "border-brand/50 bg-brand/5 text-ink disabled:cursor-default"
+                          : "border-line bg-field text-ink-soft hover:bg-selection hover:text-ink disabled:cursor-not-allowed",
+                      )}
+                    >
+                      {profile.config.name}
+                      <span className="max-w-[120px] truncate text-[10px] text-ink-faint">
+                        {profile.config.model}
+                      </span>
+                      {profile.config.supportsVision !== false ? (
+                        <span className="rounded bg-brand/10 px-1 text-[10px] leading-4 text-brand">
+                          {t("settings.visionBadge")}
+                        </span>
+                      ) : null}
+                      <span
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          profile.hasApiKey ? "bg-success" : "bg-warning",
+                        )}
+                        title={profile.hasApiKey ? t("settings.profileKeyOk") : t("settings.profileKeyMissing")}
+                      />
+                    </button>
+                    {!profile.isActive ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteProfile(profile)}
+                        aria-label={t("settings.profileDeleteAria", { name: profile.config.name })}
+                        className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full border border-line bg-elevated text-ink-faint transition-colors hover:border-danger/40 hover:text-danger group-hover/profile:flex"
+                      >
+                        <X size={10} />
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <span className="block text-[11px] text-ink-faint">
+              {t("settings.profilesHint")}
+            </span>
+          </div>
+
           <div className="space-y-1.5">
             <span className={labelClass}>{t("settings.presetsLabel")}</span>
             <div className="flex flex-wrap gap-1.5">

@@ -788,16 +788,17 @@ export function useWorkspace() {
     [load, run],
   );
 
-  const exportBackup = useCallback(() => {
+  const exportBackup = useCallback((includeImages: boolean) => {
     void run(async () => {
-      const payload = await api.exportBackup();
+      const payload = await api.exportBackup({ includeImages });
       const blob = new Blob([JSON.stringify(payload, null, 2)], {
         type: "application/json",
       });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `motive-studio-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      const suffix = includeImages ? "-with-images" : "";
+      link.download = `motive-studio-backup-${new Date().toISOString().slice(0, 10)}${suffix}.json`;
       document.body.appendChild(link);
       link.click();
       link.remove();

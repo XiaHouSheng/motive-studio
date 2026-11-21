@@ -6,6 +6,8 @@ import {
   type ConversationView,
   type PromptSettings,
   type PromptSettingsView,
+  type ProviderConfig,
+  type ProviderProfilesView,
   type ProviderSettingsUpdate,
   type ProviderSettingsView,
   type ProviderTestResult,
@@ -315,6 +317,23 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(input),
     }),
+  getProviderProfiles: () =>
+    request<ProviderProfilesView>("/api/settings/provider/profiles"),
+  saveProviderProfile: (input: { name: string; provider: ProviderConfig }) =>
+    request<ProviderSettingsView>("/api/settings/provider/profiles", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  switchProviderProfile: (profileId: string) =>
+    request<ProviderSettingsView>("/api/settings/provider/profiles/switch", {
+      method: "POST",
+      body: JSON.stringify({ profileId }),
+    }),
+  deleteProviderProfile: (profileId: string) =>
+    request<ProviderProfilesView>(
+      `/api/settings/provider/profiles/${encodeURIComponent(profileId)}`,
+      { method: "DELETE" },
+    ),
   testProvider: () =>
     request<ProviderTestResult>("/api/settings/provider/test", {
       method: "POST",
@@ -358,7 +377,8 @@ export const api = {
       method: "DELETE",
     }),
 
-  exportBackup: () => request<BackupPayload>("/api/backup"),
+  exportBackup: (options?: { includeImages?: boolean }) =>
+    request<BackupPayload>(options?.includeImages ? "/api/backup?images=1" : "/api/backup"),
   exportQuestionMarkdown: (questionId: string) =>
     downloadFile(`/api/exports/questions/${encodeURIComponent(questionId)}`),
   exportGroupMarkdown: (groupId: string) =>

@@ -104,6 +104,24 @@ export const panelsZh = {
   "settings.visionBadge": "图片",
   "settings.presetsHint":
     "点击自动填入名称、地址与模型；带「图片」的模型支持拍照导入的图像识别。API Key 请按所选服务商重新填写。",
+  "settings.profilesLabel": "已保存的配置",
+  "settings.profilesHint":
+    "点击即可切换使用的模型；每份配置的 API Key 独立保存，切换后立即生效。",
+  "settings.profileKeyOk": "已配 Key",
+  "settings.profileKeyMissing": "未配 Key",
+  "settings.profileDeleteAria": "删除配置 {name}",
+  "settings.profileSaveAsNew": "保存当前为新配置",
+  "settings.profileSaveAsNewHint": "以表单里的服务名称另存；地址相同会自动复制当前 Key",
+  "settings.profileSwitched": "已切换到「{name}」",
+  "settings.profileSavedNew": "已保存新配置「{name}」并启用",
+  "settings.profileDeleted": "已删除配置「{name}」",
+  "settings.profileDuplicateName": "已存在同名配置「{name}」，请换个名称",
+  "settings.profileMenuLabel": "模型配置",
+  "settings.profileOpenSettings": "打开模型设置",
+  "settings.profileDeleteConfirm":
+    "删除配置「{name}」？其保存的 API Key 也会一并删除，该操作不可恢复。",
+  "settings.profileSwitchDirtyConfirm": "表单有未保存的修改，切换后将丢弃，确定继续？",
+  "settings.profilesLoadFailed": "配置列表读取失败",
   "settings.nameLabel": "服务名称",
   "settings.namePlaceholder": "例如 OpenAI",
   "settings.modelLabel": "模型名称",
@@ -339,6 +357,26 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "settings.visionBadge": "Vision",
   "settings.presetsHint":
     "Click to fill in the name, URL and model automatically. Models tagged “Vision” support image input for mobile capture. Re-enter the API key for the provider you selected.",
+  "settings.profilesLabel": "Saved configurations",
+  "settings.profilesHint":
+    "Click a configuration to switch models; each one keeps its own API key and takes effect immediately.",
+  "settings.profileKeyOk": "Key set",
+  "settings.profileKeyMissing": "No key",
+  "settings.profileDeleteAria": "Delete configuration {name}",
+  "settings.profileSaveAsNew": "Save current as new",
+  "settings.profileSaveAsNewHint":
+    "Saves under the service name in the form; the current key is copied automatically when the base URL matches",
+  "settings.profileSwitched": "Switched to “{name}”",
+  "settings.profileSavedNew": "Saved and activated “{name}”",
+  "settings.profileDeleted": "Deleted configuration “{name}”",
+  "settings.profileDuplicateName": "A configuration named “{name}” already exists. Use another name.",
+  "settings.profileMenuLabel": "Model configurations",
+  "settings.profileOpenSettings": "Open model settings",
+  "settings.profileDeleteConfirm":
+    "Delete configuration “{name}”? Its saved API key will be removed as well. This cannot be undone.",
+  "settings.profileSwitchDirtyConfirm":
+    "The form has unsaved changes that will be discarded after switching. Continue?",
+  "settings.profilesLoadFailed": "Failed to load saved configurations",
   "settings.nameLabel": "Service name",
   "settings.namePlaceholder": "e.g. OpenAI",
   "settings.modelLabel": "Model name",

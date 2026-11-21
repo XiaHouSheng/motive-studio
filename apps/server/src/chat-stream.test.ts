@@ -144,6 +144,7 @@ async function configureProvider(
   app: RunningApp,
   upstream: RunningUpstream,
   apiKey = "sk-test-secret",
+  overrides: Record<string, unknown> = {},
 ): Promise<ProviderSettingsView> {
   const response = await fetch(`${app.baseUrl}/api/settings/provider`, {
     method: "PUT",
@@ -155,6 +156,7 @@ async function configureProvider(
         baseUrl: upstream.baseUrl,
         model: "test-model",
         protocol: "openai-chat-completions",
+        ...overrides,
       },
       apiKey,
     }),
@@ -466,5 +468,89 @@ describe("连接测试", () => {
     });
     expect(response.status).toBe(401);
     expect(((await response.json()) as { code: string }).code).toBe("AUTH_FAILED");
+  });
+
+  it("测试请求不再强制 max_tokens：未配置时不发送，配置了则使用配置值", async () => {
+    const { app, upstream } = await setup((_req, res) => {
+      res.writeHead(200, { "Content-Type": "text/event-stream" });
+      res.write('data: {"choices":[{"delta":{"content":"OK"}}]}\n\n');
+      res.write("data: [DONE]\n\n");
+      res.end();
+    });
+
+    const first = await fetch(`${app.baseUrl}/api/settings/provider/test`, {
+      method: "POST",
+    });
+    expect(first.status).toBe(200);
+    expect(upstream.lastBody?.max_tokens).toBeUndefined();
+
+    // 配置 maxTokens 后应原样发送
+    await configureProvider(app, upstream, "sk-test-secret", { maxTokens: 2048 });
+    const second = await fetch(`${app.baseUrl}/api/settings/provider/test`, {
+      method: "POST",
+    });
+    expect(second.status).toBe(200);
+    expect(upstream.lastBody?.max_tokens).toBe(2048);
+  });
+
+  it("推理类模型（思考内容不算正文）也能测试通过", async () => {
+    // 模拟推理模型：若收到很小的 max_tokens 则只输出思考内容直至耗尽预算（旧实现的失败场景）；
+    // 否则先思考再输出正文
+    let branch = "";
+    const { app, upstream } = await setup((_req, res) => {
+      const maxTokens = upstream.lastBody?.max_tokens;
+      res.writeHead(200, { "Content-Type": "text/event-stream" });
+      if (typeof maxTokens === "number" && maxTokens < 32) {
+        branch = "starved";
+        for (let i = 0; i < 8; i += 1) {
+          res.write(
+            `data: ${JSON.stringify({
+              choices: [{ delta: { reasoning_content: "思考" } }],
+            })}\n\n`,
+          );
+        }
+        res.write(
+          `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: "length" }] })}\n\n`,
+        );
+        res.write("data: [DONE]\n\n");
+        res.end();
+        return;
+      }
+      branch = "ok";
+      res.write(
+        `data: ${JSON.stringify({ choices: [{ delta: { reasoning_content: "思考" } }] })}\n\n`,
+      );
+      res.write('data: {"choices":[{"delta":{"content":"OK"}}]}\n\n');
+      res.write("data: [DONE]\n\n");
+      res.end();
+    });
+
+    const response = await fetch(`${app.baseUrl}/api/settings/provider/test`, {
+      method: "POST",
+    });
+    expect(response.status).toBe(200);
+    expect(((await response.json()) as { ok: boolean }).ok).toBe(true);
+    // 修复点：请求不再携带强制的 max_tokens:16，推理模型不会因预算耗尽而无正文
+    expect(branch).toBe("ok");
+    expect(upstream.lastBody?.max_tokens).toBeUndefined();
+  });
+
+  it("收到首个正文后主动断开连接", async () => {
+    let clientAborted = false;
+    const { app } = await setup((_req, res) => {
+      res.on("close", () => {
+        if (!res.writableEnded) clientAborted = true;
+      });
+      res.writeHead(200, { "Content-Type": "text/event-stream" });
+      res.write('data: {"choices":[{"delta":{"content":"OK"}}]}\n\n');
+      // 故意不结束响应，等待客户端主动断开
+    });
+
+    const response = await fetch(`${app.baseUrl}/api/settings/provider/test`, {
+      method: "POST",
+    });
+    expect(response.status).toBe(200);
+    expect(((await response.json()) as { ok: boolean }).ok).toBe(true);
+    await waitFor(async () => (clientAborted ? true : undefined));
   });
 });
