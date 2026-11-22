@@ -99,6 +99,8 @@ export const solutionsZh = {
   "markdown.mermaidFormatMmd": "下载 .mmd 源码",
   "markdown.mermaidFormatPng": "下载 PNG",
   "markdown.mermaidFormatSvg": "下载 SVG",
+  "markdown.mermaidExpand": "放大查看",
+  "markdown.mermaidDialogTitle": "Mermaid 示意图",
 
   // chat-panel.tsx
   "chat.header": "深度理解",
@@ -236,6 +238,8 @@ export const solutionsEn: Record<keyof typeof solutionsZh, string> = {
   "markdown.mermaidFormatMmd": "Download .mmd source",
   "markdown.mermaidFormatPng": "Download PNG",
   "markdown.mermaidFormatSvg": "Download SVG",
+  "markdown.mermaidExpand": "Expand diagram",
+  "markdown.mermaidDialogTitle": "Mermaid diagram",
 
   // chat-panel.tsx
   "chat.header": "Deep understanding",

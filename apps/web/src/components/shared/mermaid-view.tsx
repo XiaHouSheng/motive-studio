@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, Maximize2 } from "lucide-react";
 import { createMermaidPlugin } from "@streamdown/mermaid";
 import { useThemeStore } from "@/stores/theme";
 import { useT } from "@/lib/i18n/use-i18n";
 import { cn } from "@/lib/utils";
+import { Dialog } from "@/components/ui/dialog";
+import { ZoomableImage } from "@/components/shared/zoomable-image";
 
 /**
  * 模块级渲染缓存：key = `${theme}::${源码}`，value = 渲染好的 SVG 字符串。
@@ -47,8 +49,15 @@ export function MermaidView({ code, isIncomplete }: MermaidViewProps) {
   const theme = useThemeStore((state) => state.resolved);
   const [svg, setSvg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [zoomOpen, setZoomOpen] = useState(false);
   // 缓存命中的标记：用于首帧跳过淡入动画，视觉上等同"早就渲染好了"
   const fromCacheRef = useRef(false);
+
+  /** mermaid SVG 无外部引用（securityLevel: strict），可直接作为 img 源复用缩放查看器 */
+  const svgDataUrl = useMemo(
+    () => (svg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` : null),
+    [svg],
+  );
 
   useEffect(() => {
     if (isIncomplete) return;
@@ -95,8 +104,27 @@ export function MermaidView({ code, isIncomplete }: MermaidViewProps) {
     >
       <div className="flex h-8 items-center gap-2 px-1">
         <span className="ml-1 font-mono text-xs lowercase text-ink-faint">mermaid</span>
+        {svg ? (
+          <button
+            type="button"
+            onClick={() => setZoomOpen(true)}
+            aria-label={t("markdown.mermaidExpand")}
+            title={t("markdown.mermaidExpand")}
+            className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-ink"
+          >
+            <Maximize2 size={12} strokeWidth={1.8} />
+          </button>
+        ) : null}
       </div>
-      <div className="flex min-h-[200px] items-center justify-center overflow-x-auto rounded-md border border-line bg-panel p-4">
+      <div
+        role={svg ? "button" : undefined}
+        aria-label={svg ? t("markdown.mermaidExpand") : undefined}
+        onClick={svg ? () => setZoomOpen(true) : undefined}
+        className={cn(
+          "flex min-h-[200px] items-center justify-center overflow-x-auto rounded-md border border-line bg-panel p-4",
+          svg && "cursor-zoom-in",
+        )}
+      >
         {error ? (
           <div className="flex max-w-full flex-col gap-1.5 rounded-md border border-danger/30 bg-danger/10 px-3 py-2.5">
             <span className="text-[12px] font-medium text-danger">
@@ -122,6 +150,22 @@ export function MermaidView({ code, isIncomplete }: MermaidViewProps) {
           </div>
         )}
       </div>
+
+      <Dialog
+        open={zoomOpen}
+        onClose={() => setZoomOpen(false)}
+        title={t("markdown.mermaidDialogTitle")}
+        className="max-w-[960px]"
+      >
+        {svgDataUrl ? (
+          <ZoomableImage
+            src={svgDataUrl}
+            alt={t("markdown.mermaidAriaLabel")}
+            className="h-[70vh]"
+            hint={t("solution.asset.zoomHint")}
+          />
+        ) : null}
+      </Dialog>
     </div>
   );
 }
