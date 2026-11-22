@@ -11,6 +11,7 @@ import { SettingsPage } from "@/features/settings/settings-page";
 import { AddQuestionDialog } from "@/features/question-groups/add-question-dialog";
 import { MobileCaptureDialog } from "@/features/mobile-capture/mobile-capture-dialog";
 import { ResizeHandle } from "@/components/shared/resize-handle";
+import { OverviewScrollbar } from "@/components/shared/overview-scrollbar";
 import { CHAT_WIDTH_LIMITS, SIDEBAR_WIDTH_LIMITS } from "@/stores/ui";
 import { TopBar } from "./top-bar";
 
@@ -138,9 +139,15 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
           />
         )}
 
-        <main className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-          <SolutionPanel workspace={workspace} />
-        </main>
+        {/* 主内容区：VSCode 式概览滚动条替代原生滚动条 */}
+        <OverviewScrollbar
+          className="flex min-w-0 flex-1 flex-col"
+          scrollClassName="flex flex-col"
+        >
+          <main>
+            <SolutionPanel workspace={workspace} />
+          </main>
+        </OverviewScrollbar>
 
         {/* 讨论面板：常驻挂载，靠宽度与位移过渡实现展开/收起，避免收起时突然消失 */}
         <div

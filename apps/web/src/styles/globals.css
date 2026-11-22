@@ -263,6 +263,17 @@
   box-shadow: inset 0 -1px 0 var(--line);
 }
 
+/* ---------- 概览滚动条：容器隐藏原生滚动条，由 OverviewScrollbar 渲染概览轨道 ---------- */
+
+.overview-scroll {
+  scrollbar-width: none;
+}
+
+.overview-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
 /* ---------- Markdown ---------- */
 /* 基准字号由设置页驱动（--md-font-size 写在 <html> 上，默认 15px）；
    变体与标题按比例缩放，比例换算自旧的固定像素值 */
