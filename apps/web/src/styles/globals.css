@@ -209,6 +209,33 @@
 
 /* ---------- 概览滚动条：容器隐藏原生滚动条，由 OverviewScrollbar 渲染概览轨道 ---------- */
 
+/* minimap 模式：内容缩小克隆 + 视口指示框 */
+.minimap-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+}
+
+.minimap-clone-host {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.minimap-clone-host * {
+  pointer-events: none !important;
+}
+
+.minimap-clone-host img {
+  /* 缩略图里图片只当纹理，避免大图解码浪费 */
+  content-visibility: auto;
+}
+
 .overview-scroll {
   scrollbar-width: none;
 }

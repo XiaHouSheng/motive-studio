@@ -139,8 +139,9 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
           />
         )}
 
-        {/* 主内容区：VSCode 式概览滚动条替代原生滚动条 */}
+        {/* 主内容区：VSCode 式缩略图滚动条替代原生滚动条 */}
         <OverviewScrollbar
+          minimap
           className="flex min-w-0 flex-1 flex-col"
           scrollClassName="flex flex-col"
         >
