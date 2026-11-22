@@ -173,9 +173,24 @@
   -webkit-app-region: no-drag;
 }
 
+/* ---------- 表格全屏层窗口化（Streamdown 原生层为铺满 fixed，改为居中窗口卡片） ---------- */
+
+div[data-streamdown="table-fullscreen"] {
+  /* 缩进 + 卡片化：四周露出暗化遮罩（超大 box-shadow，不影响布局） */
+  inset: 10vh 14vw;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow:
+    0 0 0 100vmax color-mix(in oklab, var(--bg) 55%, transparent),
+    0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
 /* ---------- 表格卡片融合（覆盖 Streamdown 双层结构） ----------
-   内置表格工具栏已关闭（controls.table=false），操作栏由 thead 注入组件
-   渲染进表头最后一个单元格，布局上属于表头行的一部分（见 table-toolbar.tsx）。 */
+   Streamdown 的 table-wrapper 是「工具栏占位一行 + 内层独立边框滚动容器」，
+   视觉上是两张叠起来的卡片且顶部留白过多。这里融合为单张卡片：
+   工具栏悬浮右上角，hover 卡片时显现。 */
 
 /* 单卡片：去掉内边距与工具栏占位的纵向 gap，工具栏改为悬浮 */
 .md div[data-streamdown="table-wrapper"] {
@@ -207,60 +222,42 @@
   background: transparent;
 }
 
-/* 表头最后一个单元格：flex 布局容纳列名 + 内嵌操作栏 */
-.md div[data-streamdown="table-wrapper"] thead th:last-child {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* 工具栏（复制/下载/全屏）常驻固定在表头最右侧：
+   与粘性表头同底色（横向滚动时遮住滑过的列），只覆盖表头区域，
+   不随 hover 浮现、无投影描边，避免抢视觉 */
+.md div[data-streamdown="table-wrapper"] > div:first-child:not(:last-child) {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 12;
+  padding: 2px 3px;
+  border-radius: 6px;
+  background: var(--sidebar);
+  opacity: 1;
+  transform: none;
+  transition: none;
+  pointer-events: auto;
 }
 
-/* 列名占位（保留列的 text-align 对齐），操作栏靠右 */
-.md div[data-streamdown="table-wrapper"] thead th:last-child > .md-th-label {
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-/* 内嵌操作栏：随表头滚动，弱色小图标，hover 点亮 */
-.md-th-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  margin-left: auto;
-}
-
-.md-th-toolbar button {
+/* 按钮紧凑弱化：小图标 + 弱色，hover 才点亮 */
+.md div[data-streamdown="table-wrapper"] > div:first-child:not(:last-child) button {
   padding: 2px;
-  border-radius: 4px;
   color: var(--ink-faint);
 }
 
-.md-th-toolbar button:hover {
+.md div[data-streamdown="table-wrapper"] > div:first-child:not(:last-child) button:hover {
   color: var(--ink);
   background: var(--selection);
 }
 
-.md-th-toolbar button svg {
+.md div[data-streamdown="table-wrapper"] > div:first-child:not(:last-child) button svg {
   width: 15px;
   height: 15px;
 }
 
-/* 全屏查看表格（应用 Dialog 内的表格克隆）：容器自身滚动，粘性表头在容器内生效 */
-.md-table-fullscreen {
-  max-height: 62vh;
-  overflow-y: auto;
-}
-
-.md-table-fullscreen table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.md-table-fullscreen thead th {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  background: var(--sidebar);
-  box-shadow: inset 0 -1px 0 var(--line);
+/* 表头最后一列预留工具栏宽度，避免盖住表头文字（数据行不受影响） */
+.md div[data-streamdown="table-wrapper"] thead th:last-child {
+  padding-right: 88px;
 }
 
 /* ---------- 概览滚动条：容器隐藏原生滚动条，由 OverviewScrollbar 渲染概览轨道 ---------- */
