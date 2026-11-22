@@ -9,10 +9,11 @@
 
 **A local-first AI workbench for structured thinking**
 
-Built for personal learning: question capture, AI step-by-step solving, step-level discussion, and knowledge archiving in a single local app. Your data stays on your machine; the model service is configured by you.
+Built for personal learning: question capture, AI step-by-step solving, step-level discussion, and knowledge consolidation in a single local app. Your data stays on your machine; the model service is configured by you.
 
 English | [简体中文](./README.zh-CN.md)
 
+![Version](https://img.shields.io/badge/Version-0.4.0b1-173c3b?style=flat-square)
 ![Node.js](https://img.shields.io/badge/Node.js-24%2B-173c3b?style=flat-square&logo=nodedotjs&logoColor=5FA04E)
 ![React](https://img.shields.io/badge/React-19-173c3b?style=flat-square&logo=react&logoColor=61DAFB)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-173c3b?style=flat-square&logo=typescript&logoColor=3178C6)
@@ -32,8 +33,8 @@ Motive Studio is organized around "question groups → questions → solution st
 
 - **Capture**: enter questions by phone camera (QR pairing), desktop paste, or image selection, with region cropping before recognition.
 - **Solve**: AI generates a structured step-by-step solution with SSE streaming; revise inline, diff, and restore revisions.
-- **Discuss**: ask follow-ups on a single step; question, step, and optional image context are attached automatically, and replies are linked back to related steps.
-- **Explain & archive**: generate a full explanation with summary, propose archive changes based on the discussion, and apply them back into the solution after confirmation.
+- **Discuss**: ask follow-ups on a single step — with optional image attachments pasted or selected right in the chat; question, step, and image context are attached automatically, and replies are linked back to related steps.
+- **Explain**: generate a full explanation with summary on top of the steps, keeping status, token usage, and prompt snapshots for traceability.
 - **Export**: per-question / per-group Markdown export; full workspace JSON backup export and import.
 - **Local-first**: single-file SQLite database and local file storage, no cloud dependency; only model requests carry question context.
 
@@ -48,12 +49,15 @@ Motive Studio is organized around "question groups → questions → solution st
 | Step solving | Revisions & versions | Editable step content; every revision creates a version you can view and restore |
 | Explanation | Summary & full write-up | Generates an explanation plus summary on top of the steps, keeping status, token usage, and prompt snapshots |
 | Step discussion | Context-aware chat | Follow-up questions per step with auto-built question / step / image context, streamed replies |
+| Step discussion | Image attachments | Paste or select images directly in the chat; attachments are stored locally and shown with the message |
 | Step discussion | Step linking | Replies are automatically tagged with related steps for easy backtracking |
-| Archiving | Change proposals | AI proposes solution updates from the discussion; apply or reject them |
+| Model profiles | Multi-config profiles | Save multiple OpenAI-compatible model configurations, each with its own API key; add / edit / delete on the settings page, quick-switch from the top bar |
+| Model profiles | Per-purpose model | Optionally pick a separate model just for the discussion panel; solving and explanations always use the main model |
 | Export & backup | Markdown / JSON | Markdown for questions and groups; complete workspace JSON backup export / import |
-| Rendering | Formulas & Markdown | Streamdown + KaTeX render GFM tables, code blocks, and LaTeX formulas, tolerant of unclosed streaming content |
+| Rendering | Formulas & diagrams | Streamdown + KaTeX render GFM tables, code blocks, LaTeX formulas, and Mermaid diagrams with a zoom preview |
+| Workspace | Content minimap | VSCode-style overview scrollbar for the main content column |
 | UI language | Bilingual UI | Switch between 简体中文 and English in the settings page; the preference persists with your local data |
-| Custom prompts | Per-stage overrides | All five AI stages (question recognition / solution / discussion / explanation / archiving) accept custom system prompts; leave blank to use the built-in defaults |
+| Custom prompts | Per-stage overrides | All four AI stages (question recognition / solution / discussion / explanation) accept custom system prompts; leave blank to use the built-in defaults |
 | Safety & comfort | Key protection & theme | API keys protected by the OS credential store; light/dark theme follows the system and remembers your choice |
 
 ## Screenshots
@@ -81,7 +85,7 @@ Motive Studio is organized around "question groups → questions → solution st
     </td>
     <td align="center" width="33.3%">
       <img src="docs/screenshots/provider-settings.png" alt="Provider settings" width="100%" /><br/>
-      <sub><b>Provider settings</b> · OpenAI-compatible endpoint, system-encrypted API key</sub>
+      <sub><b>Model profiles</b> · multiple configurations, per-config keys, OpenAI-compatible endpoints</sub>
     </td>
   </tr>
 </table>
@@ -127,8 +131,8 @@ Core data flows:
 
 1. **Image import**: images are written to `data/uploads` and registered in `assets`; the model recognizes them into questions linked via `question_assets`.
 2. **Step solving**: context is built from question content and image policy; steps stream into `solution_steps`, and edits append to `solution_revisions`.
-3. **Step discussion**: question + step + image context is assembled for streaming replies; related steps are parsed afterwards into `turn_step_tags`.
-4. **Archiving**: discussion turns are summarized into `archive_proposals`; applying writes updates back, rejecting keeps the original solution.
+3. **Step discussion**: question + step + image context is assembled for streaming replies; attachments are stored in `assets` and linked via `turn_assets`; related steps are parsed afterwards into `turn_step_tags`.
+4. **Explanation**: discussion turns are summarized into a full write-up stored in `solution_explanations`.
 
 ## Data Model
 
@@ -136,8 +140,8 @@ Core data flows:
 | --- | --- |
 | Question bank | `question_groups`, `questions`, `assets`, `question_assets` |
 | Solving | `solution_steps`, `solution_revisions` |
-| Discussion | `sub_conversations`, `conversation_turns`, `turn_step_tags` |
-| Explanation & archive | `solution_explanations`, `explanation_turns`, `archive_proposals` |
+| Discussion | `sub_conversations`, `conversation_turns`, `turn_step_tags`, `turn_assets` |
+| Explanation | `solution_explanations`, `explanation_turns` |
 | Config & audit | `app_settings`, `ai_context_snapshots`, `app_meta` |
 
 The database upgrades itself through versioned migrations (`PRAGMA user_version`); a set of sample data is seeded on first start so you can try everything immediately.
@@ -170,9 +174,12 @@ npm start
 
 Open the **settings page** from the gear icon in the top bar:
 
-- **Model service**: fill in your OpenAI-compatible endpoint — base URL, model name, and API key; optionally temperature, max output tokens, and vision support. The key is protected by the OS credential store; the UI only shows a masked preview (first 3 + last 4 characters) and the save time.
+- **Model service**: shows your saved model configurations. Click "Add model" to create one — base URL, model name, and API key for any OpenAI-compatible endpoint (paste-import from CCSWITCH is supported); optionally temperature, max output tokens, and vision support. Each configuration keeps its own API key in the OS credential store; existing rows can be edited or deleted, and clicking a row switches to it instantly.
+- **Discussion model**: by default the discussion panel uses the main model above; optionally pick a different configuration just for chats. Solving and explanations always use the main model.
 - **General**: switch the UI language (简体中文 / English) and the light/dark theme.
-- **Prompts**: customize the system prompt per AI stage (question recognition / solution / discussion / explanation / archiving). Leave blank or press "restore default" to use the built-in prompt; customized prompts are snapshotted together with each generation for traceability.
+- **Prompts**: customize the system prompt per AI stage (question recognition / solution / discussion / explanation). Leave blank or press "restore default" to use the built-in prompt; customized prompts are snapshotted together with each generation for traceability.
+
+The top bar also has a model dropdown for quick switching between saved configurations.
 
 ### Environment variables
 
@@ -263,10 +270,10 @@ The pairing and QR-code endpoints only accept loopback calls from the local mach
 ## Security & privacy
 
 - **Credential storage**: Windows uses DPAPI, macOS uses Keychain, Linux prefers Secret Service; when unavailable it falls back to a local AES-256-GCM encrypted file, never to plaintext.
-- **Keys never leave the machine**: the API key never appears in any API response, backup file, or log; the settings UI only offers a masked preview.
+- **Keys never leave the machine**: the API key never appears in any API response, backup file, or log; the settings UI only shows key presence (never the secret itself).
 - **Mobile access control**: the capture page requires a session token; the server validates QR addresses and request origins; tokens expire on restart.
-- **Data boundary**: questions, images, solutions, and archives stay on your machine; only explicit model requests send the necessary context to the configured service.
-- **Backup scope**: JSON backups contain workspace business data only (groups, questions, steps, revisions, discussions, tags, explanations, and archive proposals) — never model settings, prompt preferences, or keys.
+- **Data boundary**: questions, images, solutions, and discussions stay on your machine; only explicit model requests send the necessary context to the configured service.
+- **Backup scope**: JSON backups contain workspace business data only (groups, questions, steps, revisions, discussions, tags, explanations, and discussion images) — never model settings, prompt preferences, or keys.
 
 ## API overview
 
@@ -279,18 +286,24 @@ All endpoints are prefixed with `/api`; errors are returned as `{ code, message 
 | `/api/question-groups` | POST / PATCH / DELETE | Group CRUD |
 | `/api/questions` | POST / PATCH / DELETE | Question CRUD, image policy |
 | `/api/question-groups/:id/image-import` | POST | Recognize images and import questions |
+| `/api/questions/:id/assets` | GET / POST / DELETE | Question image assets |
 | `/api/questions/:id/solution/generate` | POST | Stream a step-by-step solution |
 | `/api/questions/:id/revisions` | GET | List solution revisions |
 | `/api/questions/:id/explanations/generate` | POST | Generate the explanation |
-| `/api/steps/:id/messages/stream` | POST | Step-context streaming chat |
-| `/api/questions/:id/archive-proposals` | GET | List archive proposals |
-| `/api/archive-proposals/:id/apply` | POST | Apply an archive proposal |
+| `/api/steps/:id/conversation` | GET | Load the conversation for a step |
+| `/api/steps/:id/messages/stream` | POST | Step-context streaming chat (supports image attachments) |
 | `/api/exports/questions/:id` | GET | Export one question as Markdown |
 | `/api/exports/groups/:id` | GET | Export a group as Markdown |
 | `/api/backup` | GET | Export the workspace JSON backup |
 | `/api/backup/import` | POST | Import and replace workspace data |
 | `/api/settings/provider` | GET / PUT | Read / save model provider settings |
 | `/api/settings/provider/test` | POST | Test model connectivity |
+| `/api/settings/provider/profiles` | GET / POST | List configurations / create a new one (with optional API key) |
+| `/api/settings/provider/profiles/:id` | PUT / DELETE | Update / delete a configuration |
+| `/api/settings/provider/profiles/:id/key` | DELETE | Clear a configuration's API key |
+| `/api/settings/provider/profiles/switch` | POST | Switch the active configuration |
+| `/api/settings/provider/profiles/import` | POST | Copy-import external configurations |
+| `/api/settings/provider/chat-model` | GET / PUT | Read / set the discussion-only model |
 | `/api/settings/prompts` | GET / PUT | Read / save per-stage custom prompts (empty string = default) |
 | `/api/settings/ui` | GET / PUT | Read / partially update UI preferences (language, theme mode) |
 | `/api/mobile/link` | POST | Generate the mobile pairing link and QR code |
@@ -303,14 +316,14 @@ motive-studio/
 ├─ apps/
 │  ├─ web/                       # React frontend workspace
 │  │  └─ src/
-│  │     ├─ features/            # groups · solving · discussion · archive · capture · settings · theme
+│  │     ├─ features/            # groups · solving · discussion · capture · settings · theme
 │  │     ├─ components/          # shared components and Markdown rendering
 │  │     ├─ stores/              # Zustand state
 │  │     └─ lib/                 # API client, i18n dictionaries, utilities
 │  ├─ server/                    # Express API service
 │     └─ src/
 │        ├─ routes/              # REST / SSE routes
-│        ├─ services/            # AI, credentials, assets, archive, export, mobile sessions
+│        ├─ services/            # AI, credentials, assets, export, mobile sessions
 │        ├─ repositories/        # data access
 │        ├─ db/                  # migrations, seed data, connection management
 │        ├─ desktop.ts           # desktop server entry (loaded by the Electron Utility Process)
@@ -333,7 +346,7 @@ npm run typecheck
 npm run test
 ```
 
-Tests use Vitest. The server covers route integration, SSE parsing, credential storage, AI generators, image import, archiving, export, and backup; the web app covers theme, the preference write queue, and i18n dictionaries. Please add tests alongside new business logic.
+Tests use Vitest. The server covers route integration, SSE parsing, credential storage, AI generators, image import, provider profiles, export, and backup; the web app covers theme, the preference write queue, and i18n dictionaries. Please add tests alongside new business logic.
 
 ## Acknowledgements
 

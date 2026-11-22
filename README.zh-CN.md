@@ -9,10 +9,11 @@
 
 **本地优先的 AI 结构化思考工作台**
 
-面向个人学习场景，将题目采集、AI 分步解题、步骤级讨论与知识归档整合在同一个本地应用。业务数据保存在本机，模型服务由使用者自行配置。
+面向个人学习场景，将题目采集、AI 分步解题、步骤级讨论与知识沉淀整合在同一个本地应用。业务数据保存在本机，模型服务由使用者自行配置。
 
 [English](./README.md) | 简体中文
 
+![Version](https://img.shields.io/badge/Version-0.4.0b1-173c3b?style=flat-square)
 ![Node.js](https://img.shields.io/badge/Node.js-24%2B-173c3b?style=flat-square&logo=nodedotjs&logoColor=5FA04E)
 ![React](https://img.shields.io/badge/React-19-173c3b?style=flat-square&logo=react&logoColor=61DAFB)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-173c3b?style=flat-square&logo=typescript&logoColor=3178C6)
@@ -32,8 +33,8 @@ Motive Studio 以「题组 → 题目 → 解题步骤」为核心结构，围�
 
 - **采集**：通过手机扫码拍照、桌面端粘贴或选择图片录入题目，支持区域裁剪后识别。
 - **解题**：AI 生成结构化分步题解，SSE 流式输出；支持在线修订、对比与恢复历史版本。
-- **讨论**：针对单个步骤追问，自动携带题目、步骤与可选图片上下文，并将对话关联回相关步骤。
-- **详解与归档**：生成题目详解摘要，基于讨论内容提出归档变更建议，经确认后写回题解。
+- **讨论**：针对单个步骤追问，可直接粘贴或选择图片附件；自动携带题目、步骤与可选图片上下文，并将对话关联回相关步骤。
+- **详解**：在分步题解基础上生成详解与摘要，保留生成状态、Token 用量与提示词快照，便于追溯。
 - **沉淀**：单题 / 题组导出 Markdown，工作区数据可整体导出与导入 JSON 备份。
 - **本地优先**：SQLite 单文件数据库与本地文件存储，无云端依赖；仅模型请求会携带题目上下文。
 
@@ -48,12 +49,15 @@ Motive Studio 以「题组 → 题目 → 解题步骤」为核心结构，围�
 | 分步解题 | 修订与版本 | 可编辑步骤内容，每次修订生成版本记录，可随时查看与恢复 |
 | 题目详解 | 摘要与详解 | 在分步题解基础上生成详解与摘要，保留生成状态、Token 用量与提示词快照 |
 | 步骤讨论 | 上下文对话 | 围绕步骤追问，自动构建题目 / 步骤 / 图片上下文，流式返回 |
+| 步骤讨论 | 图片附件 | 讨论输入框支持粘贴 / 选择图片，附件本地保存并随消息展示 |
 | 步骤讨论 | 步骤关联 | 对话回复完成后自动标注与相关步骤的关联，便于回溯 |
-| 归档整理 | 变更建议 | AI 依据讨论内容提出题解修改建议，确认后应用，支持驳回 |
+| 模型配置 | 多配置档案 | 保存多份 OpenAI 兼容模型配置，各自独立 API Key；设置页支持添加 / 编辑 / 删除，顶栏下拉快速切换 |
+| 模型配置 | 按用途选模型 | 讨论面板可单独指定模型配置；题解与详解始终使用主模型 |
 | 导出备份 | Markdown / JSON | 题目与题组导出 Markdown；工作区完整导出 / 导入 JSON 备份 |
-| 内容渲染 | 公式与 Markdown | Streamdown + KaTeX 渲染 GFM 表格、代码块与 LaTeX 公式，兼容流式未闭合内容 |
+| 内容渲染 | 公式与示意图 | Streamdown + KaTeX 渲染 GFM 表格、代码块、LaTeX 公式与 Mermaid 示意图，支持放大预览 |
+| 工作台 | 内容缩略图 | 主内容区提供 VSCode 式概览滚动条 |
 | 界面语言 | 中英双语 | 设置页一键切换简体中文 / English，语言偏好随账户数据持久化 |
-| 自定义提示词 | 按环节覆盖 | 五个 AI 环节（题目识别 / 分步题解 / 步骤讨论 / 题目详解 / 归档提案）均可自定义 system prompt，留空则使用内置默认 |
+| 自定义提示词 | 按环节覆盖 | 四个 AI 环节（题目识别 / 分步题解 / 步骤讨论 / 题目详解）均可自定义 system prompt，留空则使用内置默认 |
 | 安全与体验 | 密钥保护与主题 | API Key 使用操作系统凭据保护；明暗主题自动跟随系统并记忆偏好 |
 
 ## 界面预览
@@ -81,7 +85,7 @@ Motive Studio 以「题组 → 题目 → 解题步骤」为核心结构，围�
     </td>
     <td align="center" width="33.3%">
       <img src="docs/screenshots/provider-settings.png" alt="模型服务设置" width="100%" /><br/>
-      <sub><b>模型服务设置</b> · OpenAI 兼容接口，API Key 系统级加密</sub>
+      <sub><b>模型服务设置</b> · 多配置档案管理，OpenAI 兼容接口，API Key 系统级加密</sub>
     </td>
   </tr>
 </table>
@@ -127,8 +131,8 @@ Motive Studio 以「题组 → 题目 → 解题步骤」为核心结构，围�
 
 1. **图片导入**：图片写入 `data/uploads` 并登记 `assets`，模型识别后生成题目并建立 `question_assets` 关联。
 2. **分步解题**：根据题目内容与图片策略构建上下文，流式生成步骤，写入 `solution_steps`，修订时追加 `solution_revisions`。
-3. **步骤讨论**：构建题目 + 步骤 + 图片上下文，流式回复；完成后解析关联步骤并写入 `turn_step_tags`。
-4. **归档整理**：汇总讨论记录生成 `archive_proposals`，用户确认后应用，驳回则保留原题解。
+3. **步骤讨论**：构建题目 + 步骤 + 图片上下文，流式回复；附件写入 `assets` 并经 `turn_assets` 关联；完成后解析关联步骤并写入 `turn_step_tags`。
+4. **题目详解**：汇总讨论记录生成完整详解，存入 `solution_explanations`。
 
 ## 数据模型
 
@@ -136,8 +140,8 @@ Motive Studio 以「题组 → 题目 → 解题步骤」为核心结构，围�
 | --- | --- |
 | 题库 | `question_groups`、`questions`、`assets`、`question_assets` |
 | 解题 | `solution_steps`、`solution_revisions` |
-| 讨论 | `sub_conversations`、`conversation_turns`、`turn_step_tags` |
-| 详解与归档 | `solution_explanations`、`explanation_turns`、`archive_proposals` |
+| 讨论 | `sub_conversations`、`conversation_turns`、`turn_step_tags`、`turn_assets` |
+| 详解 | `solution_explanations`、`explanation_turns` |
 | 配置与审计 | `app_settings`、`ai_context_snapshots`、`app_meta` |
 
 数据库通过版本化迁移（`PRAGMA user_version`）自动升级；首次启动会写入一组示例数据，便于直接体验功能。
@@ -170,9 +174,12 @@ npm start
 
 打开顶栏齿轮进入 **设置页**：
 
-- **模型服务**：填写 OpenAI 兼容服务信息 —— Base URL、模型名称与 API Key；可选温度、最大输出 Token、是否支持图片输入。保存后密钥交由系统凭据库保护，界面仅展示脱敏预览（前 3 位 + 末 4 位）与保存时间。
+- **模型服务**：展示已保存的模型配置。点击「添加模型」新建一份 —— 填写 OpenAI 兼容服务的 Base URL、模型名称与 API Key（支持从 CCSWITCH 粘贴导入）；可选温度、最大输出 Token、是否支持图片输入。每份配置的 API Key 独立保存于系统凭据库；已有配置可编辑或删除，点击即可切换使用。
+- **讨论模型**：讨论面板默认使用上方主模型，也可单独指定一份配置用于对话；题解与详解始终使用主模型。
 - **通用**：切换界面语言（简体中文 / English）与明暗主题。
-- **提示词**：按环节自定义 system prompt（题目识别 / 分步题解 / 步骤讨论 / 题目详解 / 归档提案）。留空或恢复默认即使用内置提示词；自定义内容会随生成记录一并快照，便于追溯。
+- **提示词**：按环节自定义 system prompt（题目识别 / 分步题解 / 步骤讨论 / 题目详解）。留空或恢复默认即使用内置提示词；自定义内容会随生成记录一并快照，便于追溯。
+
+顶栏还有模型下拉框，可在已保存配置间快速切换。
 
 ### 环境变量
 
@@ -252,8 +259,6 @@ NODE_OPTIONS=--use-system-ca   # 存在 TLS 证书拦截的环境
 
 ## 手机拍照导入
 
-## 手机拍照导入
-
 1. 桌面端点击「手机拍照」，生成局域网配对二维码。
 2. 手机扫码进入 `/m` 拍照页，完成一次会话内配对（凭证内存保存，24 小时有效）。
 3. 拍照或选择图片，客户端自动压缩后上传，单次最多 4 张。
@@ -265,10 +270,10 @@ NODE_OPTIONS=--use-system-ca   # 存在 TLS 证书拦截的环境
 ## 安全与隐私
 
 - **凭据存储**：Windows 使用 DPAPI，macOS 使用 Keychain，Linux 优先 Secret Service；不可用时降级为本地 AES-256-GCM 加密文件，不会静默退化为明文存储。
-- **密钥不出域**：API Key 不会出现在任何 API 响应、备份文件或日志中；设置界面仅提供脱敏预览。
+- **密钥不出域**：API Key 不会出现在任何 API 响应、备份文件或日志中；设置界面仅展示 Key 是否已配置，不展示明文。
 - **移动端访问控制**：拍照页要求会话 Token，服务端校验二维码地址与请求来源，凭证随服务重启失效。
-- **数据边界**：题目、图片、题解与归档均保存在本机；只有显式触发的模型请求会将必要上下文发送至所配置的模型服务。
-- **备份范围**：JSON 备份仅包含工作区业务数据（题组、题目、步骤、修订、讨论、标签、题解与归档建议），不包含模型设置、提示词偏好与密钥。
+- **数据边界**：题目、图片、题解与讨论均保存在本机；只有显式触发的模型请求会将必要上下文发送至所配置的模型服务。
+- **备份范围**：JSON 备份仅包含工作区业务数据（题组、题目、步骤、修订、讨论、标签、题解与讨论图片），不包含模型设置、提示词偏好与密钥。
 
 ## API 概览
 
@@ -281,18 +286,24 @@ NODE_OPTIONS=--use-system-ca   # 存在 TLS 证书拦截的环境
 | `/api/question-groups` | POST / PATCH / DELETE | 题组增删改 |
 | `/api/questions` | POST / PATCH / DELETE | 题目增删改、图片策略设置 |
 | `/api/question-groups/:id/image-import` | POST | 图片识别并导入题目 |
+| `/api/questions/:id/assets` | GET / POST / DELETE | 题目图片资源 |
 | `/api/questions/:id/solution/generate` | POST | 流式生成分步题解 |
 | `/api/questions/:id/revisions` | GET | 查询题解历史版本 |
 | `/api/questions/:id/explanations/generate` | POST | 生成题目详解 |
-| `/api/steps/:id/messages/stream` | POST | 步骤上下文流式对话 |
-| `/api/questions/:id/archive-proposals` | GET | 查询归档建议 |
-| `/api/archive-proposals/:id/apply` | POST | 应用归档建议 |
+| `/api/steps/:id/conversation` | GET | 读取步骤的讨论记录 |
+| `/api/steps/:id/messages/stream` | POST | 步骤上下文流式对话（支持图片附件） |
 | `/api/exports/questions/:id` | GET | 导出单题 Markdown |
 | `/api/exports/groups/:id` | GET | 导出题组 Markdown |
 | `/api/backup` | GET | 导出工作区 JSON 备份 |
 | `/api/backup/import` | POST | 导入并替换工作区数据 |
 | `/api/settings/provider` | GET / PUT | 读取 / 保存模型服务设置 |
 | `/api/settings/provider/test` | POST | 测试模型连通性 |
+| `/api/settings/provider/profiles` | GET / POST | 配置列表 / 新建配置（可随带 API Key） |
+| `/api/settings/provider/profiles/:id` | PUT / DELETE | 编辑 / 删除配置 |
+| `/api/settings/provider/profiles/:id/key` | DELETE | 清除配置的 API Key |
+| `/api/settings/provider/profiles/switch` | POST | 切换激活配置 |
+| `/api/settings/provider/profiles/import` | POST | 复制导入外部配置 |
+| `/api/settings/provider/chat-model` | GET / PUT | 读取 / 设置讨论专用模型 |
 | `/api/settings/prompts` | GET / PUT | 读取 / 按环节保存自定义提示词（空串 = 使用默认） |
 | `/api/settings/ui` | GET / PUT | 读取 / 部分更新界面偏好（语言、主题模式） |
 | `/api/mobile/link` | POST | 生成移动端配对链接与二维码 |
@@ -305,14 +316,14 @@ motive-studio/
 ├─ apps/
 │  ├─ web/                       # React 前端工作台
 │  │  └─ src/
-│  │     ├─ features/            # 题组 · 解题 · 讨论 · 归档 · 拍照 · 设置 · 主题
+│  │     ├─ features/            # 题组 · 解题 · 讨论 · 拍照 · 设置 · 主题
 │  │     ├─ components/          # 共享组件与 Markdown 渲染
 │  │     ├─ stores/              # Zustand 状态
 │  │     └─ lib/                 # API 客户端、i18n 词条与工具函数
 │  ├─ server/                    # Express API 服务
 │     └─ src/
 │        ├─ routes/              # REST / SSE 路由
-│        ├─ services/            # AI、凭据、图片、归档、导出、移动会话
+│        ├─ services/            # AI、凭据、图片、导出、移动会话
 │        ├─ repositories/        # 数据访问
 │        ├─ db/                  # 迁移、示例数据、连接管理
 │        ├─ desktop.ts           # 桌面版服务端入口（Electron Utility Process 加载）
@@ -335,7 +346,7 @@ npm run typecheck
 npm run test
 ```
 
-测试使用 Vitest，服务端覆盖路由集成、SSE 解析、凭据存储、AI 生成器、图片导入、归档、导出与备份等核心链路；前端覆盖主题、偏好写入队列与 i18n 词条。新增业务逻辑时建议同步补充对应测试。
+测试使用 Vitest，服务端覆盖路由集成、SSE 解析、凭据存储、AI 生成器、图片导入、模型配置、导出与备份等核心链路；前端覆盖主题、偏好写入队列与 i18n 词条。新增业务逻辑时建议同步补充对应测试。
 
 ## 致谢
 
