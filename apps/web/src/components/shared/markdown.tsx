@@ -1,4 +1,4 @@
-import { isValidElement, useMemo, type ReactNode } from "react";
+import { Children, cloneElement, isValidElement, useMemo, type CSSProperties, type ReactNode } from "react";
 import { Streamdown } from "streamdown";
 import type { Components, StreamdownTranslations } from "streamdown";
 import { createMathPlugin } from "@streamdown/math";
@@ -7,6 +7,7 @@ import { useT } from "@/lib/i18n/use-i18n";
 import { usePreferencesStore } from "@/stores/preferences";
 import { cn } from "@/lib/utils";
 import { MermaidView } from "./mermaid-view";
+import { TableToolbar } from "./table-toolbar";
 
 function flattenText(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") return String(node);
@@ -27,7 +28,48 @@ function soleElement(node: Element | undefined): Element | null {
   return significant[0].type === "element" ? significant[0] : null;
 }
 
+/**
+ * 把表格操作栏注入 thead 最后一个单元格内：
+ * 工具栏随粘性表头滚动、对齐列文本，布局上属于表头的一部分。
+ * 列对齐（text-align 内联样式）通过 label span 保留。
+ */
+function injectToolbarIntoHeader(rows: ReactNode[]): ReactNode[] {
+  const rowIndex = rows.length - 1;
+  if (rowIndex < 0) return rows;
+  const row = rows[rowIndex];
+  if (!isValidElement(row)) return rows;
+  const rowProps = row.props as { children?: ReactNode };
+  const cells = Children.toArray(rowProps.children);
+  if (cells.length === 0) return rows;
+  const cellIndex = cells.length - 1;
+  const cell = cells[cellIndex];
+  if (!isValidElement(cell)) return rows;
+  // Streamdown 的 th/tr 是 memo 组件对象，用 hast 节点的 tagName 识别表头单元格
+  const cellProps = cell.props as {
+    children?: ReactNode;
+    style?: CSSProperties;
+    node?: { tagName?: string };
+  };
+  if (cellProps.node?.tagName !== "th") return rows;
+
+  const label = (
+    <span className="md-th-label" style={{ textAlign: cellProps.style?.textAlign }}>
+      {cellProps.children}
+    </span>
+  );
+  const injected = cloneElement(cell, undefined, label, <TableToolbar />);
+  return [
+    ...rows.slice(0, rowIndex),
+    cloneElement(row, undefined, ...cells.slice(0, cellIndex), injected),
+  ];
+}
+
+function TheadWithToolbar({ children, node: _node, ...rest }: React.ComponentProps<"thead"> & { node?: unknown }) {
+  return <thead {...rest}>{injectToolbarIntoHeader(Children.toArray(children))}</thead>;
+}
+
 const components: Components = {
+  thead: TheadWithToolbar,
   p({ children, node }) {
     const child = soleElement(node);
 
@@ -281,6 +323,7 @@ export function Markdown({ content, className }: MarkdownProps) {
       <Streamdown
         className="md-streamdown"
         components={components}
+        controls={{ table: false }}
         plugins={enableMermaid ? { math, renderers: mermaidRenderers } : { math }}
         translations={translations}
       >

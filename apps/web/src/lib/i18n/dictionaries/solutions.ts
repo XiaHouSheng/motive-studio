@@ -100,6 +100,7 @@ export const solutionsZh = {
   "markdown.mermaidFormatPng": "下载 PNG",
   "markdown.mermaidFormatSvg": "下载 SVG",
   "markdown.mermaidExpand": "放大查看",
+  "markdown.tableFullscreen": "放大查看表格",
   "markdown.mermaidDialogTitle": "Mermaid 示意图",
 
   // chat-panel.tsx
@@ -248,6 +249,7 @@ export const solutionsEn: Record<keyof typeof solutionsZh, string> = {
   "markdown.mermaidFormatPng": "Download PNG",
   "markdown.mermaidFormatSvg": "Download SVG",
   "markdown.mermaidExpand": "Expand diagram",
+  "markdown.tableFullscreen": "View table fullscreen",
   "markdown.mermaidDialogTitle": "Mermaid diagram",
 
   // chat-panel.tsx
