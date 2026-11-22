@@ -21,9 +21,10 @@ interface OverviewScrollbarProps {
 /**
  * 滚动容器增强：隐藏原生滚动条，右侧渲染概览轨道。
  *
- * - 默认：细滚动轨道 + 视口比例 thumb
+ * - 默认：细滚动轨道 + 视口比例 thumb（高度 = clientH/scrollHeight 占比）
  * - minimap：轨道加宽，内部以 transform scale 渲染整个内容的只读克隆，
- *   thumb 变为视口位置指示框；点击/拖拽任意位置即可导航
+ *   thumb 为视口位置指示框 —— 高度 = clientHeight×scale、位置 = scrollTop×scale，
+ *   点击/拖拽按 1/scale 反算滚动位置，与缩略图像素精确对应
  *
  * 内容变化（流式输出、图片加载）通过 MutationObserver 同步：
  * rAF 批量更新几何，防抖重建缩略图克隆。
@@ -43,6 +44,8 @@ export function OverviewScrollbar({
   const dragRef = useRef<{ offsetY: number } | null>(null);
   const cloneWidthRef = useRef(0);
   const bodyLeftRef = useRef(0);
+  /** 当前克隆缩放（仅用于 host transform） */
+  const minimapScaleRef = useRef(0);
   const [hasOverflow, setHasOverflow] = useState(false);
   const [active, setActive] = useState(false);
   const [minimapScale, setMinimapScale] = useState(0);
@@ -57,40 +60,32 @@ export function OverviewScrollbar({
     const track = trackRef.current;
     const thumb = thumbRef.current;
     if (!overflow || !track || !thumb) return;
-    // minimap 模式下指示框映射到右上角受限视口内「实际绘制高度」
-    // （克隆剥离 padding 后高度小于原始 scrollHeight，按比例换算才对得上内容）
-    const vpH =
-      minimap && minimapViewportRef.current
-        ? minimapViewportRef.current.clientHeight
-        : track.clientHeight;
-    if (vpH <= 0) return;
-    const paintedH = minimap ? paintedHeight(vpH, scrollHeight) : vpH;
-    if (paintedH <= 0) return;
     const maxScroll = scrollHeight - clientHeight;
-    const h = Math.max(MIN_THUMB_HEIGHT, (clientHeight / scrollHeight) * paintedH);
-    const top = maxScroll > 0 ? (scrollTop / maxScroll) * (paintedH - h) : 0;
+    if (minimap && minimapViewportRef.current) {
+      // minimap：内容 [0, scrollHeight] 线性映射到条内 [0, vpH]
+      // （克隆剥离 padding 后与 scrollHeight 不成正比，必须用 vpH 而非 scale 换算）
+      const vpH = minimapViewportRef.current.clientHeight;
+      if (vpH > 0) {
+        const h = Math.max(MIN_THUMB_HEIGHT, (clientHeight / scrollHeight) * vpH);
+        const top = Math.min((scrollTop / scrollHeight) * vpH, vpH - h);
+        thumb.style.height = `${Math.round(h)}px`;
+        thumb.style.transform = `translateY(${Math.round(Math.max(top, 0))}px)`;
+        return;
+      }
+    }
+    const trackH = track.clientHeight;
+    if (trackH <= 0) return;
+    const h = Math.max(MIN_THUMB_HEIGHT, (clientHeight / scrollHeight) * trackH);
+    const top = maxScroll > 0 ? (scrollTop / maxScroll) * (trackH - h) : 0;
     thumb.style.height = `${Math.round(h)}px`;
     thumb.style.transform = `translateY(${Math.round(top)}px)`;
   }, []);
 
-  /**
-   * minimap 内「实际绘制高度」：克隆剥离 padding 后其布局高度与原始
-   * scrollHeight 不同（晚加载的图片还会继续变化），指示框映射需要实时测量。
-   */
-  const paintedHeight = useCallback(
-    (viewportHeight: number, scrollHeight: number) => {
-      const host = cloneHostRef.current;
-      const cloneH = host?.scrollHeight || scrollHeight;
-      return viewportHeight * Math.min(1, cloneH / Math.max(1, scrollHeight));
-    },
-    [],
-  );
+  // sync 通过 ref 保持最新引用，让 rebuild/观察器始终调用最新闭包
+  const syncRef = useRef(sync);
+  syncRef.current = sync;
 
-  /**
-   * 重建缩略图克隆：按「轨道高度 / 内容总高」缩放（上限 0.35）。
-   * 内容主体通常在滚动区内居中（左右留白），缩放前先把主体左缘平移到条内，
-   * 否则条里看到的只是留白。主体宽度取 source 的第一个子元素。
-   */
+  /** 重建缩略图克隆：缩放 = 轨道可用高度 / 克隆实际高度（上限 0.35） */
   const rebuildMinimap = useCallback(() => {
     if (!minimap) return;
     const node = scrollRef.current;
@@ -100,17 +95,18 @@ export function OverviewScrollbar({
     const source = node.firstElementChild as HTMLElement | null;
     if (!source) {
       host.replaceChildren();
+      minimapScaleRef.current = 0;
       setMinimapScale(0);
       return;
     }
-    const contentWidth = node.clientWidth;
     const clone = source.cloneNode(true) as HTMLElement;
     host.replaceChildren(clone);
-    cloneWidthRef.current = contentWidth;
+    cloneWidthRef.current = node.clientWidth;
     // 克隆内 margin/padding 已被 CSS 清零：按其实际高度定缩放，纹理铺满无留白
     // （transform 不影响 offsetHeight，可同步测量）
     const cloneHeight = Math.max(1, clone.offsetHeight);
-    const scale = Math.min(MAX_MINIMAP_SCALE, viewport.clientHeight / cloneHeight);
+    const availableH = Math.max(1, viewport.clientHeight);
+    const scale = Math.min(MAX_MINIMAP_SCALE, availableH / cloneHeight);
     if (scale <= 0) return;
     // 主体对齐兜底：量克隆内残余偏移（margin 清零后应为 0）
     const body = clone.firstElementChild as HTMLElement | null;
@@ -120,7 +116,10 @@ export function OverviewScrollbar({
           body.getBoundingClientRect().left - clone.getBoundingClientRect().left,
         )
       : 0;
+    minimapScaleRef.current = scale;
     setMinimapScale(scale);
+    // scale 已写入 ref：立即按新几何同步指示框（不依赖下一次滚动/变更）
+    syncRef.current();
   }, [minimap]);
 
   const rebuildMinimapTimer = useRef(0);
@@ -130,7 +129,7 @@ export function OverviewScrollbar({
     rebuildMinimapTimer.current = window.setTimeout(rebuildMinimap, MINIMAP_REBUILD_DEBOUNCE);
   }, [minimap, rebuildMinimap]);
 
-  /** 把 thumb 顶部拖到指定视口位置，同步滚动位置（minimap 模式映射到受限视口） */
+  /** 把 thumb 顶部拖到指定视口位置，同步滚动位置（minimap 按 1/scale 反算内容坐标） */
   const dragThumbTo = useCallback((clientY: number) => {
     const node = scrollRef.current;
     const track = trackRef.current;
@@ -138,17 +137,24 @@ export function OverviewScrollbar({
     const { scrollHeight, clientHeight } = node;
     const maxScroll = scrollHeight - clientHeight;
     if (maxScroll <= 0) return;
-    const mapEl =
-      minimap && minimapViewportRef.current
-        ? minimapViewportRef.current
-        : track;
-    const rect = mapEl.getBoundingClientRect();
-    if (rect.height <= 0) return;
-    const paintedH = minimap ? paintedHeight(rect.height, scrollHeight) : rect.height;
-    if (paintedH <= 0) return;
-    const h = Math.max(MIN_THUMB_HEIGHT, (clientHeight / scrollHeight) * paintedH);
+    if (minimap && minimapViewportRef.current) {
+      const vpH = minimapViewportRef.current.clientHeight;
+      if (vpH > 0) {
+        const drag = dragRef.current;
+        if (!drag) return;
+        const rect = minimapViewportRef.current.getBoundingClientRect();
+        // thumb 顶部位置（条内 px）线性反算内容坐标
+        const thumbTop = clientY - drag.offsetY - rect.top;
+        node.scrollTop = Math.min(Math.max((thumbTop / vpH) * scrollHeight, 0), maxScroll);
+        return;
+      }
+    }
+    const rect = track.getBoundingClientRect();
+    const trackH = rect.height;
+    if (trackH <= 0) return;
+    const h = Math.max(MIN_THUMB_HEIGHT, (clientHeight / scrollHeight) * trackH);
     const top = clientY - rect.top;
-    const ratio = Math.min(1, Math.max(0, top / (paintedH - h)));
+    const ratio = Math.min(1, Math.max(0, top / (trackH - h)));
     node.scrollTop = ratio * maxScroll;
   }, []);
 
@@ -168,7 +174,8 @@ export function OverviewScrollbar({
         // 指针已失效（合成事件/快速点击）时忽略捕获失败，拖拽逻辑照常执行
       }
       setActive(true);
-      dragThumbTo(event.clientY - offsetY);
+      // dragThumbTo 内部自行扣除 offsetY（offsetY 已写入 dragRef）
+      dragThumbTo(event.clientY);
     },
     [dragThumbTo],
   );
@@ -177,7 +184,7 @@ export function OverviewScrollbar({
     (event: React.PointerEvent<HTMLDivElement>) => {
       const drag = dragRef.current;
       if (!drag) return;
-      dragThumbTo(event.clientY - drag.offsetY);
+      dragThumbTo(event.clientY);
     },
     [dragThumbTo],
   );
@@ -188,10 +195,6 @@ export function OverviewScrollbar({
     event.currentTarget.releasePointerCapture(event.pointerId);
     setActive(false);
   }, []);
-
-  // sync 通过 ref 保持最新引用，观察器只绑定一次
-  const syncRef = useRef(sync);
-  syncRef.current = sync;
 
   useEffect(() => {
     const node = scrollRef.current;
