@@ -77,6 +77,13 @@ export interface TokenUsage {
   outputTokens: number;
 }
 
+/** 讨论消息附带的图片（资产在本地 assets 中，按 assetId 读取原图） */
+export interface TurnImage {
+  assetId: ID;
+  mimeType: string;
+  url: string;
+}
+
 export interface ConversationTurn {
   id: ID;
   subConversationId: ID;
@@ -87,6 +94,8 @@ export interface ConversationTurn {
   generationStatus?: TurnGenerationStatus;
   tagUsage?: TokenUsage;
   chatUsage?: TokenUsage;
+  /** 用户发送时附带的照片/截图，按附加顺序排列 */
+  images?: TurnImage[];
 }
 
 export interface TurnStepTag {

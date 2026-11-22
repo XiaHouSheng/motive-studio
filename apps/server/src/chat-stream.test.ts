@@ -191,6 +191,10 @@ async function bootstrap(app: RunningApp): Promise<WorkspaceData> {
   return (await response.json()) as WorkspaceData;
 }
 
+/** 1x1 红色像素 PNG */
+const TINY_PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
 async function waitFor<T>(
   probe: () => Promise<T | undefined>,
   timeoutMs = 3000,
@@ -403,6 +407,95 @@ describe("流式对话", () => {
     expect(response.headers.get("content-type")).toContain("application/json");
     const body = (await response.json()) as { code: string };
     expect(body.code).toBe("INVALID_CONFIG");
+  });
+
+  it("附图消息：上游收到图文混合内容，落库轮次携带图片且原图可读回", async () => {
+    const { app, upstream } = await setup((_req, res) => writeOkStream(res));
+
+    const response = await fetch(`${app.baseUrl}/api/steps/${STEP_ID}/messages/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userMessage: "看看这张图",
+        images: [{ mediaType: "image/png", data: TINY_PNG_BASE64 }],
+      }),
+    });
+    expect(response.status).toBe(200);
+    await readEvents(response);
+
+    const lastMessage = (
+      upstream.lastBody as { messages: Array<{ role: string; content: unknown }> }
+    ).messages.at(-1) as {
+      role: string;
+      content: Array<{ type: string; text?: string; image_url?: { url: string } }>;
+    };
+    expect(lastMessage.role).toBe("user");
+    expect(Array.isArray(lastMessage.content)).toBe(true);
+    expect(lastMessage.content[0].type).toBe("text");
+    expect(lastMessage.content[0].text).toContain("看看这张图");
+    expect(lastMessage.content[1].type).toBe("image_url");
+    expect(lastMessage.content[1].image_url?.url).toBe(
+      `data:image/png;base64,${TINY_PNG_BASE64}`,
+    );
+
+    const data = await bootstrap(app);
+    const turns = turnsFor(data);
+    expect(turns).toHaveLength(1);
+    expect(turns[0].images).toHaveLength(1);
+    const image = turns[0].images![0];
+    expect(image.mimeType).toBe("image/png");
+    expect(image.url).toBe(`/api/assets/${image.assetId}`);
+
+    const assetResponse = await fetch(`${app.baseUrl}${image.url}`);
+    expect(assetResponse.status).toBe(200);
+    expect(assetResponse.headers.get("content-type")).toBe("image/png");
+
+    // 历史轮次上下文保持纯文本，不会把图片塞进后续请求
+    const second = await fetch(`${app.baseUrl}/api/steps/${STEP_ID}/messages/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userMessage: "下一问" }),
+    });
+    await readEvents(second);
+    const secondPrompt = (
+      upstream.lastBody as { messages: Array<{ role: string; content: string }> }
+    ).messages[1].content;
+    expect(typeof secondPrompt).toBe("string");
+    expect(secondPrompt).toContain("用户：看看这张图");
+  });
+
+  it("纯图消息（无文字）也允许发送并落库", async () => {
+    const { app } = await setup((_req, res) => writeOkStream(res));
+
+    const response = await fetch(`${app.baseUrl}/api/steps/${STEP_ID}/messages/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ images: [{ mediaType: "image/png", data: TINY_PNG_BASE64 }] }),
+    });
+    expect(response.status).toBe(200);
+    await readEvents(response);
+
+    const turns = turnsFor(await bootstrap(app));
+    expect(turns).toHaveLength(1);
+    expect(turns[0].userMessage).toBe("");
+    expect(turns[0].images).toHaveLength(1);
+  });
+
+  it("模型不支持视觉时附图消息返回 400，不进入 SSE", async () => {
+    const { app, upstream } = await setup((_req, res) => writeOkStream(res));
+    await configureProvider(app, upstream, "sk-test-secret", { supportsVision: false });
+
+    const response = await fetch(`${app.baseUrl}/api/steps/${STEP_ID}/messages/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userMessage: "带图提问",
+        images: [{ mediaType: "image/png", data: TINY_PNG_BASE64 }],
+      }),
+    });
+    expect(response.status).toBe(400);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    expect(((await response.json()) as { code: string }).code).toBe("VISION_UNSUPPORTED");
   });
 
   it("客户端中断后保存已接收文本并标记 interrupted", async () => {

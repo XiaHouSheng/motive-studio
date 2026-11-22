@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
+  AlertTriangle,
+  ArrowUp,
+  ImagePlus,
   Link2,
   Loader2,
   MessageSquareText,
-  Send,
   Sparkles,
   Square,
   X,
@@ -14,12 +16,25 @@ import { useI18n } from "@/lib/i18n/use-i18n";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
 import type { WorkspaceApi } from "@/features/workspace/use-workspace";
+import {
+  CHAT_MAX_IMAGES,
+  ChatImageError,
+  attachmentFromStored,
+  filesToAttachments,
+  type ChatImageAttachment,
+} from "@/lib/chat-images";
+import { clearChatDraft, loadChatDraft, saveChatDraft } from "@/lib/chat-drafts";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Markdown } from "@/components/shared/markdown";
 import { ThinkingDots } from "@/components/shared/thinking-dots";
+import { ZoomableImage } from "@/components/shared/zoomable-image";
 import { Skeleton } from "@/components/ui/skeleton";
+
+/** 输入框可拉伸的高度阈值范围（px） */
+const INPUT_MIN_HEIGHT = 52;
+const INPUT_MAX_HEIGHT = 280;
 
 interface ChatPanelProps {
   workspace: WorkspaceApi;
@@ -34,6 +49,7 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
     thinking,
     streaming,
     sendFailed,
+    providerSupportsVision,
     sendMessage,
     stopGeneration,
     retryFailedSend,
@@ -46,27 +62,135 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
     t("chat.suggestion.relation"),
   ];
   const [draft, setDraft] = useState("");
+  const [attachments, setAttachments] = useState<ChatImageAttachment[]>([]);
+  const [imageError, setImageError] = useState<string | null>(null);
+  /** 手动拖拽设定的输入框高度；null 时按内容自适应 */
+  const [manualHeight, setManualHeight] = useState<number | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  /** 悬浮输入区实际高度：滚动区据此预留底部空间，避免最后一条消息被遮挡 */
+  const composerRef = useRef<HTMLDivElement>(null);
+  const [composerHeight, setComposerHeight] = useState(0);
+  const resizeState = useRef<{ startY: number; baseHeight: number } | null>(null);
 
   const isStreaming = Boolean(streaming);
-  const canSend = Boolean(activeStep) && !isStreaming && draft.trim().length > 0;
+  const canSend =
+    Boolean(activeStep) && !isStreaming && (draft.trim().length > 0 || attachments.length > 0);
 
   useEffect(() => {
     const node = scrollRef.current;
     if (!node) return;
     node.scrollTop = node.scrollHeight;
-  }, [messages, thinking, activeStep?.id]);
+  }, [messages, thinking, activeStep?.id, composerHeight]);
+
+  // 悬浮输入区高度变化时同步滚动区底部预留
+  useEffect(() => {
+    const node = composerRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver(() => setComposerHeight(node.offsetHeight));
+    observer.observe(node);
+    setComposerHeight(node.offsetHeight);
+    return () => observer.disconnect();
+  }, []);
+
+  const applyTextareaHeight = useCallback(
+    (node: HTMLTextAreaElement) => {
+      node.style.height = "auto";
+      const auto = node.scrollHeight;
+      const target = Math.min(Math.max(auto, manualHeight ?? 0), INPUT_MAX_HEIGHT);
+      node.style.height = `${target}px`;
+    },
+    [manualHeight],
+  );
+
+  // 内容或手动高度变化后统一应用输入框高度（含草稿恢复的场景）
+  useEffect(() => {
+    if (textareaRef.current) applyTextareaHeight(textareaRef.current);
+  }, [draft, manualHeight, applyTextareaHeight]);
 
   const firstDay = useMemo(
     () => (messages.length > 0 ? formatDay(messages[0].createdAt, locale, t("chat.today")) : null),
     [messages, locale, t],
   );
 
+  // 切换步骤时恢复该步骤的草稿（文字 + 附图）
+  useEffect(() => {
+    const stepId = activeStep?.id;
+    setManualHeight(null);
+    setImageError(null);
+    if (!stepId) {
+      setDraft("");
+      setAttachments([]);
+      return;
+    }
+    const saved = loadChatDraft(stepId);
+    setDraft(saved?.text ?? "");
+    setAttachments(
+      (saved?.images ?? []).slice(0, CHAT_MAX_IMAGES).map((image) =>
+        attachmentFromStored(image.mediaType, image.data),
+      ),
+    );
+  }, [activeStep?.id]);
+
+  // 草稿防抖持久化：切换步骤 / 重开应用后可恢复
+  useEffect(() => {
+    const stepId = activeStep?.id;
+    if (!stepId) return;
+    const timer = window.setTimeout(() => {
+      if (draft.trim() === "" && attachments.length === 0) {
+        clearChatDraft(stepId);
+        return;
+      }
+      saveChatDraft(stepId, {
+        text: draft,
+        images: attachments.map(({ mediaType, data }) => ({ mediaType, data })),
+      });
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [activeStep?.id, draft, attachments]);
+
+  const addFiles = useCallback(
+    async (files: File[]) => {
+      try {
+        const { attachments: next, overflow } = await filesToAttachments(
+          files,
+          attachments.length,
+        );
+        if (next.length > 0) setAttachments((prev) => [...prev, ...next]);
+        setImageError(
+          overflow > 0 ? t("chat.imageLimitExceeded", { count: String(CHAT_MAX_IMAGES) }) : null,
+        );
+      } catch (error) {
+        if (error instanceof ChatImageError) {
+          const key =
+            error.code === "tooLarge"
+              ? "chat.imageTooLarge"
+              : error.code === "unsupported"
+                ? "chat.imageUnsupported"
+                : "chat.imageDecodeFailed";
+          setImageError(t(key));
+        } else {
+          setImageError(t("chat.imageDecodeFailed"));
+        }
+      }
+    },
+    [attachments.length, t],
+  );
+
   const submit = () => {
-    if (!canSend) return;
-    sendMessage(draft);
+    if (!canSend || !activeStep) return;
+    const stepId = activeStep.id;
+    sendMessage(
+      draft,
+      attachments.map(({ mediaType, data }) => ({ mediaType, data })),
+    );
     setDraft("");
+    setAttachments([]);
+    setImageError(null);
+    setManualHeight(null);
+    clearChatDraft(stepId);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
   };
 
@@ -75,8 +199,29 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
     textareaRef.current?.focus();
   };
 
+  /** 顶部拖拽手柄：按住上下拖动调整输入框高度（有阈值范围） */
+  const startResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const current = textareaRef.current?.offsetHeight ?? INPUT_MIN_HEIGHT;
+    resizeState.current = { startY: event.clientY, baseHeight: current };
+  };
+
+  const moveResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    const state = resizeState.current;
+    if (!state) return;
+    const next = state.baseHeight + (state.startY - event.clientY);
+    setManualHeight(Math.min(Math.max(next, INPUT_MIN_HEIGHT), INPUT_MAX_HEIGHT));
+  };
+
+  const endResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!resizeState.current) return;
+    resizeState.current = null;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+
   return (
-    <div className="flex h-full min-h-0 flex-col bg-panel">
+    <div className="relative flex h-full min-h-0 flex-col bg-panel">
       <div className="shrink-0 border-b border-line px-4 pt-3 pb-3">
         <div className="flex items-center gap-1.5">
           <Sparkles size={12.5} strokeWidth={1.9} className="text-brand" />
@@ -117,7 +262,8 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
 
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto bg-surface/50 px-3.5 py-4"
+        className="min-h-0 flex-1 overflow-y-auto bg-surface/50 px-3.5 pt-4"
+        style={{ paddingBottom: composerHeight > 0 ? composerHeight + 16 : 168 }}
       >
         {loading ? (
           <div className="space-y-3">
@@ -168,9 +314,31 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
             {messages.map((message) =>
               message.role === "user" ? (
                 <div key={message.id} className="animate-rise flex flex-col items-end gap-1">
-                  <div className="max-w-[86%] rounded-xl rounded-tr-sm bg-selection px-3 py-2.5 text-[12.8px] leading-relaxed whitespace-pre-wrap text-ink">
-                    {message.content}
-                  </div>
+                  {message.content ? (
+                    <div className="max-w-[86%] rounded-xl rounded-tr-sm bg-selection px-3 py-2.5 text-[12.8px] leading-relaxed whitespace-pre-wrap text-ink">
+                      {message.content}
+                    </div>
+                  ) : null}
+                  {message.images && message.images.length > 0 ? (
+                    <div className="flex max-w-[86%] flex-wrap justify-end gap-1.5">
+                      {message.images.map((image, index) => (
+                        <button
+                          key={`${image.url}-${index}`}
+                          type="button"
+                          onClick={() => setPreviewUrl(image.url)}
+                          aria-label={t("chat.viewImage")}
+                          className="overflow-hidden rounded-lg border border-line bg-panel transition-opacity hover:opacity-85"
+                        >
+                          <img
+                            src={image.url}
+                            alt=""
+                            draggable={false}
+                            className="h-16 max-w-[150px] object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                   <span className="pr-1 text-[10px] text-ink-faint">
                     {formatTime(message.createdAt, locale)}
                     {message.failed ? ` · ${t("chat.unsent")}` : null}
@@ -231,9 +399,13 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
         )}
       </div>
 
-      <div className="shrink-0 border-t border-line bg-panel px-3 py-2.5">
+      {/* 悬浮输入区：不占滚动区布局，消息从其下方穿过 */}
+      <div
+        ref={composerRef}
+        className="absolute inset-x-3 bottom-3 z-10 flex flex-col gap-2"
+      >
         {sendFailed ? (
-          <div className="mb-2 flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/10 px-2.5 py-2 text-[11.5px] text-danger">
+          <div className="pointer-events-auto flex items-start gap-2 rounded-xl border border-danger/30 bg-panel/95 px-2.5 py-2 text-[11.5px] text-danger shadow-soft backdrop-blur-sm">
             <AlertCircle size={13} className="mt-0.5 shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="leading-relaxed">{sendFailed.message}</p>
@@ -256,12 +428,74 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
             </div>
           </div>
         ) : null}
+
         <div
           className={cn(
-            "rounded-xl border border-line bg-field transition-colors focus-within:border-brand/50",
-            !activeStep && "opacity-70",
+            "pointer-events-auto rounded-2xl border border-line bg-field shadow-soft transition-colors focus-within:border-brand/50",
+            !activeStep && "opacity-80",
           )}
+          onDrop={(event) => {
+            const files = Array.from(event.dataTransfer?.files ?? []);
+            if (files.length === 0) return;
+            event.preventDefault();
+            void addFiles(files);
+          }}
         >
+          <div
+            onPointerDown={startResize}
+            onPointerMove={moveResize}
+            onPointerUp={endResize}
+            onPointerCancel={endResize}
+            aria-label={t("chat.resizeInput")}
+            title={t("chat.resizeInput")}
+            className="flex h-3 w-full cursor-ns-resize touch-none items-center justify-center rounded-t-2xl"
+          >
+            <span className="h-0.5 w-9 rounded-full bg-line-strong/50 transition-colors hover:bg-line-strong" />
+          </div>
+
+          {attachments.length > 0 ? (
+            <div className="flex flex-wrap gap-2 px-3 pt-1">
+              {attachments.map((attachment) => (
+                <div key={attachment.id} className="group/attachment relative">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewUrl(attachment.dataUrl)}
+                    aria-label={t("chat.viewImage")}
+                    className="block h-14 w-14 overflow-hidden rounded-lg border border-line bg-panel"
+                  >
+                    <img
+                      src={attachment.dataUrl}
+                      alt=""
+                      draggable={false}
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAttachments((prev) => prev.filter((item) => item.id !== attachment.id))
+                    }
+                    aria-label={t("chat.removeImage")}
+                    className="absolute -top-1.5 -right-1.5 hidden h-4.5 w-4.5 items-center justify-center rounded-full border border-line bg-elevated text-ink-faint transition-colors hover:border-danger/40 hover:text-danger group-hover/attachment:flex"
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {attachments.length > 0 && providerSupportsVision === false ? (
+            <div className="mx-3 mt-2 flex items-center gap-1.5 text-[11px] text-warning">
+              <AlertTriangle size={12} className="shrink-0" />
+              <span>{t("chat.imageVisionWarning")}</span>
+            </div>
+          ) : null}
+
+          {imageError ? (
+            <p className="mx-3 mt-2 text-[11px] text-danger">{imageError}</p>
+          ) : null}
+
           <textarea
             ref={textareaRef}
             value={draft}
@@ -269,9 +503,12 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
             rows={2}
             onChange={(event) => {
               setDraft(event.target.value);
-              const node = event.target;
-              node.style.height = "auto";
-              node.style.height = `${Math.min(node.scrollHeight, 132)}px`;
+            }}
+            onPaste={(event) => {
+              const files = Array.from(event.clipboardData?.files ?? []);
+              if (files.length === 0) return;
+              event.preventDefault();
+              void addFiles(files);
             }}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
@@ -282,10 +519,33 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
             placeholder={
               activeStep ? t("chat.placeholder.active") : t("chat.placeholder.inactive")
             }
-            className="max-h-[132px] min-h-[52px] w-full resize-none bg-transparent px-3 pt-2.5 pb-1 text-[12.8px] leading-relaxed text-ink outline-none placeholder:text-ink-faint disabled:cursor-not-allowed"
+            className="mt-1 w-full resize-none bg-transparent px-3 pb-1 text-[12.8px] leading-relaxed text-ink outline-none placeholder:text-ink-faint disabled:cursor-not-allowed"
+            style={{ minHeight: INPUT_MIN_HEIGHT }}
           />
-          <div className="flex items-center gap-2 px-2 pt-1 pb-2">
-            <span className="text-[10.5px] text-ink-faint">
+
+          <div className="flex items-center gap-1.5 px-2 pb-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              multiple
+              className="hidden"
+              onChange={(event) => {
+                void addFiles(Array.from(event.target.files ?? []));
+                event.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              aria-label={t("chat.attachImage")}
+              title={t("chat.attachImage")}
+              disabled={!activeStep || attachments.length >= CHAT_MAX_IMAGES}
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-selection hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ImagePlus size={15} strokeWidth={1.8} />
+            </button>
+            <span className="min-w-0 flex-1 truncate text-[10.5px] text-ink-faint">
               {isStreaming
                 ? streaming?.stopping
                   ? t("chat.stopping")
@@ -293,35 +553,51 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
                 : t("chat.autoLinkHint")}
             </span>
             {isStreaming ? (
-              <Button
-                variant="secondary"
-                size="sm"
+              <button
+                type="button"
                 onClick={() => stopGeneration()}
                 disabled={streaming?.stopping}
-                className="ml-auto"
+                aria-label={streaming?.stopping ? t("chat.stopPending") : t("chat.stop")}
+                title={streaming?.stopping ? t("chat.stopPending") : t("chat.stop")}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-panel text-ink-soft transition-colors hover:border-danger/40 hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {streaming?.stopping ? (
-                  <Loader2 size={11} className="animate-spin" />
+                  <Loader2 size={13} className="animate-spin" />
                 ) : (
-                  <Square size={10.5} strokeWidth={2.4} />
+                  <Square size={11} strokeWidth={2.2} />
                 )}
-                {streaming?.stopping ? t("chat.stopPending") : t("chat.stop")}
-              </Button>
+              </button>
             ) : (
-              <Button
-                variant="primary"
-                size="sm"
+              <button
+                type="button"
                 onClick={submit}
                 disabled={!canSend}
-                className="ml-auto"
+                aria-label={t("chat.send")}
+                title={t("chat.send")}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <Send size={12.5} strokeWidth={2} />
-                {t("chat.send")}
-              </Button>
+                <ArrowUp size={16} strokeWidth={2.4} />
+              </button>
             )}
           </div>
         </div>
       </div>
+
+      <Dialog
+        open={previewUrl !== null}
+        onClose={() => setPreviewUrl(null)}
+        title={t("chat.viewImage")}
+        className="max-w-[820px]"
+      >
+        {previewUrl ? (
+          <ZoomableImage
+            src={previewUrl}
+            alt={t("chat.viewImage")}
+            className="h-[65vh]"
+            hint={t("solution.asset.zoomHint")}
+          />
+        ) : null}
+      </Dialog>
     </div>
   );
 }

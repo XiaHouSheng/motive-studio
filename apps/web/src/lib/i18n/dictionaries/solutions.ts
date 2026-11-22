@@ -133,6 +133,15 @@ export const solutionsZh = {
   "chat.stopPending": "停止中",
   "chat.stop": "停止",
   "chat.send": "发送",
+  "chat.attachImage": "添加图片",
+  "chat.removeImage": "移除图片",
+  "chat.viewImage": "查看图片",
+  "chat.resizeInput": "拖动调整输入框高度",
+  "chat.imageVisionWarning": "当前模型未声明支持图片输入，发送后会直接报错。",
+  "chat.imageLimitExceeded": "单条消息最多附加 {count} 张图片",
+  "chat.imageTooLarge": "图片过大，请压缩后重试",
+  "chat.imageUnsupported": "仅支持 PNG、JPEG、WebP、GIF 图片",
+  "chat.imageDecodeFailed": "图片读取失败，请换一张试试",
 } as const;
 
 export const solutionsEn: Record<keyof typeof solutionsZh, string> = {
@@ -272,4 +281,13 @@ export const solutionsEn: Record<keyof typeof solutionsZh, string> = {
   "chat.stopPending": "Stopping…",
   "chat.stop": "Stop",
   "chat.send": "Send",
+  "chat.attachImage": "Add images",
+  "chat.removeImage": "Remove image",
+  "chat.viewImage": "View image",
+  "chat.resizeInput": "Drag to resize the input box",
+  "chat.imageVisionWarning": "The current model does not declare image input support; sending will fail.",
+  "chat.imageLimitExceeded": "Up to {count} images per message",
+  "chat.imageTooLarge": "The image is too large. Compress it and try again.",
+  "chat.imageUnsupported": "Only PNG, JPEG, WebP and GIF images are supported",
+  "chat.imageDecodeFailed": "Failed to read the image. Try another one.",
 };

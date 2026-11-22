@@ -28,6 +28,14 @@ export function readExtraPrompt(body: Record<string, unknown>): string | undefin
   return trimmed;
 }
 
+/**
+ * 讨论消息的可选附图：未提供 images 字段返回空数组，提供则按上传规则全量校验。
+ */
+export function readOptionalImages(body: Record<string, unknown>): ImportImage[] {
+  if (body.images === undefined || body.images === null) return [];
+  return readImages(body);
+}
+
 export function readImages(body: Record<string, unknown>): ImportImage[] {
   const rawImages = body.images;
   if (!Array.isArray(rawImages) || rawImages.length === 0) {

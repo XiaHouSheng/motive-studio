@@ -346,6 +346,51 @@ describe("Motive Studio 数据层", () => {
     expect(afterLegacy.body.assets).toHaveLength(0);
   });
 
+  it("备份可携带讨论图片导出，导入后还原轮次附图关联", async () => {
+    // 1×1 PNG
+    const pngBase64 =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const db = running.app.locals.db as DatabaseSync;
+    const now = Date.now();
+    // 直接构造轮次与附图关联（流式生成需要上游模型，数据层测试用 SQL 造数）
+    db.exec(`
+      INSERT INTO sub_conversations (id, entry_step_id, created_at, updated_at)
+      VALUES ('sub-t1', 's-quad-1', ${now}, ${now});
+      INSERT INTO conversation_turns (id, sub_conversation_id, user_message, assistant_message, created_at, tag_status, generation_status)
+      VALUES ('turn-t1', 'sub-t1', '看图提问', '图示回复', ${now}, 'tagged', 'completed');
+      INSERT INTO assets (id, storage_path, mime_type, file_size, sha256, status, created_at)
+      VALUES ('asset-t1', 'originals/turn-t1.png', 'image/png', 70, 'sha-turn-t1', 'ready', ${now});
+      INSERT INTO turn_assets (turn_id, asset_id, position, created_at)
+      VALUES ('turn-t1', 'asset-t1', 0, ${now});
+    `);
+    const { writeFileSync, mkdirSync } = await import("node:fs");
+    const uploadsDir = path.join(path.dirname(dbPath), "uploads");
+    mkdirSync(path.join(uploadsDir, "originals"), { recursive: true });
+    writeFileSync(path.join(uploadsDir, "originals", "turn-t1.png"), Buffer.from(pngBase64, "base64"));
+
+    const withImages = await call<BackupPayload>(running, "GET", "/api/backup?images=1");
+    expect(withImages.status).toBe(200);
+    expect(withImages.body.images?.some((image) => image.id === "asset-t1")).toBe(true);
+    const exportedTurn = withImages.body.data.turns.find((turn) => turn.id === "turn-t1");
+    expect(exportedTurn?.images?.[0]?.assetId).toBe("asset-t1");
+
+    // 整体替换导入后轮次附图关联与原图字节都恢复
+    const imported = await call<WorkspaceData>(running, "POST", "/api/backup/import", withImages.body);
+    expect(imported.status).toBe(200);
+    const restoredTurn = imported.body.turns.find((turn) => turn.id === "turn-t1");
+    expect(restoredTurn?.images?.[0]?.assetId).toBe("asset-t1");
+    const image = await fetch(`${running.baseUrl}/api/assets/asset-t1`);
+    expect(image.status).toBe(200);
+    expect(Buffer.from(await image.arrayBuffer()).toString("base64")).toBe(pngBase64);
+
+    // 不带 images 的旧备份也能导入：轮次关联缺失但不报错
+    const plain = await call<BackupPayload>(running, "GET", "/api/backup");
+    const legacyImport = await call<WorkspaceData>(running, "POST", "/api/backup/import", plain.body);
+    expect(legacyImport.status).toBe(200);
+    const legacyTurn = legacyImport.body.turns.find((turn) => turn.id === "turn-t1");
+    expect(legacyTurn?.images).toBeUndefined();
+  });
+
   it("无效请求返回明确的业务错误", async () => {
     const missingGroup = await call<{ code: string }>(running, "POST", "/api/questions", {
       groupId: "not-exists",

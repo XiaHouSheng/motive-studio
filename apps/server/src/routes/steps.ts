@@ -11,16 +11,19 @@ import {
   readParam,
   readString,
 } from "./validation.js";
+import { readOptionalImages } from "./image-input.js";
 import { CHAT_TEMPERATURE, buildChatMessages } from "../services/ai/context-builder.js";
 import { AIError } from "../services/ai/errors.js";
 import { OpenAIProvider } from "../services/ai/openai-provider.js";
 import type { ProviderSettingsStore } from "../services/ai/provider-settings-store.js";
 import type { PromptSettingsStore } from "../services/settings/prompt-settings-store.js";
+import type { AssetStore } from "../services/asset-store.js";
 
 export function createStepsRouter(
   repository: WorkspaceRepository,
   settingsStore: ProviderSettingsStore,
   promptStore: PromptSettingsStore,
+  assetStore: AssetStore,
 ): Router {
   const router = Router();
 
@@ -51,10 +54,16 @@ export function createStepsRouter(
       try {
         const stepId = readParam(req.params, "id");
         const body = readBody(req.body);
-        const userMessage = readString(body, "userMessage", {
-          max: 20_000,
-          label: "用户消息",
-        });
+        const images = readOptionalImages(body);
+        // 附图消息允许纯图发送：文字为空时不再校验必填
+        const userMessage =
+          images.length > 0 &&
+          (body.userMessage === undefined || body.userMessage === "")
+            ? ""
+            : readString(body, "userMessage", {
+                max: 20_000,
+                label: "用户消息",
+              });
 
         const view = settingsStore.getView();
         const apiKey = settingsStore.getApiKey();
@@ -65,10 +74,21 @@ export function createStepsRouter(
             "请先在模型设置中配置 API Key",
           );
         }
+        if (images.length > 0 && view.provider.supportsVision === false) {
+          throw new HttpError(400, "VISION_UNSUPPORTED", "当前模型不支持图片输入");
+        }
+
+        // 图片先落盘（按 sha256 复用），生成成功后随轮次持久化关联
+        const imageInputs = images.map((image) => assetStore.prepare(image.mediaType, image.data));
+        const assetIds = imageInputs.map((item) => {
+          const existing = repository.findAssetBySha256(item.sha256);
+          return existing?.id ?? repository.createAsset(assetStore.write(item)).id;
+        });
 
         const context = repository.getChatContext(stepId);
         const messages = buildChatMessages(context, userMessage, {
           systemPrompt: promptStore.getSettings().step_discussion,
+          images: imageInputs,
         });
         const provider = new OpenAIProvider(view.provider, apiKey);
 
@@ -159,6 +179,7 @@ export function createStepsRouter(
           repository.appendTurn(stepId, userMessage, text, {
             generationStatus,
             chatUsage: usage,
+            assetIds,
           });
         } catch (error) {
           saveError = error;

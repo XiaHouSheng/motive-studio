@@ -19,6 +19,7 @@ import type {
   SubConversation,
   TokenUsage,
   TurnGenerationStatus,
+  TurnImage,
   TurnStepTag,
   TurnTagStatus,
   WorkspaceData,
@@ -204,6 +205,8 @@ export interface AppendedTurn {
 export interface AppendTurnOptions {
   generationStatus?: TurnGenerationStatus;
   chatUsage?: TokenUsage;
+  /** 随本轮用户消息保存的图片资源 id（按附加顺序） */
+  assetIds?: string[];
 }
 
 export interface ChatContextData {
@@ -303,7 +306,7 @@ function toSub(row: SubRow, turnIds: string[]): SubConversation {
   };
 }
 
-function toTurn(row: TurnRow): ConversationTurn {
+function toTurn(row: TurnRow, images?: TurnImage[]): ConversationTurn {
   return {
     id: row.id,
     subConversationId: row.sub_conversation_id,
@@ -314,6 +317,7 @@ function toTurn(row: TurnRow): ConversationTurn {
     generationStatus: row.generation_status as TurnGenerationStatus,
     tagUsage: usageOf(row.tag_input_tokens, row.tag_output_tokens),
     chatUsage: usageOf(row.chat_input_tokens, row.chat_output_tokens),
+    ...(images && images.length > 0 ? { images } : {}),
   };
 }
 
@@ -451,6 +455,8 @@ export class WorkspaceRepository {
       assetsByQuestion.set(row.question_id, list);
     }
 
+    const imagesByTurn = this.turnImagesByTurnId(turnRows.map((row) => row.id));
+
     return {
       groups: groupRows.map((row) => toGroup(row, questionIdsByGroup.get(row.id) ?? [])),
       questions: questionRows.map((row) =>
@@ -462,7 +468,7 @@ export class WorkspaceRepository {
       ),
       steps: stepRows.map(toStep),
       subs: subRows.map((row) => toSub(row, turnIdsBySub.get(row.id) ?? [])),
-      turns: turnRows.map(toTurn),
+      turns: turnRows.map((row) => toTurn(row, imagesByTurn.get(row.id))),
       tags: tagRows.map(toTag),
       explanations: explanationRows.map((row) =>
         toExplanation(row, turnIdsByExplanation.get(row.id) ?? []),
@@ -902,7 +908,9 @@ export class WorkspaceRepository {
         subRow,
         turnRows.map((row) => row.id),
       ),
-      turns: turnRows.map(toTurn),
+      turns: turnRows.map((row) =>
+        toTurn(row, this.turnImagesByTurnId(turnRows.map((item) => item.id)).get(row.id)),
+      ),
       tags: tagRows.map(toTag),
     };
   }
@@ -931,7 +939,8 @@ export class WorkspaceRepository {
            LIMIT ?`,
         )
         .all(subRow.id, limit) as unknown as TurnRow[];
-      history = rows.reverse().map(toTurn);
+      const imagesByTurn = this.turnImagesByTurnId(rows.map((row) => row.id));
+      history = rows.reverse().map((row) => toTurn(row, imagesByTurn.get(row.id)));
     }
 
     return {
@@ -985,7 +994,9 @@ export class WorkspaceRepository {
         this.listQuestionAssets(questionId),
       ),
       steps,
-      turns: turnRows.map(toTurn),
+      turns: turnRows.map((row) =>
+        toTurn(row, this.turnImagesByTurnId(turnRows.map((item) => item.id)).get(row.id)),
+      ),
       tags: tagRows.filter((row) => turnIds.has(row.turn_id)).map(toTag),
     };
   }
@@ -1048,6 +1059,15 @@ export class WorkspaceRepository {
         )
         .run(tagId, turnId, stepId, "由入口步骤自动关联", now);
 
+      const assetIds = options.assetIds ?? [];
+      if (assetIds.length > 0) {
+        const insertLink = this.db.prepare(
+          `INSERT OR IGNORE INTO turn_assets (turn_id, asset_id, position, created_at)
+           VALUES (?, ?, ?, ?)`,
+        );
+        assetIds.forEach((assetId, index) => insertLink.run(turnId, assetId, index, now));
+      }
+
       this.db
         .prepare("UPDATE sub_conversations SET updated_at = ? WHERE id = ?")
         .run(now, subRow.id);
@@ -1067,7 +1087,12 @@ export class WorkspaceRepository {
           { ...subRow, updated_at: now },
           turnIds.map((item) => item.id),
         ),
-        turn: toTurn(turnRow),
+        turn: toTurn(
+          turnRow,
+          assetIds.length > 0
+            ? this.turnImagesByTurnId([turnId]).get(turnId)
+            : undefined,
+        ),
         tags: [toTag(tagRow)],
       };
     });
@@ -1233,6 +1258,11 @@ export class WorkspaceRepository {
         if (!createdAtById.has(asset.id)) createdAtById.set(asset.id, asset.createdAt);
       }
     }
+    for (const turn of data.turns) {
+      for (const image of turn.images ?? []) {
+        if (!createdAtById.has(image.assetId)) createdAtById.set(image.assetId, turn.createdAt);
+      }
+    }
     const fallbackCreatedAt = Date.now();
 
     const insertAsset = this.db.prepare(
@@ -1254,6 +1284,45 @@ export class WorkspaceRepository {
       const assetIds = question.assets.map((asset) => asset.id);
       if (assetIds.length > 0) this.linkAssets(question.id, assetIds);
     }
+    const insertTurnLink = this.db.prepare(
+      `INSERT OR IGNORE INTO turn_assets (turn_id, asset_id, position, created_at)
+       VALUES (?, ?, ?, ?)`,
+    );
+    for (const turn of data.turns) {
+      (turn.images ?? []).forEach((image, index) => {
+        insertTurnLink.run(turn.id, image.assetId, index, turn.createdAt);
+      });
+    }
+  }
+
+  /** 批量读取轮次附图：turnId → 图片列表（按附加顺序） */
+  private turnImagesByTurnId(turnIds: string[]): Map<string, TurnImage[]> {
+    const map = new Map<string, TurnImage[]>();
+    if (turnIds.length === 0) return map;
+    const placeholders = turnIds.map(() => "?").join(", ");
+    const rows = this.db
+      .prepare(
+        `SELECT links.turn_id, links.asset_id, assets.mime_type
+         FROM turn_assets links
+         JOIN assets ON assets.id = links.asset_id
+         WHERE links.turn_id IN (${placeholders})
+         ORDER BY links.position, links.created_at`,
+      )
+      .all(...turnIds) as unknown as Array<{
+      turn_id: string;
+      asset_id: string;
+      mime_type: string;
+    }>;
+    for (const row of rows) {
+      const list = map.get(row.turn_id) ?? [];
+      list.push({
+        assetId: row.asset_id,
+        mimeType: row.mime_type,
+        url: `/api/assets/${row.asset_id}`,
+      });
+      map.set(row.turn_id, list);
+    }
+    return map;
   }
 
   // ---------- 题目图片资源 ----------
@@ -1264,13 +1333,17 @@ export class WorkspaceRepository {
       .get(sha256) as unknown as AssetRow | undefined;
   }
 
-  /** 备份导出用：所有被题目引用的原图资源行（含落盘路径与哈希） */
+  /** 备份导出用：所有被题目或讨论轮次引用的原图资源行（含落盘路径与哈希） */
   listLinkedAssetRows(): AssetRow[] {
     return this.db
       .prepare(
         `SELECT assets.*
          FROM assets
-         JOIN question_assets links ON links.asset_id = assets.id
+         JOIN (
+           SELECT DISTINCT asset_id FROM question_assets
+           UNION
+           SELECT DISTINCT asset_id FROM turn_assets
+         ) links ON links.asset_id = assets.id
          GROUP BY assets.id
          ORDER BY assets.created_at`,
       )

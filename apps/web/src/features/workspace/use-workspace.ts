@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ImagePolicy,
+  TurnImage,
   Question,
   SolutionRevision,
   SolutionStep,
@@ -12,6 +13,12 @@ import { useUiStore } from "@/stores/ui";
 import { ApiError, api } from "@/lib/api";
 import { useT } from "@/lib/i18n/use-i18n";
 import { translateApiError } from "@/lib/i18n/errors";
+
+/** 发送讨论消息时携带的附图（前端已缩放的 base64） */
+export interface StreamImage {
+  mediaType: string;
+  data: string;
+}
 
 export interface ChatTag {
   stepId: string;
@@ -28,6 +35,8 @@ export interface ChatMessage {
   tags: ChatTag[];
   streaming?: boolean;
   failed?: boolean;
+  /** 用户消息附图：已落库轮次用服务端 URL，流式/发送失败时用本地 data URL */
+  images?: TurnImage[];
 }
 
 interface StreamingState {
@@ -35,12 +44,14 @@ interface StreamingState {
   assistantText: string;
   startedAt: number;
   stopping: boolean;
+  images?: TurnImage[];
 }
 
 interface FailedSend {
   userMessage: string;
   message: string;
   startedAt: number;
+  images?: TurnImage[];
 }
 
 const EMPTY_WORKSPACE: WorkspaceData = {
@@ -297,6 +308,7 @@ export function useWorkspace() {
           content: turn.userMessage,
           createdAt: turn.createdAt,
           tags: [],
+          images: turn.images,
         });
         pairs.push({
           id: `${turn.id}-assistant`,
@@ -319,6 +331,7 @@ export function useWorkspace() {
         createdAt: streaming.startedAt,
         tags: [],
         streaming: true,
+        images: streaming.images,
       });
       if (streaming.assistantText) {
         pairs.push({
@@ -341,6 +354,7 @@ export function useWorkspace() {
         createdAt: failed.startedAt,
         tags: [],
         failed: true,
+        images: failed.images,
       });
     }
 
@@ -372,7 +386,7 @@ export function useWorkspace() {
   }, [data.tags]);
 
   const runStream = useCallback(
-    async (stepId: string, text: string) => {
+    async (stepId: string, text: string, images?: StreamImage[]) => {
       setFailedSendByStep((prev) => {
         if (!(stepId in prev)) return prev;
         const next = { ...prev };
@@ -391,6 +405,11 @@ export function useWorkspace() {
           assistantText: "",
           startedAt,
           stopping: false,
+          images: images?.map((image) => ({
+            assetId: "",
+            mimeType: image.mediaType,
+            url: `data:${image.mediaType};base64,${image.data}`,
+          })),
         },
       }));
 
@@ -402,6 +421,7 @@ export function useWorkspace() {
 
       try {
         await api.streamMessage(stepId, text, {
+          images,
           signal: controller.signal,
           onEvent: (event) => {
             outcome.receivedEvent = true;
@@ -442,7 +462,16 @@ export function useWorkspace() {
       if (failure) {
         setFailedSendByStep((prev) => ({
           ...prev,
-          [stepId]: { userMessage: text, message: failure as string, startedAt },
+          [stepId]: {
+            userMessage: text,
+            message: failure as string,
+            startedAt,
+            images: images?.map((image) => ({
+              assetId: "",
+              mimeType: image.mediaType,
+              url: `data:${image.mediaType};base64,${image.data}`,
+            })),
+          },
         }));
         setStreamingByStep((prev) => {
           if (!(stepId in prev)) return prev;
@@ -477,11 +506,13 @@ export function useWorkspace() {
   );
 
   const sendMessage = useCallback(
-    (rawText: string) => {
+    (rawText: string, images?: StreamImage[]) => {
       const text = rawText.trim();
       const stepId = useUiStore.getState().activeStepId;
-      if (!text || !stepId || streamingByStep[stepId]) return;
-      void runStream(stepId, text);
+      if ((!text && (!images || images.length === 0)) || !stepId || streamingByStep[stepId]) {
+        return;
+      }
+      void runStream(stepId, text, images);
     },
     [runStream, streamingByStep],
   );
@@ -507,7 +538,16 @@ export function useWorkspace() {
       if (!target) return;
       const failed = failedSendByStep[target];
       if (!failed) return;
-      void runStream(target, failed.userMessage);
+      void runStream(
+        target,
+        failed.userMessage,
+        failed.images
+          ?.filter((image) => image.url.startsWith("data:"))
+          .map((image) => ({
+            mediaType: image.mimeType,
+            data: image.url.slice(image.url.indexOf(",") + 1),
+          })),
+      );
     },
     [failedSendByStep, runStream],
   );

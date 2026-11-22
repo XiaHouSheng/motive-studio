@@ -194,4 +194,18 @@ export const migrations: Migration[] = [
       `ALTER TABLE conversation_turns DROP COLUMN archive_status`,
     ],
   },
+  {
+    // 讨论消息图片：轮次与资源的关联表（发送图片的讨论轮次持久化附图）
+    version: 7,
+    statements: [
+      `CREATE TABLE turn_assets (
+        turn_id TEXT NOT NULL REFERENCES conversation_turns(id) ON DELETE CASCADE,
+        asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (turn_id, asset_id)
+      )`,
+      `CREATE INDEX idx_turn_assets_turn ON turn_assets(turn_id, position)`,
+    ],
+  },
 ];

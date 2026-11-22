@@ -119,6 +119,8 @@ export interface StepInput {
 export interface StreamMessageOptions {
   signal?: AbortSignal;
   onEvent: (event: ChatStreamEvent) => void;
+  /** 随消息发送的附图（已在前端缩放的 base64） */
+  images?: Array<{ mediaType: string; data: string }>;
 }
 
 export const api = {
@@ -257,7 +259,11 @@ export const api = {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userMessage }),
+          body: JSON.stringify(
+            options.images && options.images.length > 0
+              ? { userMessage, images: options.images }
+              : { userMessage },
+          ),
           signal: options.signal,
         },
       );

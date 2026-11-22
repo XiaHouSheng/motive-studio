@@ -76,7 +76,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use("/api", createQuestionsRouter(repository));
   app.use("/api", createQuestionAssetsRouter(repository, assetStore));
   app.use("/api", createSolutionRouter(repository, settingsStore, assetStore, promptSettingsStore, uiPreferencesStore));
-  app.use("/api", createStepsRouter(repository, settingsStore, promptSettingsStore));
+  app.use("/api", createStepsRouter(repository, settingsStore, promptSettingsStore, assetStore));
   app.use("/api", createExplanationsRouter(repository, settingsStore, promptSettingsStore));
   app.use("/api", createExportRouter(repository));
   app.use("/api", createBackupRouter(repository, assetStore));
