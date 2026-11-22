@@ -99,29 +99,26 @@ export function MermaidView({ code, isIncomplete }: MermaidViewProps) {
 
   return (
     <div
-      className="my-4 w-full rounded-xl border border-line bg-sidebar p-2"
+      className="group relative my-4 w-full rounded-xl border border-line bg-panel p-4"
       data-mermaid-card=""
     >
-      <div className="flex h-8 items-center gap-2 px-1">
-        <span className="ml-1 font-mono text-xs lowercase text-ink-faint">mermaid</span>
-        {svg ? (
-          <button
-            type="button"
-            onClick={() => setZoomOpen(true)}
-            aria-label={t("markdown.mermaidExpand")}
-            title={t("markdown.mermaidExpand")}
-            className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-ink"
-          >
-            <Maximize2 size={12} strokeWidth={1.8} />
-          </button>
-        ) : null}
-      </div>
+      {svg ? (
+        <button
+          type="button"
+          onClick={() => setZoomOpen(true)}
+          aria-label={t("markdown.mermaidExpand")}
+          title={t("markdown.mermaidExpand")}
+          className="absolute top-2.5 right-2.5 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-selection hover:text-ink"
+        >
+          <Maximize2 size={12} strokeWidth={1.8} />
+        </button>
+      ) : null}
       <div
         role={svg ? "button" : undefined}
         aria-label={svg ? t("markdown.mermaidExpand") : undefined}
         onClick={svg ? () => setZoomOpen(true) : undefined}
         className={cn(
-          "flex min-h-[200px] items-center justify-center overflow-x-auto rounded-md border border-line bg-panel p-4",
+          "flex min-h-[200px] items-center justify-center overflow-x-auto",
           svg && "cursor-zoom-in",
         )}
       >
