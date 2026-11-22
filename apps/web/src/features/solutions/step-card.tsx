@@ -40,29 +40,31 @@ export function StepCard({ step, active, discussionCount, onDiscuss, onEdit }: S
           {step.title}
         </h3>
 
-        <button
-          type="button"
-          onClick={() => onEdit(step.id)}
-          aria-label={t("steps.edit")}
-          title={t("steps.edit")}
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-soft opacity-100 transition-colors hover:bg-selection hover:text-ink md:opacity-0 md:group-hover/step:opacity-100 md:focus-visible:opacity-100"
-        >
-          <Pencil size={13} strokeWidth={1.9} />
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => onEdit(step.id)}
+            aria-label={t("steps.edit")}
+            title={t("steps.edit")}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-soft opacity-100 transition-colors hover:bg-selection hover:text-ink md:opacity-0 md:group-hover/step:opacity-100 md:focus-visible:opacity-100"
+          >
+            <Pencil size={13} strokeWidth={1.9} />
+          </button>
 
-        <button
-          type="button"
-          onClick={() => onDiscuss(step.id)}
-          className={cn(
-            "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-[11.5px] font-medium transition-colors",
-            active
-              ? "bg-brand/10 text-brand"
-              : "text-ink-soft opacity-100 hover:bg-selection hover:text-ink md:opacity-0 md:group-hover/step:opacity-100 md:focus-visible:opacity-100",
-          )}
-        >
-          <MessageSquarePlus size={13} strokeWidth={1.9} />
-          {active ? t("steps.discussing") : t("steps.enterDiscussion")}
-        </button>
+          <button
+            type="button"
+            onClick={() => onDiscuss(step.id)}
+            className={cn(
+              "inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[11.5px] font-medium transition-colors",
+              active
+                ? "bg-brand/10 text-brand"
+                : "text-ink-soft opacity-100 hover:bg-selection hover:text-ink md:opacity-0 md:group-hover/step:opacity-100 md:focus-visible:opacity-100",
+            )}
+          >
+            <MessageSquarePlus size={13} strokeWidth={1.9} />
+            {active ? t("steps.discussing") : t("steps.enterDiscussion")}
+          </button>
+        </div>
       </div>
 
       <div className="px-4 pb-3.5">
