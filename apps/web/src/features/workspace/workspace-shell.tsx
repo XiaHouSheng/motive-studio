@@ -90,7 +90,7 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
   }
 
   return (
-    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-surface text-ink animate-page-in">
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-surface text-ink animate-fade-in">
       <TopBar workspace={workspace} />
 
       {workspace.error ? (

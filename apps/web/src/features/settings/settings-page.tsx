@@ -208,7 +208,7 @@ export function SettingsPage() {
   const [section, setSection] = useState<SectionId>("general");
 
   return (
-    <div className="flex h-dvh min-h-0 flex-col bg-surface text-ink animate-page-in">
+    <div className="flex h-dvh min-h-0 flex-col bg-surface text-ink animate-fade-in">
       <header
         className={cn(
           "flex h-[52px] shrink-0 items-center gap-2 border-b border-line px-3 md:px-4",
@@ -294,7 +294,7 @@ export function SettingsPage() {
 
           <main className="min-h-0 flex-1 overflow-y-auto">
             {/* key 随分区变化：切换时重放入入场动画 */}
-            <div key={section} className="mx-auto max-w-[640px] space-y-5 px-4 py-6 animate-page-in">
+            <div key={section} className="mx-auto max-w-[640px] space-y-5 px-4 py-6 animate-fade-in">
               {section === "general" ? <GeneralSettings /> : null}
               {section === "prompts" ? <PromptsSettings /> : null}
               {section === "provider" ? <ProviderSettingsSection /> : null}
