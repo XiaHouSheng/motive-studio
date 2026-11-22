@@ -57,11 +57,15 @@ export function OverviewScrollbar({
     const track = trackRef.current;
     const thumb = thumbRef.current;
     if (!overflow || !track || !thumb) return;
-    const trackH = track.clientHeight;
-    if (trackH <= 0) return;
+    // minimap 模式下指示框映射到右上角的受限视口（非整条轨道高度）
+    const refH =
+      minimap && minimapViewportRef.current
+        ? minimapViewportRef.current.clientHeight
+        : track.clientHeight;
+    if (refH <= 0) return;
     const maxScroll = scrollHeight - clientHeight;
-    const h = Math.max(MIN_THUMB_HEIGHT, (clientHeight / scrollHeight) * trackH);
-    const top = maxScroll > 0 ? (scrollTop / maxScroll) * (trackH - h) : 0;
+    const h = Math.max(MIN_THUMB_HEIGHT, (clientHeight / scrollHeight) * refH);
+    const top = maxScroll > 0 ? (scrollTop / maxScroll) * (refH - h) : 0;
     thumb.style.height = `${Math.round(h)}px`;
     thumb.style.transform = `translateY(${Math.round(top)}px)`;
   }, []);
@@ -110,7 +114,7 @@ export function OverviewScrollbar({
     rebuildMinimapTimer.current = window.setTimeout(rebuildMinimap, MINIMAP_REBUILD_DEBOUNCE);
   }, [minimap, rebuildMinimap]);
 
-  /** 把 thumb 顶部拖到指定视口位置，同步滚动位置 */
+  /** 把 thumb 顶部拖到指定视口位置，同步滚动位置（minimap 模式映射到受限视口） */
   const dragThumbTo = useCallback((clientY: number) => {
     const node = scrollRef.current;
     const track = trackRef.current;
@@ -118,12 +122,16 @@ export function OverviewScrollbar({
     const { scrollHeight, clientHeight } = node;
     const maxScroll = scrollHeight - clientHeight;
     if (maxScroll <= 0) return;
-    const rect = track.getBoundingClientRect();
-    const trackH = rect.height;
-    if (trackH <= 0) return;
-    const h = Math.max(MIN_THUMB_HEIGHT, (clientHeight / scrollHeight) * trackH);
+    const mapEl =
+      minimap && minimapViewportRef.current
+        ? minimapViewportRef.current
+        : track;
+    const rect = mapEl.getBoundingClientRect();
+    const mapH = rect.height;
+    if (mapH <= 0) return;
+    const h = Math.max(MIN_THUMB_HEIGHT, (clientHeight / scrollHeight) * mapH);
     const top = clientY - rect.top;
-    const ratio = Math.min(1, Math.max(0, top / (trackH - h)));
+    const ratio = Math.min(1, Math.max(0, top / (mapH - h)));
     node.scrollTop = ratio * maxScroll;
   }, []);
 
