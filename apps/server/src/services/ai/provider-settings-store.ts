@@ -536,6 +536,51 @@ export class ProviderSettingsStore {
     }
   }
 
+  /**
+   * 复制导入一批外部配置（如 CCSWITCH）：创建为新配置但不改变激活状态，
+   * 按名称去重（跳过已存在的名称）；未提供 model 时沿用当前激活配置的模型。
+   */
+  async importProviderCopies(
+    inputs: Array<{ name: unknown; baseUrl: unknown; apiKey?: unknown; model?: unknown }>,
+  ): Promise<{ imported: string[]; skipped: string[] }> {
+    const state = this.readProfilesState();
+    const fallbackModel =
+      state.profiles.find((profile) => profile.id === state.activeId)?.model ??
+      DEFAULT_PROVIDER_CONFIG.model;
+
+    const imported: string[] = [];
+    const skipped: string[] = [];
+    for (const input of inputs) {
+      const name = typeof input.name === "string" ? input.name.trim() : "";
+      if (!name || state.profiles.some((profile) => profile.name === name)) {
+        skipped.push(name || "(未命名)");
+        continue;
+      }
+      try {
+        const created = {
+          ...normalizeConfig({ ...input, model: input.model ?? fallbackModel }),
+          id: randomUUID(),
+        };
+        state.profiles.push(created);
+        imported.push(name);
+        if (typeof input.apiKey === "string" && input.apiKey.trim()) {
+          await this.credentials.set(credentialKeyFor(created.id), input.apiKey.trim());
+          this.upsertSetting(
+            credentialMetaKeyFor(created.id),
+            JSON.stringify({ savedAt: Date.now() }),
+          );
+        }
+      } catch {
+        // 单条配置非法（如 Base URL 不合法）：跳过且不影响其余导入
+        skipped.push(name);
+      }
+    }
+    if (imported.length > 0) {
+      this.writeProfilesState(state);
+    }
+    return { imported, skipped };
+  }
+
   /** 同步读取内存缓存中的密钥，供 AI 路由在请求期使用 */
   getApiKey(): string | null {
     return this.apiKey;

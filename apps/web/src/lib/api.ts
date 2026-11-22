@@ -335,6 +335,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify(input),
     }),
+  importProviderCopies: (input: {
+    providers: Array<{ name: string; baseUrl: string; apiKey?: string; model?: string }>;
+  }) =>
+    request<{ imported: string[]; skipped: string[] }>(
+      "/api/settings/provider/profiles/import",
+      { method: "POST", body: JSON.stringify(input) },
+    ),
   updateProviderProfile: (
     id: string,
     input: { provider: ProviderConfig; clearApiKey?: boolean },

@@ -99,6 +99,15 @@ export function createSettingsRouter(
     res.json({ profileId });
   });
 
+  // 复制导入一批外部配置：不改变当前激活配置
+  router.post("/settings/provider/profiles/import", async (req: Request, res: Response) => {
+    const body = readBody(req.body);
+    if (!Array.isArray(body.providers)) {
+      throw new HttpError(400, "INVALID_FIELD", "providers 必须是数组");
+    }
+    res.json(await store.importProviderCopies(body.providers));
+  });
+
   // 编辑指定配置（不改激活状态、不动其 Key，除非 clearApiKey=true 显式清除）
   router.put("/settings/provider/profiles/:id", async (req: Request, res: Response) => {
     const body = readBody(req.body);

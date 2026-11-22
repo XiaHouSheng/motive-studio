@@ -123,6 +123,94 @@ function buildProviderPayload(form: FormState): ProviderConfig {
   };
 }
 
+interface PastedProvider {
+  name?: string;
+  baseUrl: string;
+  apiKey?: string;
+  model?: string;
+}
+
+/** 从 config 对象中提取 Base URL / Key / 模型（兼容 cc-switch 的多种形态） */
+function extractFromConfigObject(config: Record<string, unknown>):
+  | Omit<PastedProvider, "name">
+  | null {
+  const env = config.env;
+  const envMap =
+    env && typeof env === "object" ? (env as Record<string, unknown>) : undefined;
+  const baseUrl =
+    envMap?.ANTHROPIC_BASE_URL ??
+    envMap?.OPENAI_BASE_URL ??
+    config.baseUrl ??
+    config.base_url ??
+    (typeof config.config === "string"
+      ? /^\s*base_url\s*=\s*"([^"]+)"/m.exec(config.config)?.[1]
+      : undefined);
+  if (typeof baseUrl !== "string" || !baseUrl.trim()) return null;
+
+  const auth = config.auth;
+  const authMap =
+    auth && typeof auth === "object" ? (auth as Record<string, unknown>) : undefined;
+  const apiKey =
+    (authMap
+      ? Object.values(authMap).find(
+          (value) => typeof value === "string" && value.trim().length >= 8,
+        )
+      : undefined) ??
+    envMap?.ANTHROPIC_AUTH_TOKEN ??
+    envMap?.OPENAI_API_KEY ??
+    config.apiKey;
+  const model = (typeof config.config === "string"
+    ? /^\s*model\s*=\s*"([^"]+)"/m.exec(config.config)?.[1]
+    : undefined) ?? envMap?.ANTHROPIC_MODEL ?? config.model;
+
+  return {
+    baseUrl: baseUrl.trim(),
+    apiKey: typeof apiKey === "string" ? apiKey.trim() : undefined,
+    model: typeof model === "string" ? model.trim() : undefined,
+  };
+}
+
+/** 递归收集粘贴内容里所有可识别的配置（数组 / providers 映射 / 单对象均可） */
+function collectPastedProviders(node: unknown, out: PastedProvider[], depth: number): void {
+  if (depth > 6 || !node || typeof node !== "object") return;
+  if (Array.isArray(node)) {
+    for (const item of node) collectPastedProviders(item, out, depth + 1);
+    return;
+  }
+  const extracted = extractFromConfigObject(node as Record<string, unknown>);
+  if (extracted) {
+    const name =
+      typeof (node as Record<string, unknown>).name === "string"
+        ? ((node as Record<string, unknown>).name as string).trim()
+        : undefined;
+    out.push({ name, ...extracted });
+    return; // 命中配置对象后不再深入，避免重复提取
+  }
+  for (const value of Object.values(node as Record<string, unknown>)) {
+    collectPastedProviders(value, out, depth + 1);
+  }
+}
+
+/** 解析用户粘贴的配置文本（cc-switch 复制的 JSON / 自定义 JSON 对象 / 数组） */
+export function parsePastedProviders(text: string): PastedProvider[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return [];
+  }
+  const out: PastedProvider[] = [];
+  collectPastedProviders(parsed, out, 0);
+  // 按名称 + Base URL 去重
+  const seen = new Set<string>();
+  return out.filter((item) => {
+    const key = `${item.name ?? ""}|${item.baseUrl}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 interface ProviderSettingsFormProps {
   /** add = 新建（保存即创建并启用）；edit = 编辑指定配置（Key 沿用原值） */
   mode: "add" | "edit";
@@ -130,6 +218,8 @@ interface ProviderSettingsFormProps {
   profile?: ProviderProfileSummary;
   /** 保存成功后的回调（编辑模式：保存后由父级关闭模态框） */
   onSaved?: () => void;
+  /** CCSWITCH 复制导入成功后的回调（父级刷新配置列表） */
+  onImported?: () => void;
 }
 
 /**
@@ -140,7 +230,12 @@ interface ProviderSettingsFormProps {
  * - edit：预填目标配置，保存原位更新；不展示 Key（沿用原值），
  *   仅提供显式「清除该配置的 API Key」按钮。
  */
-export function ProviderSettingsForm({ mode, profile, onSaved }: ProviderSettingsFormProps) {
+export function ProviderSettingsForm({
+  mode,
+  profile,
+  onSaved,
+  onImported,
+}: ProviderSettingsFormProps) {
   const t = useT();
   const isEdit = mode === "edit" && profile !== undefined;
 
@@ -195,6 +290,61 @@ export function ProviderSettingsForm({ mode, profile, onSaved }: ProviderSetting
     setError(null);
     setTestResult(null);
   }, []);
+
+  /** 自定义：清空表单回到空白草稿 */
+  const applyCustom = useCallback(() => {
+    setForm(EMPTY_FORM);
+    setApiKey("");
+    setActivePreset("custom");
+    setNotice(null);
+    setError(null);
+    setTestResult(null);
+  }, []);
+
+  /** CCSWITCH 配置导入：从剪贴板读取配置 JSON，复制为新增模型（不改激活状态） */
+  const [importing, setImporting] = useState(false);
+  const handleCcSwitchImport = useCallback(async () => {
+    setImporting(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const text = await navigator.clipboard.readText();
+      const parsed = parsePastedProviders(text ?? "");
+      if (parsed.length === 0) {
+        setError(t("settings.ccSwitchParseFailed"));
+        return;
+      }
+      const providers = parsed.map((item) => ({
+        name:
+          item.name ||
+          (() => {
+            try {
+              return new URL(item.baseUrl).hostname;
+            } catch {
+              return t("settings.importDefaultName");
+            }
+          })(),
+        baseUrl: item.baseUrl,
+        apiKey: item.apiKey,
+        model: item.model,
+      }));
+      const result = await api.importProviderCopies({ providers });
+      setActivePreset("ccswitch");
+      setNotice(
+        result.skipped.length > 0
+          ? t("settings.ccSwitchImportedSkipped", {
+              count: String(result.imported.length),
+              skipped: String(result.skipped.length),
+            })
+          : t("settings.ccSwitchImported", { count: String(result.imported.length) }),
+      );
+      onImported?.();
+    } catch (importError) {
+      setError(describeError(t, importError));
+    } finally {
+      setImporting(false);
+    }
+  }, [onImported, t]);
 
   /** 额外设置是否偏离默认值：折叠状态下给出「已自定义」提醒，避免隐藏字段被遗忘 */
   const advancedCustomized =
@@ -319,6 +469,33 @@ export function ProviderSettingsForm({ mode, profile, onSaved }: ProviderSetting
               ) : null}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={applyCustom}
+            className={cn(
+              "inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[11.5px] transition-colors",
+              activePreset === "custom"
+                ? "border-brand/50 bg-brand/5 text-ink"
+                : "border-line bg-field text-ink-soft hover:bg-selection hover:text-ink",
+            )}
+          >
+            {t("settings.presetCustom")}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleCcSwitchImport()}
+            disabled={importing}
+            className={cn(
+              "inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[11.5px] transition-colors",
+              activePreset === "ccswitch"
+                ? "border-brand/50 bg-brand/5 text-ink"
+                : "border-line bg-field text-ink-soft hover:bg-selection hover:text-ink",
+              importing && "opacity-60",
+            )}
+          >
+            {importing ? <Loader2 size={12} className="animate-spin" /> : null}
+            {t("settings.presetCcSwitch")}
+          </button>
         </div>
         <span className="block text-[11px] text-ink-faint">
           {t("settings.presetsHint")}
@@ -741,7 +918,11 @@ export function ProviderSettingsSection() {
             onSaved={() => setDialog(null)}
           />
         ) : (
-          <ProviderSettingsForm mode="add" onSaved={() => setDialog(null)} />
+          <ProviderSettingsForm
+            mode="add"
+            onSaved={() => setDialog(null)}
+            onImported={refreshAll}
+          />
         )}
       </Dialog>
     </div>
