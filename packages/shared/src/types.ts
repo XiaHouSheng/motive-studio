@@ -77,6 +77,11 @@ export interface TokenUsage {
   outputTokens: number;
 }
 
+/** 讨论模型设置：profileId 为 null 表示跟随主模型 */
+export interface ChatModelSetting {
+  profileId: string | null;
+}
+
 /** 讨论消息附带的图片（资产在本地 assets 中，按 assetId 读取原图） */
 export interface TurnImage {
   assetId: ID;

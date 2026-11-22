@@ -11,6 +11,8 @@ import type { CredentialStore } from "../credentials/credential-store.js";
 const SETTINGS_KEY = "provider_config";
 /** 模型配置列表：{ activeId, profiles: ProviderConfig[] }，激活配置同时镜像到 provider_config */
 const PROFILES_KEY = "provider_profiles";
+/** 讨论模型覆盖：记录使用哪个 profile 的 id；缺失/为空表示跟随主模型 */
+const CHAT_PROFILE_KEY = "chat_profile_id";
 /**
  * 凭据存储键：按配置维度隔离（每个模型配置各自记住 API Key）。
  * 该键只作为凭据存储的索引，不是密钥本身，也不会出现在任何 API 响应中。
@@ -288,6 +290,66 @@ export class ProviderSettingsStore {
     return { activeId: state.activeId, profiles };
   }
 
+  // ---------- 讨论模型（chat 覆盖） ----------
+
+  /** 讨论模型覆盖的 profile id；未设置或指向已删除配置时返回 null（跟随主模型） */
+  getChatProfileId(): string | null {
+    const row = this.db
+      .prepare("SELECT value FROM app_settings WHERE key = ?")
+      .get(CHAT_PROFILE_KEY) as { value: string } | undefined;
+    if (!row) return null;
+    try {
+      const parsed = JSON.parse(row.value) as { profileId?: unknown };
+      if (typeof parsed.profileId !== "string" || !parsed.profileId) return null;
+      const state = this.readProfilesState();
+      return state.profiles.some((profile) => profile.id === parsed.profileId)
+        ? parsed.profileId
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** 设置讨论模型覆盖；传 null 清除覆盖（跟随主模型）。返回生效的 profileId */
+  setChatProfileId(profileId: string | null): string | null {
+    if (profileId !== null) {
+      const state = this.readProfilesState();
+      if (!state.profiles.some((profile) => profile.id === profileId)) {
+        throw new HttpError(404, "NOT_FOUND", "模型配置不存在");
+      }
+      this.upsertSetting(CHAT_PROFILE_KEY, JSON.stringify({ profileId }));
+      return profileId;
+    }
+    this.db
+      .prepare("DELETE FROM app_settings WHERE key = ?")
+      .run(CHAT_PROFILE_KEY);
+    return null;
+  }
+
+  /**
+   * 讨论请求使用的模型配置与密钥：有覆盖时读对应 profile（密钥按配置隔离存储），
+   * 否则跟随当前激活配置（密钥取内存缓存）。
+   */
+  async getChatProvider(): Promise<{ provider: ProviderConfig; apiKey: string | null }> {
+    const overrideId = this.getChatProfileId();
+    if (!overrideId) {
+      return { provider: this.getConfig(), apiKey: this.apiKey };
+    }
+    const state = this.readProfilesState();
+    const target = state.profiles.find((profile) => profile.id === overrideId);
+    if (!target) {
+      return { provider: this.getConfig(), apiKey: this.apiKey };
+    }
+    let apiKey: string | null = null;
+    try {
+      const stored = await this.credentials.get(credentialKeyFor(target.id));
+      apiKey = stored && stored.trim().length > 0 ? stored : null;
+    } catch {
+      apiKey = null;
+    }
+    return { provider: target, apiKey };
+  }
+
   /** 切换激活配置：内存密钥缓存随之切到目标配置的凭据键 */
   async switchProfile(profileId: string): Promise<ProviderSettingsView> {
     const state = this.readProfilesState();
@@ -372,6 +434,13 @@ export class ProviderSettingsStore {
     this.db
       .prepare("DELETE FROM app_settings WHERE key = ?")
       .run(credentialMetaKeyFor(target.id));
+
+    // 讨论模型覆盖指向被删配置时一并清除，避免悬空引用
+    if (this.getChatProfileId() === target.id) {
+      this.db
+        .prepare("DELETE FROM app_settings WHERE key = ?")
+        .run(CHAT_PROFILE_KEY);
+    }
 
     this.writeProfilesState({
       activeId: state.activeId,

@@ -1,6 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { AlertTriangle, Check, Settings, Settings2 } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, Cpu } from "lucide-react";
 import type { ProviderProfilesView } from "@motive/shared";
 import { api } from "@/lib/api";
 import { useT } from "@/lib/i18n/use-i18n";
@@ -10,10 +10,11 @@ const itemClass =
   "flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[12.5px] text-ink-soft outline-none select-none data-[highlighted]:bg-selection data-[highlighted]:text-ink";
 
 /**
- * 顶栏模型快捷切换：点击「模型设置」按钮弹出已保存配置列表，
- * 选中即切换激活配置（各配置 Key 独立保存）；完整管理在设置页。
+ * 顶栏模型快捷切换：触发器直接显示当前使用的模型（名称 + 模型标识），
+ * 下拉列出已保存配置，选中即切换激活配置（各配置 Key 独立保存）。
+ * 完整管理（新增/删除/讨论模型分开配置）在设置页「模型服务」。
  */
-export function ProviderQuickSwitch({ onOpenSettings }: { onOpenSettings: () => void }) {
+export function ProviderQuickSwitch() {
   const t = useT();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<ProviderProfilesView | null>(null);
@@ -25,6 +26,11 @@ export function ProviderQuickSwitch({ onOpenSettings }: { onOpenSettings: () => 
       .then((next) => setView(next))
       .catch(() => setView(null));
   }, []);
+
+  // 触发器要常显当前模型，挂载即拉取一次；打开菜单时再刷新
+  useEffect(() => {
+    loadProfiles();
+  }, [loadProfiles]);
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
@@ -62,16 +68,29 @@ export function ProviderQuickSwitch({ onOpenSettings }: { onOpenSettings: () => 
     [loadProfiles, switching, view],
   );
 
+  const activeProfile = view?.profiles.find((profile) => profile.isActive);
+
   return (
     <DropdownMenu.Root open={open} onOpenChange={handleOpenChange}>
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          aria-label={t("topbar.modelSettings")}
-          title={t("topbar.modelSettings")}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-selection hover:text-ink data-[state=open]:bg-selection data-[state=open]:text-ink"
+          aria-label={t("topbar.modelSwitchAria")}
+          title={t("topbar.modelSwitchAria")}
+          className="hidden h-8 max-w-[220px] items-center gap-1.5 rounded-lg border border-line bg-field px-2 text-[11.5px] text-ink-soft transition-colors hover:bg-selection hover:text-ink data-[state=open]:bg-selection data-[state=open]:text-ink sm:inline-flex"
         >
-          <Settings2 size={16} strokeWidth={1.8} />
+          <Cpu size={13} strokeWidth={1.8} className="shrink-0 text-ink-faint" />
+          <span className="min-w-0 truncate">
+            {activeProfile ? (
+              <>
+                <span className="font-medium text-ink">{activeProfile.config.name}</span>
+                <span className="ml-1 text-ink-faint">{activeProfile.config.model}</span>
+              </>
+            ) : (
+              t("topbar.modelSwitchEmpty")
+            )}
+          </span>
+          <ChevronDown size={12} className="shrink-0 text-ink-faint" />
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
@@ -122,11 +141,6 @@ export function ProviderQuickSwitch({ onOpenSettings }: { onOpenSettings: () => 
               {t("settings.loading")}
             </div>
           )}
-          <DropdownMenu.Separator className="my-1 h-px bg-line" />
-          <DropdownMenu.Item onSelect={onOpenSettings} className={itemClass}>
-            <Settings size={14} strokeWidth={1.8} className="text-ink-faint" />
-            <span className="flex-1">{t("settings.profileOpenSettings")}</span>
-          </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>

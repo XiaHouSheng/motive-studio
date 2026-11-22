@@ -517,3 +517,103 @@ describe("各环节生效自定义提示词", () => {
     expect(lastSystemPrompt(upstream)).toBe(CUSTOM);
   });
 });
+
+describe("讨论模型设置接口", () => {
+  let dir: string;
+  let running: RunningApp;
+  let upstream: RunningUpstream | undefined;
+
+  beforeEach(async () => {
+    dir = mkdtempSync(path.join(tmpdir(), "motive-settings-chat-"));
+    running = await start(path.join(dir, "motive.db"));
+  });
+
+  afterEach(async () => {
+    await running.close();
+    if (upstream) await upstream.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("默认跟随主模型；设置后 GET/PUT 生效；删除配置时覆盖一并清除", async () => {
+    const initial = await call<{ profileId: string | null }>(
+      running,
+      "GET",
+      "/api/settings/provider/chat-model",
+    );
+    expect(initial.status).toBe(200);
+    expect(initial.body.profileId).toBeNull();
+
+    // 准备主配置 + 另存一个配置
+    upstream = await startUpstream(() => "ok");
+    await configureProvider(running, upstream);
+    const saved = await call<{ provider: { id: string; name: string } }>(
+      running,
+      "POST",
+      "/api/settings/provider/profiles",
+      {
+        name: "备用模型",
+        provider: {
+          name: "备用模型",
+          baseUrl: upstream.baseUrl,
+          model: "backup-model",
+          protocol: "openai-chat-completions",
+        },
+      },
+    );
+    expect(saved.status).toBe(200);
+    const backupId = saved.body.provider.id;
+    expect(backupId).not.toBe("default");
+
+    // 设置讨论模型覆盖并读取回显
+    const updated = await call<{ profileId: string | null }>(
+      running,
+      "PUT",
+      "/api/settings/provider/chat-model",
+      { profileId: backupId },
+    );
+    expect(updated.status).toBe(200);
+    expect(updated.body.profileId).toBe(backupId);
+    const roundtrip = await call<{ profileId: string | null }>(
+      running,
+      "GET",
+      "/api/settings/provider/chat-model",
+    );
+    expect(roundtrip.body.profileId).toBe(backupId);
+
+    // 未知配置返回 404
+    const missing = await call<{ code: string }>(
+      running,
+      "PUT",
+      "/api/settings/provider/chat-model",
+      { profileId: "not-exists" },
+    );
+    expect(missing.status).toBe(404);
+
+    // 清除覆盖（跟随主模型）
+    const cleared = await call<{ profileId: string | null }>(
+      running,
+      "PUT",
+      "/api/settings/provider/chat-model",
+      { profileId: null },
+    );
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.profileId).toBeNull();
+
+    // 再次设置后删除该配置，覆盖应被一并清理
+    await call(running, "PUT", "/api/settings/provider/chat-model", { profileId: backupId });
+    // 激活中的配置不能删：先切回主模型配置再删除备用配置
+    await call(running, "POST", "/api/settings/provider/profiles/switch", { profileId: "default" });
+    const deleted = await call<{ profiles: Array<{ config: { id: string } }> }>(
+      running,
+      "DELETE",
+      `/api/settings/provider/profiles/${backupId}`,
+    );
+    expect(deleted.status).toBe(200);
+    const after = await call<{ profileId: string | null }>(
+      running,
+      "GET",
+      "/api/settings/provider/chat-model",
+    );
+    expect(after.body.profileId).toBeNull();
+  }, 30_000);
+});

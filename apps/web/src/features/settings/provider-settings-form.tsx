@@ -127,6 +127,9 @@ export function ProviderSettingsForm() {
   const [testResult, setTestResult] = useState<ProviderTestResult | null>(null);
   const [profiles, setProfiles] = useState<ProviderProfilesView | null>(null);
   const [profileBusy, setProfileBusy] = useState(false);
+  /** 讨论模型覆盖：undefined 表示尚未加载完成 */
+  const [chatProfileId, setChatProfileId] = useState<string | null | undefined>(undefined);
+  const [chatModelSaving, setChatModelSaving] = useState(false);
 
   const refreshProfiles = useCallback(() => {
     api
@@ -138,6 +141,21 @@ export function ProviderSettingsForm() {
   useEffect(() => {
     refreshProfiles();
   }, [refreshProfiles]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getChatModelSetting()
+      .then((setting) => {
+        if (!cancelled) setChatProfileId(setting.profileId);
+      })
+      .catch(() => {
+        if (!cancelled) setChatProfileId(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -227,6 +245,33 @@ export function ProviderSettingsForm() {
       }
     },
     [isFormDirty, profileBusy, refreshProfiles, t],
+  );
+
+  /** 切换讨论模型覆盖（null = 跟随主模型），立即保存生效 */
+  const handleChatModelChange = useCallback(
+    async (profileId: string | null) => {
+      if (chatModelSaving || chatProfileId === profileId) return;
+      setChatModelSaving(true);
+      setError(null);
+      setNotice(null);
+      try {
+        const next = await api.saveChatModelSetting({ profileId });
+        setChatProfileId(next.profileId);
+        const name = (profiles?.profiles ?? []).find(
+          (profile) => profile.config.id === next.profileId,
+        )?.config.name;
+        setNotice(
+          name
+            ? t("settings.chatModelSaved", { name })
+            : t("settings.chatModelFollowSaved"),
+        );
+      } catch (saveError) {
+        setError(describeError(t, saveError));
+      } finally {
+        setChatModelSaving(false);
+      }
+    },
+    [chatModelSaving, chatProfileId, profiles, t],
   );
 
   const handleDeleteProfile = useCallback(
@@ -497,6 +542,56 @@ export function ProviderSettingsForm() {
             ) : null}
             <span className="block text-[11px] text-ink-faint">
               {t("settings.profilesHint")}
+            </span>
+          </div>
+
+          <div className="space-y-1.5 rounded-md border border-line bg-sidebar/60 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className={labelClass}>{t("settings.chatModelLabel")}</span>
+              {chatModelSaving ? (
+                <Loader2 size={12} className="animate-spin text-ink-faint" />
+              ) : null}
+            </div>
+            <div
+              className="flex flex-wrap gap-1.5"
+              role="radiogroup"
+              aria-label={t("settings.chatModelLabel")}
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={chatProfileId === null}
+                onClick={() => void handleChatModelChange(null)}
+                className={cn(
+                  "inline-flex h-7 items-center rounded-md border px-2 text-[11.5px] transition-colors",
+                  chatProfileId === null
+                    ? "border-brand/50 bg-brand/5 text-ink"
+                    : "border-line bg-field text-ink-soft hover:bg-selection hover:text-ink",
+                )}
+              >
+                {t("settings.chatModelFollow")}
+              </button>
+              {(profiles?.profiles ?? []).map((profile) => (
+                <button
+                  key={profile.config.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={chatProfileId === profile.config.id}
+                  onClick={() => void handleChatModelChange(profile.config.id)}
+                  title={profile.config.model}
+                  className={cn(
+                    "inline-flex h-7 items-center rounded-md border px-2 text-[11.5px] transition-colors",
+                    chatProfileId === profile.config.id
+                      ? "border-brand/50 bg-brand/5 text-ink"
+                      : "border-line bg-field text-ink-soft hover:bg-selection hover:text-ink",
+                  )}
+                >
+                  {profile.config.name}
+                </button>
+              ))}
+            </div>
+            <span className="block text-[11px] text-ink-faint">
+              {t("settings.chatModelHint")}
             </span>
           </div>
 

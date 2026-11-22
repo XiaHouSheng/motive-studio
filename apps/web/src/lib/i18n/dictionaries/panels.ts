@@ -117,6 +117,12 @@ export const panelsZh = {
   "settings.profileDeleted": "已删除配置「{name}」",
   "settings.profileDuplicateName": "已存在同名配置「{name}」，请换个名称",
   "settings.profileMenuLabel": "模型配置",
+  "settings.chatModelLabel": "讨论模型",
+  "settings.chatModelFollow": "跟随主模型",
+  "settings.chatModelHint":
+    "右侧讨论对话单独使用的模型配置，默认跟随上方当前激活的模型；题解、详解与拍照识别始终使用主模型。",
+  "settings.chatModelSaved": "讨论模型已切换为「{name}」",
+  "settings.chatModelFollowSaved": "讨论模型已恢复为跟随主模型",
   "settings.profileOpenSettings": "打开模型设置",
   "settings.profileDeleteConfirm":
     "删除配置「{name}」？其保存的 API Key 也会一并删除，该操作不可恢复。",
@@ -373,6 +379,12 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "settings.profileDeleted": "Deleted configuration “{name}”",
   "settings.profileDuplicateName": "A configuration named “{name}” already exists. Use another name.",
   "settings.profileMenuLabel": "Model configurations",
+  "settings.chatModelLabel": "Chat model",
+  "settings.chatModelFollow": "Follow main model",
+  "settings.chatModelHint":
+    "The model used by the chat panel on the right. It defaults to the active configuration above; solution generation and image capture always use the main model.",
+  "settings.chatModelSaved": "Chat model switched to “{name}”",
+  "settings.chatModelFollowSaved": "Chat model now follows the main model",
   "settings.profileOpenSettings": "Open model settings",
   "settings.profileDeleteConfirm":
     "Delete configuration “{name}”? Its saved API key will be removed as well. This cannot be undone.",

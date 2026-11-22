@@ -11,6 +11,7 @@ import {
   PanelLeftClose,
   PanelRightClose,
   PanelRightOpen,
+  Settings,
   Smartphone,
   Terminal,
   Upload,
@@ -177,7 +178,16 @@ export function TopBar({ workspace }: TopBarProps) {
         >
           <Smartphone size={16} strokeWidth={1.8} />
         </button>
-        <ProviderQuickSwitch onOpenSettings={openSettings} />
+        <ProviderQuickSwitch />
+        <button
+          type="button"
+          onClick={openSettings}
+          aria-label={t("topbar.openSettingsAria")}
+          title={t("topbar.openSettingsAria")}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-selection hover:text-ink"
+        >
+          <Settings size={16} strokeWidth={1.8} />
+        </button>
         <ThemeMenu />
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>

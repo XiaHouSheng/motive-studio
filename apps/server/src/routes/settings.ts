@@ -72,6 +72,24 @@ export function createSettingsRouter(
     res.json(await store.saveAsNewProfile(body.provider, body.name));
   });
 
+  // ---- 讨论模型覆盖（chat 与题解/解析可分开配置） ----
+
+  router.get("/settings/provider/chat-model", (_req: Request, res: Response) => {
+    res.json({ profileId: store.getChatProfileId() });
+  });
+
+  router.put("/settings/provider/chat-model", (req: Request, res: Response) => {
+    const body = readBody(req.body);
+    if (body.profileId !== null && typeof body.profileId !== "string") {
+      throw new HttpError(400, "INVALID_FIELD", "profileId 必须是字符串或 null");
+    }
+    const profileId =
+      typeof body.profileId === "string" && body.profileId.trim()
+        ? store.setChatProfileId(body.profileId.trim())
+        : store.setChatProfileId(null);
+    res.json({ profileId });
+  });
+
   router.post("/settings/provider/profiles/switch", async (req: Request, res: Response) => {
     const body = readBody(req.body);
     if (typeof body.profileId !== "string" || !body.profileId.trim()) {

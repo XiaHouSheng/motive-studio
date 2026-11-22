@@ -65,8 +65,9 @@ export function createStepsRouter(
                 label: "用户消息",
               });
 
-        const view = settingsStore.getView();
-        const apiKey = settingsStore.getApiKey();
+        // 讨论使用「讨论模型」配置（未设置时跟随主模型）
+        const chat = await settingsStore.getChatProvider();
+        const apiKey = chat.apiKey;
         if (!apiKey) {
           throw new HttpError(
             400,
@@ -74,7 +75,7 @@ export function createStepsRouter(
             "请先在模型设置中配置 API Key",
           );
         }
-        if (images.length > 0 && view.provider.supportsVision === false) {
+        if (images.length > 0 && chat.provider.supportsVision === false) {
           throw new HttpError(400, "VISION_UNSUPPORTED", "当前模型不支持图片输入");
         }
 
@@ -90,7 +91,7 @@ export function createStepsRouter(
           systemPrompt: promptStore.getSettings().step_discussion,
           images: imageInputs,
         });
-        const provider = new OpenAIProvider(view.provider, apiKey);
+        const provider = new OpenAIProvider(chat.provider, apiKey);
 
         res.status(200);
         res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
@@ -127,7 +128,7 @@ export function createStepsRouter(
             {
               messages,
               temperature: CHAT_TEMPERATURE,
-              maxTokens: view.provider.maxTokens,
+              maxTokens: chat.provider.maxTokens,
             },
             controller.signal,
           )) {

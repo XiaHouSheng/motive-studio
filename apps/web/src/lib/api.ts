@@ -1,6 +1,7 @@
 import {
   createSseParser,
   type BackupPayload,
+  type ChatModelSetting,
   type ChatStreamEvent,
   type ConversationTurn,
   type ConversationView,
@@ -343,6 +344,14 @@ export const api = {
   testProvider: () =>
     request<ProviderTestResult>("/api/settings/provider/test", {
       method: "POST",
+    }),
+
+  getChatModelSetting: () =>
+    request<ChatModelSetting>("/api/settings/provider/chat-model"),
+  saveChatModelSetting: (input: ChatModelSetting) =>
+    request<ChatModelSetting>("/api/settings/provider/chat-model", {
+      method: "PUT",
+      body: JSON.stringify(input),
     }),
 
   getPromptSettings: () => request<PromptSettingsView>("/api/settings/prompts"),
