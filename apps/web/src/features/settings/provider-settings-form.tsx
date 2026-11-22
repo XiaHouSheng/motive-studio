@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   AlertTriangle,
@@ -20,6 +20,7 @@ import type {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { ChatModelSection } from "./chat-model-selector";
 import { api } from "@/lib/api";
 import { formatTime } from "@/lib/format";
 import { useT } from "@/lib/i18n/use-i18n";
@@ -128,9 +129,6 @@ export function ProviderSettingsForm() {
   const [testResult, setTestResult] = useState<ProviderTestResult | null>(null);
   const [profiles, setProfiles] = useState<ProviderProfilesView | null>(null);
   const [profileBusy, setProfileBusy] = useState(false);
-  /** 讨论模型覆盖：undefined 表示尚未加载完成 */
-  const [chatProfileId, setChatProfileId] = useState<string | null | undefined>(undefined);
-  const [chatModelSaving, setChatModelSaving] = useState(false);
 
   const refreshProfiles = useCallback(() => {
     api
@@ -142,21 +140,6 @@ export function ProviderSettingsForm() {
   useEffect(() => {
     refreshProfiles();
   }, [refreshProfiles]);
-
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .getChatModelSetting()
-      .then((setting) => {
-        if (!cancelled) setChatProfileId(setting.profileId);
-      })
-      .catch(() => {
-        if (!cancelled) setChatProfileId(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -246,33 +229,6 @@ export function ProviderSettingsForm() {
       }
     },
     [isFormDirty, profileBusy, refreshProfiles, t],
-  );
-
-  /** 切换讨论模型覆盖（null = 跟随主模型），立即保存生效 */
-  const handleChatModelChange = useCallback(
-    async (profileId: string | null) => {
-      if (chatModelSaving || chatProfileId === profileId) return;
-      setChatModelSaving(true);
-      setError(null);
-      setNotice(null);
-      try {
-        const next = await api.saveChatModelSetting({ profileId });
-        setChatProfileId(next.profileId);
-        const name = (profiles?.profiles ?? []).find(
-          (profile) => profile.config.id === next.profileId,
-        )?.config.name;
-        setNotice(
-          name
-            ? t("settings.chatModelSaved", { name })
-            : t("settings.chatModelFollowSaved"),
-        );
-      } catch (saveError) {
-        setError(describeError(t, saveError));
-      } finally {
-        setChatModelSaving(false);
-      }
-    },
-    [chatModelSaving, chatProfileId, profiles, t],
   );
 
   const handleDeleteProfile = useCallback(
@@ -546,56 +502,6 @@ export function ProviderSettingsForm() {
             </span>
           </div>
 
-          <div className="space-y-1.5 rounded-md border border-line bg-sidebar/60 p-3">
-            <div className="flex items-center justify-between gap-2">
-              <span className={labelClass}>{t("settings.chatModelLabel")}</span>
-              {chatModelSaving ? (
-                <Loader2 size={12} className="animate-spin text-ink-faint" />
-              ) : null}
-            </div>
-            <div
-              className="flex flex-wrap gap-1.5"
-              role="radiogroup"
-              aria-label={t("settings.chatModelLabel")}
-            >
-              <button
-                type="button"
-                role="radio"
-                aria-checked={chatProfileId === null}
-                onClick={() => void handleChatModelChange(null)}
-                className={cn(
-                  "inline-flex h-7 items-center rounded-md border px-2 text-[11.5px] transition-colors",
-                  chatProfileId === null
-                    ? "border-brand/50 bg-brand/5 text-ink"
-                    : "border-line bg-field text-ink-soft hover:bg-selection hover:text-ink",
-                )}
-              >
-                {t("settings.chatModelFollow")}
-              </button>
-              {(profiles?.profiles ?? []).map((profile) => (
-                <button
-                  key={profile.config.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={chatProfileId === profile.config.id}
-                  onClick={() => void handleChatModelChange(profile.config.id)}
-                  title={profile.config.model}
-                  className={cn(
-                    "inline-flex h-7 items-center rounded-md border px-2 text-[11.5px] transition-colors",
-                    chatProfileId === profile.config.id
-                      ? "border-brand/50 bg-brand/5 text-ink"
-                      : "border-line bg-field text-ink-soft hover:bg-selection hover:text-ink",
-                  )}
-                >
-                  {profile.config.name}
-                </button>
-              ))}
-            </div>
-            <span className="block text-[11px] text-ink-faint">
-              {t("settings.chatModelHint")}
-            </span>
-          </div>
-
           <div className="space-y-1.5">
             <span className={labelClass}>{t("settings.presetsLabel")}</span>
             <div className="flex flex-wrap gap-1.5">
@@ -831,18 +737,26 @@ interface ProviderSummary {
 }
 
 /**
- * 设置页「模型服务」分区：只保留一张当前模型摘要卡与「添加模型」入口，
- * 完整的配置管理（多配置切换 / 预设 / 表单 / API Key / 讨论模型）收进模态框，
- * 让设置页本身保持简洁。
+ * 设置页「模型服务」分区：当前模型摘要卡 + 讨论模型选择直接放在页面上，
+ * 「添加模型」打开模态框承载完整的配置管理（多配置切换 / 预设 / 表单 / API Key）。
  */
 export function ProviderSettingsSection() {
   const t = useT();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [summary, setSummary] = useState<ProviderSummary | null>(null);
+  /** 模态框关闭后递增，驱动讨论模型选择器重新拉取配置列表 */
+  const [chatModelRefreshKey, setChatModelRefreshKey] = useState(0);
+  const dialogWasOpen = useRef(false);
 
-  // 关闭模态框（保存/切换后）刷新摘要
+  // 关闭模态框（保存/切换后）刷新摘要与讨论模型选择器
   useEffect(() => {
-    if (dialogOpen) return;
+    if (dialogOpen) {
+      dialogWasOpen.current = true;
+      return;
+    }
+    if (!dialogWasOpen.current) return;
+    dialogWasOpen.current = false;
+    setChatModelRefreshKey((value) => value + 1);
     let cancelled = false;
     api
       .getProviderSettings()
@@ -904,6 +818,8 @@ export function ProviderSettingsSection() {
           </Button>
         </div>
       </div>
+
+      <ChatModelSection refreshKey={chatModelRefreshKey} />
 
       <Dialog
         open={dialogOpen}
