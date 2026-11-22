@@ -33,6 +33,9 @@ export function ResizeHandle({
   const draggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, width: 0 });
   const [dragging, setDragging] = useState(false);
+  // 拖拽期间按帧合并宽度提交：pointermove 频率高于刷新率时避免多余的重排
+  const frameRef = useRef<number | null>(null);
+  const pendingWidthRef = useRef<number | null>(null);
 
   const clamp = useCallback(
     (value: number) => Math.min(max, Math.max(min, Math.round(value))),
@@ -52,7 +55,11 @@ export function ResizeHandle({
     (event: React.PointerEvent<HTMLDivElement>) => {
       if (event.button !== 0) return;
       event.preventDefault();
-      event.currentTarget.setPointerCapture(event.pointerId);
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        // 指针已失效时忽略捕获失败，拖拽逻辑照常执行
+      }
       dragStartRef.current = { x: event.clientX, width };
       setDraggingState(true);
     },
@@ -67,7 +74,15 @@ export function ResizeHandle({
         anchor === "left"
           ? dragStartRef.current.width + delta
           : dragStartRef.current.width - delta;
-      onResize(clamp(target));
+      pendingWidthRef.current = clamp(target);
+      if (frameRef.current === null) {
+        frameRef.current = requestAnimationFrame(() => {
+          frameRef.current = null;
+          if (pendingWidthRef.current === null) return;
+          onResize(pendingWidthRef.current);
+          pendingWidthRef.current = null;
+        });
+      }
     },
     [anchor, clamp, onResize],
   );
@@ -75,12 +90,21 @@ export function ResizeHandle({
   const endDrag = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       if (!draggingRef.current) return;
+      // 松手时提交尚未落帧的最终宽度，避免停在中间值
+      if (frameRef.current !== null) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
+      if (pendingWidthRef.current !== null) {
+        onResize(pendingWidthRef.current);
+        pendingWidthRef.current = null;
+      }
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
       setDraggingState(false);
     },
-    [setDraggingState],
+    [setDraggingState, onResize],
   );
 
   const handleKeyDown = useCallback(

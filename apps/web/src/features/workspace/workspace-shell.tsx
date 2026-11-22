@@ -4,16 +4,16 @@ import { useUiStore } from "@/stores/ui";
 import { useT } from "@/lib/i18n/use-i18n";
 import { cn } from "@/lib/utils";
 import type { WorkspaceApi } from "./use-workspace";
-import { GroupSidebar } from "@/features/question-groups/group-sidebar";
-import { SolutionPanel } from "@/features/solutions/solution-panel";
-import { ChatPanel } from "@/features/discussions/chat-panel";
+import { GroupSidebarMemo as GroupSidebar } from "@/features/question-groups/group-sidebar";
+import { SolutionPanelMemo as SolutionPanel } from "@/features/solutions/solution-panel";
+import { ChatPanelMemo as ChatPanel } from "@/features/discussions/chat-panel";
 import { SettingsPage } from "@/features/settings/settings-page";
 import { AddQuestionDialog } from "@/features/question-groups/add-question-dialog";
 import { MobileCaptureDialog } from "@/features/mobile-capture/mobile-capture-dialog";
 import { ResizeHandle } from "@/components/shared/resize-handle";
 import { OverviewScrollbar } from "@/components/shared/overview-scrollbar";
 import { CHAT_WIDTH_LIMITS, SIDEBAR_WIDTH_LIMITS } from "@/stores/ui";
-import { TopBar } from "./top-bar";
+import { TopBarMemo as TopBar } from "./top-bar";
 
 interface WorkspaceShellProps {
   workspace: WorkspaceApi;
@@ -139,9 +139,10 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
           />
         )}
 
-        {/* 主内容区：VSCode 式缩略图滚动条替代原生滚动条 */}
+        {/* 主内容区：VSCode 式缩略图滚动条替代原生滚动条；拖宽期间暂停克隆重建 */}
         <OverviewScrollbar
           minimap
+          rebuildPaused={resizing}
           className="flex min-w-0 flex-1 flex-col"
           scrollClassName="flex flex-col"
         >

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import {
   AlertCircle,
   AlertTriangle,
@@ -601,3 +601,6 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
     </div>
   );
 }
+
+/** 面板拖宽等场景下 props 引用稳定时可整体跳过重渲染（宽度状态只影响布局层） */
+export const ChatPanelMemo = memo(ChatPanel);

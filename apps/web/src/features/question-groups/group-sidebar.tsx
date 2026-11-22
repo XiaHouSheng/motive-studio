@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { Download, FolderOpen, ImagePlus, Plus, Trash2, X } from "lucide-react";
 import { useUiStore } from "@/stores/ui";
 import { excerpt } from "@/lib/format";
@@ -257,3 +257,6 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
     </div>
   );
 }
+
+/** 面板拖宽等场景下 props 引用稳定时可整体跳过重渲染（宽度状态只影响布局层） */
+export const GroupSidebarMemo = memo(GroupSidebar);

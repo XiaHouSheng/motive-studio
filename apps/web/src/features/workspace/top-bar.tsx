@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, memo } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
   Check,
@@ -273,3 +273,6 @@ export function TopBar({ workspace }: TopBarProps) {
     </header>
   );
 }
+
+/** 面板拖宽等场景下 props 引用稳定时可整体跳过重渲染（宽度状态只影响布局层） */
+export const TopBarMemo = memo(TopBar);

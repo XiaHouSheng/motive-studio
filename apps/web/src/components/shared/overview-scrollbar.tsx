@@ -16,6 +16,8 @@ interface OverviewScrollbarProps {
   scrollClassName?: string;
   /** 开启后右侧渲染 VSCode 式内容缩略图（minimap），而非纯滚动轨道 */
   minimap?: boolean;
+  /** 暂停缩略图克隆重建（如面板拖宽过程中），恢复后补一次重建 */
+  rebuildPaused?: boolean;
 }
 
 /**
@@ -34,6 +36,7 @@ export function OverviewScrollbar({
   className,
   scrollClassName,
   minimap = false,
+  rebuildPaused = false,
 }: OverviewScrollbarProps) {
   const t = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -85,9 +88,19 @@ export function OverviewScrollbar({
   const syncRef = useRef(sync);
   syncRef.current = sync;
 
+  // 面板拖宽等场景暂停重建：克隆代价高（全量子树布局），恢复后补一次即可
+  const rebuildPausedRef = useRef(rebuildPaused);
+  rebuildPausedRef.current = rebuildPaused;
+  const rebuildPendingRef = useRef(false);
+
   /** 重建缩略图克隆：缩放 = 轨道可用高度 / 克隆实际高度（上限 0.35） */
   const rebuildMinimap = useCallback(() => {
     if (!minimap) return;
+    if (rebuildPausedRef.current) {
+      rebuildPendingRef.current = true;
+      console.log("[ovs] paused, pending=true");
+      return;
+    }
     const node = scrollRef.current;
     const viewport = minimapViewportRef.current;
     const host = cloneHostRef.current;
@@ -228,13 +241,20 @@ export function OverviewScrollbar({
     };
   }, [rebuildMinimapSoon]);
 
-  // 轨道首次渲染后立即计算一次 thumb 几何与缩略图
+  // 轨道首次渲染后立即计算一次 thumb 几何与缩略图；暂停结束（拖宽结束）后补重建
   useEffect(() => {
     if (hasOverflow) {
       sync();
       rebuildMinimap();
     }
   }, [hasOverflow, sync, rebuildMinimap]);
+
+  useEffect(() => {
+    console.log("[ovs] unpause-effect", { rebuildPaused, pending: rebuildPendingRef.current });
+    if (rebuildPaused || !rebuildPendingRef.current) return;
+    rebuildPendingRef.current = false;
+    rebuildMinimap();
+  }, [rebuildPaused, rebuildMinimap]);
 
   return (
     <div className={cn("relative min-h-0", className)}>

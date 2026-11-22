@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import {
   AlertCircle,
   BookOpen,
@@ -489,3 +489,6 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
     </div>
   );
 }
+
+/** 面板拖宽等场景下 props 引用稳定时可整体跳过重渲染（宽度状态只影响布局层） */
+export const SolutionPanelMemo = memo(SolutionPanel);
