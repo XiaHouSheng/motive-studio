@@ -130,6 +130,8 @@ export const panelsZh = {
   "settings.temperatureLabel": "temperature（可选）",
   "settings.maxTokensLabel": "max tokens（可选）",
   "settings.maxTokensPlaceholder": "留空则由服务端决定",
+  "settings.advancedToggle": "额外设置",
+  "settings.advancedCustomized": "已自定义",
   "settings.supportsVisionLabel": "支持图片输入",
   "settings.supportsVisionHint":
     "关闭后题目图片不会发送给模型：「始终附带」策略会直接报错，「自动」策略降级为纯文本。",
@@ -386,6 +388,8 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "settings.temperatureLabel": "temperature (optional)",
   "settings.maxTokensLabel": "max tokens (optional)",
   "settings.maxTokensPlaceholder": "Leave empty to let the server decide",
+  "settings.advancedToggle": "Advanced settings",
+  "settings.advancedCustomized": "customized",
   "settings.supportsVisionLabel": "Image input",
   "settings.supportsVisionHint":
     "When off, question images are not sent to the model: the “always attach” strategy fails with an error and the “auto” strategy falls back to text only.",

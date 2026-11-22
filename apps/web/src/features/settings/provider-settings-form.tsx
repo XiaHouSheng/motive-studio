@@ -3,6 +3,7 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
   KeyRound,
   Loader2,
   Plus,
@@ -117,6 +118,7 @@ export function ProviderSettingsForm() {
   const [view, setView] = useState<ProviderSettingsView | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -390,6 +392,9 @@ export function ProviderSettingsForm() {
   }, [buildProvider, refreshProfiles, t]);
 
   const hasApiKey = view?.hasApiKey ?? false;
+  /** 额外设置是否偏离默认值：折叠状态下给出「已自定义」提醒，避免隐藏字段被遗忘 */
+  const advancedCustomized =
+    form.temperature.trim() !== "" || form.maxTokens.trim() !== "" || !form.supportsVision;
 
   return (
     <div className="space-y-4">
@@ -558,48 +563,71 @@ export function ProviderSettingsForm() {
             </span>
           </label>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1.5">
-              <span className={labelClass}>{t("settings.temperatureLabel")}</span>
-              <input
-                className={inputClass}
-                value={form.temperature}
-                onChange={(event) => updateField("temperature", event.target.value)}
-                inputMode="decimal"
-                placeholder="0.5"
-              />
-            </label>
-            <label className="space-y-1.5">
-              <span className={labelClass}>{t("settings.maxTokensLabel")}</span>
-              <input
-                className={inputClass}
-                value={form.maxTokens}
-                onChange={(event) => updateField("maxTokens", event.target.value)}
-                inputMode="numeric"
-                placeholder={t("settings.maxTokensPlaceholder")}
-              />
-            </label>
-          </div>
-
-          <label className="flex items-start gap-2.5 rounded-md border border-line bg-field px-3 py-2.5">
-            <input
-              type="checkbox"
-              className="mt-0.5 h-3.5 w-3.5 accent-brand"
-              checked={form.supportsVision}
-              onChange={(event) => {
-                setForm((prev) => ({ ...prev, supportsVision: event.target.checked }));
-                setNotice(null);
-                setError(null);
-                setTestResult(null);
-              }}
+          {/* 额外设置默认折叠：必填项只有名称 / 模型 / Base URL / API Key */}
+          <button
+            type="button"
+            onClick={() => setAdvancedOpen((value) => !value)}
+            aria-expanded={advancedOpen}
+            className="inline-flex w-full items-center gap-1.5 rounded-md border border-line bg-field/60 px-3 py-2 text-[11.5px] text-ink-soft transition-colors hover:bg-selection hover:text-ink"
+          >
+            <ChevronDown
+              size={13}
+              className={cn("transition-transform duration-150", advancedOpen && "rotate-180")}
             />
-            <span className="space-y-0.5">
-              <span className={labelClass}>{t("settings.supportsVisionLabel")}</span>
-              <span className="block text-[11px] leading-relaxed text-ink-faint">
-                {t("settings.supportsVisionHint")}
+            {t("settings.advancedToggle")}
+            {!advancedOpen && advancedCustomized ? (
+              <span className="ml-auto rounded bg-brand/10 px-1.5 py-px text-[10px] text-brand">
+                {t("settings.advancedCustomized")}
               </span>
-            </span>
-          </label>
+            ) : null}
+          </button>
+
+          {advancedOpen ? (
+            <div className="space-y-3 rounded-md border border-line bg-sidebar/60 p-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1.5">
+                  <span className={labelClass}>{t("settings.temperatureLabel")}</span>
+                  <input
+                    className={inputClass}
+                    value={form.temperature}
+                    onChange={(event) => updateField("temperature", event.target.value)}
+                    inputMode="decimal"
+                    placeholder="0.5"
+                  />
+                </label>
+                <label className="space-y-1.5">
+                  <span className={labelClass}>{t("settings.maxTokensLabel")}</span>
+                  <input
+                    className={inputClass}
+                    value={form.maxTokens}
+                    onChange={(event) => updateField("maxTokens", event.target.value)}
+                    inputMode="numeric"
+                    placeholder={t("settings.maxTokensPlaceholder")}
+                  />
+                </label>
+              </div>
+
+              <label className="flex items-start gap-2.5 rounded-md border border-line bg-field px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-3.5 w-3.5 accent-brand"
+                  checked={form.supportsVision}
+                  onChange={(event) => {
+                    setForm((prev) => ({ ...prev, supportsVision: event.target.checked }));
+                    setNotice(null);
+                    setError(null);
+                    setTestResult(null);
+                  }}
+                />
+                <span className="space-y-0.5">
+                  <span className={labelClass}>{t("settings.supportsVisionLabel")}</span>
+                  <span className="block text-[11px] leading-relaxed text-ink-faint">
+                    {t("settings.supportsVisionHint")}
+                  </span>
+                </span>
+              </label>
+            </div>
+          ) : null}
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
