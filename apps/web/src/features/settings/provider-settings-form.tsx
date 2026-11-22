@@ -19,6 +19,7 @@ import type {
 } from "@motive/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { formatTime } from "@/lib/format";
 import { useT } from "@/lib/i18n/use-i18n";
@@ -816,6 +817,103 @@ export function ProviderSettingsForm() {
           ) : null}
         </div>
       )}
+    </div>
+  );
+}
+
+
+interface ProviderSummary {
+  name: string;
+  model: string;
+  baseUrl: string;
+  hasApiKey: boolean;
+  supportsVision: boolean;
+}
+
+/**
+ * 设置页「模型服务」分区：只保留一张当前模型摘要卡与「添加模型」入口，
+ * 完整的配置管理（多配置切换 / 预设 / 表单 / API Key / 讨论模型）收进模态框，
+ * 让设置页本身保持简洁。
+ */
+export function ProviderSettingsSection() {
+  const t = useT();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [summary, setSummary] = useState<ProviderSummary | null>(null);
+
+  // 关闭模态框（保存/切换后）刷新摘要
+  useEffect(() => {
+    if (dialogOpen) return;
+    let cancelled = false;
+    api
+      .getProviderSettings()
+      .then((view) => {
+        if (cancelled) return;
+        setSummary({
+          name: view.provider.name,
+          model: view.provider.model,
+          baseUrl: view.provider.baseUrl,
+          hasApiKey: view.hasApiKey,
+          supportsVision: view.provider.supportsVision !== false,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setSummary(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dialogOpen]);
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-xl border border-line bg-sidebar/60 px-4 py-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            {summary ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-[13px] font-semibold text-ink">
+                    {summary.name}
+                  </span>
+                  <span className="truncate font-mono text-[11.5px] text-ink-faint">
+                    {summary.model}
+                  </span>
+                  {summary.supportsVision ? (
+                    <span className="shrink-0 rounded bg-brand/10 px-1 text-[10px] leading-4 text-brand">
+                      {t("settings.visionBadge")}
+                    </span>
+                  ) : null}
+                  <Badge tone={summary.hasApiKey ? "success" : "warning"}>
+                    {summary.hasApiKey ? t("settings.keyConfigured") : t("settings.keyNotConfigured")}
+                  </Badge>
+                </div>
+                <p className="mt-0.5 truncate text-[11px] text-ink-faint">{summary.baseUrl}</p>
+              </>
+            ) : (
+              <span className="text-[12.5px] text-ink-faint">{t("settings.loading")}</span>
+            )}
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setDialogOpen(true)}
+            className="shrink-0"
+          >
+            <Plus size={13} />
+            {t("settings.addModel")}
+          </Button>
+        </div>
+      </div>
+
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        title={t("settings.providerDialogTitle")}
+        description={t("settings.providerDialogHint")}
+        className="max-w-[680px]"
+      >
+        <ProviderSettingsForm />
+      </Dialog>
     </div>
   );
 }

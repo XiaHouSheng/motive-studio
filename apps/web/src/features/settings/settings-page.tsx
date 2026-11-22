@@ -26,7 +26,7 @@ import { isFrameless } from "@/lib/desktop";
 import { WindowControls, onAppDragDoubleClick } from "@/components/shared/window-controls";
 import { Markdown } from "@/components/shared/markdown";
 import { PromptsSettings } from "./prompts-settings";
-import { ProviderSettingsForm } from "./provider-settings-form";
+import { ProviderSettingsSection } from "./provider-settings-form";
 import { RemoteAccessPanel } from "./remote-access-panel";
 
 type SectionId = "general" | "prompts" | "provider" | "remote";
@@ -296,7 +296,7 @@ export function SettingsPage() {
             <div className="mx-auto max-w-[640px] space-y-5 px-4 py-6">
               {section === "general" ? <GeneralSettings /> : null}
               {section === "prompts" ? <PromptsSettings /> : null}
-              {section === "provider" ? <ProviderSettingsForm /> : null}
+              {section === "provider" ? <ProviderSettingsSection /> : null}
               {section === "remote" ? <RemoteAccessPanel /> : null}
             </div>
           </main>
