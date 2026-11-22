@@ -7,7 +7,6 @@ import {
   Link2,
   Loader2,
   MessageSquareText,
-  Sparkles,
   Square,
   X,
 } from "lucide-react";
@@ -222,42 +221,32 @@ export function ChatPanel({ workspace, onClose }: ChatPanelProps) {
 
   return (
     <div className="relative flex h-full min-h-0 flex-col bg-panel">
-      <div className="shrink-0 border-b border-line px-4 pt-3 pb-3">
-        <div className="flex items-center gap-1.5">
-          <Sparkles size={12.5} strokeWidth={1.9} className="text-brand" />
-          <span className="text-[10.5px] font-semibold tracking-[0.1em] text-ink-faint uppercase">
-            {t("chat.header")}
+      <div className="flex shrink-0 items-center gap-2 border-b border-line px-4 py-2.5">
+        {activeStep ? (
+          <>
+            <Badge tone="brand" className="shrink-0">
+              {t("chat.stepBadge", { number: String(activeStep.order).padStart(2, "0") })}
+            </Badge>
+            <span className="min-w-0 truncate text-[13px] font-semibold text-ink">
+              {activeStep.title}
+            </span>
+          </>
+        ) : (
+          <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">
+            {t("chat.noStep")}
           </span>
-          <div className="ml-auto flex items-center gap-0.5">
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t("chat.close")}
-              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-ink"
-            >
-              <X size={14} />
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-1.5 flex items-center gap-2">
-          {activeStep ? (
-            <>
-              <Badge tone="brand" className="shrink-0">
-                {t("chat.stepBadge", { number: String(activeStep.order).padStart(2, "0") })}
-              </Badge>
-              <span className="min-w-0 truncate text-[13px] font-semibold text-ink">
-                {activeStep.title}
-              </span>
-            </>
-          ) : (
-            <span className="text-[13px] font-semibold text-ink">{t("chat.noStep")}</span>
+        )}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={t("chat.close")}
+          className={cn(
+            "ml-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-ink",
+            !activeStep && "ml-0",
           )}
-        </div>
-
-        <p className="mt-1.5 text-[11px] leading-relaxed text-ink-faint">
-          {t("chat.entryHint")}
-        </p>
+        >
+          <X size={14} />
+        </button>
       </div>
 
       <div
