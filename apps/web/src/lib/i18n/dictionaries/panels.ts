@@ -121,8 +121,11 @@ export const panelsZh = {
   "settings.profileDeleted": "已删除配置「{name}」",
   "settings.profileDuplicateName": "已存在同名配置「{name}」，请换个名称",
   "settings.addModel": "添加模型",
+  "settings.keyNewHint":
+    "保存给新建的配置使用；Base URL 与已有配置相同时可留空，自动复制该配置的 Key。",
   "settings.providerDialogTitle": "模型服务",
-  "settings.providerDialogHint": "添加新模型或管理已有配置：多份配置随时切换，各配置 API Key 独立保存。",
+  "settings.providerDialogHint":
+    "填写新模型信息，保存后创建为新配置并启用；已有配置在列表中点击即可切换，不会被覆盖。",
   "settings.profileMenuLabel": "模型配置",
   "settings.chatModelLabel": "讨论模型",
   "settings.chatModelFollow": "跟随主模型",
@@ -390,9 +393,11 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "settings.profileDeleted": "Deleted configuration “{name}”",
   "settings.profileDuplicateName": "A configuration named “{name}” already exists. Use another name.",
   "settings.addModel": "Add model",
+  "settings.keyNewHint":
+    "Used for the new configuration. Leave empty to copy the key automatically when the base URL matches an existing configuration.",
   "settings.providerDialogTitle": "Model service",
   "settings.providerDialogHint":
-    "Add a new model or manage existing configurations. Switch anytime; each configuration keeps its own API key.",
+    "Fill in the new model details. Saving creates and activates a new configuration; existing ones can be switched from the list and are never overwritten.",
   "settings.profileMenuLabel": "Model configurations",
   "settings.chatModelLabel": "Chat model",
   "settings.chatModelFollow": "Follow main model",

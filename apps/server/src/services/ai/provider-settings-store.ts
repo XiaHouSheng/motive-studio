@@ -365,8 +365,15 @@ export class ProviderSettingsStore {
     return this.getView();
   }
 
-  /** 把传入配置另存为新配置并激活；baseUrl 与原激活一致时复制其 API Key */
-  async saveAsNewProfile(provider: unknown, name: string): Promise<ProviderSettingsView> {
+  /**
+   * 把传入配置另存为新配置并激活；baseUrl 与原激活一致时复制其 API Key，
+   * 显式传入 apiKey 时以其为准（覆盖复制结果）。
+   */
+  async saveAsNewProfile(
+    provider: unknown,
+    name: string,
+    apiKey?: string,
+  ): Promise<ProviderSettingsView> {
     const trimmedName = readNonEmpty(name, "配置名称", 100);
     const source =
       typeof provider === "object" && provider !== null
@@ -407,6 +414,25 @@ export class ProviderSettingsStore {
     state.activeId = created.id;
     this.writeProfilesState(state);
     this.upsertSetting(SETTINGS_KEY, JSON.stringify(created));
+
+    // 显式携带的 Key 优先（覆盖 baseUrl 相同时的复制结果）
+    const explicitKey = apiKey?.trim();
+    if (explicitKey) {
+      try {
+        await this.credentials.set(credentialKeyFor(created.id), explicitKey);
+        this.upsertSetting(
+          credentialMetaKeyFor(created.id),
+          JSON.stringify({ savedAt: Date.now() }),
+        );
+      } catch {
+        throw new HttpError(
+          500,
+          "CREDENTIAL_STORE_FAILED",
+          "API Key 写入本机凭据存储失败，请检查系统凭据服务后重试（配置本身已创建）",
+        );
+      }
+    }
+
     await this.reloadActiveKey();
     return this.getView();
   }

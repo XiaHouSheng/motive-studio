@@ -326,7 +326,11 @@ export const api = {
     }),
   getProviderProfiles: () =>
     request<ProviderProfilesView>("/api/settings/provider/profiles"),
-  saveProviderProfile: (input: { name: string; provider: ProviderConfig }) =>
+  saveProviderProfile: (input: {
+    name: string;
+    provider: ProviderConfig;
+    apiKey?: string;
+  }) =>
     request<ProviderSettingsView>("/api/settings/provider/profiles", {
       method: "POST",
       body: JSON.stringify(input),

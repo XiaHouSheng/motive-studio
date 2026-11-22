@@ -63,13 +63,22 @@ export function createSettingsRouter(
     res.json(await store.listProfiles());
   });
 
-  // 把传入配置另存为新配置并激活；body 为 { name, provider }（provider 为完整表单配置）
+  // 把传入配置另存为新配置并激活；body 为 { name, provider, apiKey? }（apiKey 随新配置保存）
   router.post("/settings/provider/profiles", async (req: Request, res: Response) => {
     const body = readBody(req.body);
     if (typeof body.name !== "string") {
       throw new HttpError(400, "INVALID_FIELD", "配置名称必须是字符串");
     }
-    res.json(await store.saveAsNewProfile(body.provider, body.name));
+    if (body.apiKey !== undefined && typeof body.apiKey !== "string") {
+      throw new HttpError(400, "INVALID_FIELD", "apiKey 必须是字符串");
+    }
+    res.json(
+      await store.saveAsNewProfile(
+        body.provider,
+        body.name,
+        typeof body.apiKey === "string" && body.apiKey.trim() ? body.apiKey.trim() : undefined,
+      ),
+    );
   });
 
   // ---- 讨论模型覆盖（chat 与题解/解析可分开配置） ----

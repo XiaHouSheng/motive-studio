@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { ChatModelSection } from "./chat-model-selector";
 import { api } from "@/lib/api";
-import { formatTime } from "@/lib/format";
 import { useT } from "@/lib/i18n/use-i18n";
 import { translateApiError } from "@/lib/i18n/errors";
 import type { DictionaryKey } from "@/lib/i18n/zh-CN";
@@ -85,18 +84,6 @@ const inputClass =
   "h-8 w-full rounded-md border border-line bg-field px-2.5 text-[12.5px] text-ink outline-none placeholder:text-ink-faint focus:border-brand/50";
 const labelClass = "text-[11.5px] font-medium text-ink-soft";
 
-function toForm(provider: ProviderConfig): FormState {
-  return {
-    name: provider.name,
-    baseUrl: provider.baseUrl,
-    model: provider.model,
-    temperature:
-      provider.temperature === undefined ? "" : String(provider.temperature),
-    maxTokens: provider.maxTokens === undefined ? "" : String(provider.maxTokens),
-    supportsVision: provider.supportsVision !== false,
-  };
-}
-
 /**
  * 把错误转换为用户提示：ApiError 按错误码词条翻译（未知码保留服务端消息），
  * 普通 Error 保留原始 message，其余值展示固定兜底词条。
@@ -110,9 +97,9 @@ function describeError(
 }
 
 /**
- * 模型服务设置表单（原 ProviderSettingsDialog 的表单体）。
- * 加载、校验、保存、测试连接、脱敏展示与错误提示行为与原对话框完全一致，
- * 仅去掉 Dialog 外壳，供设置页「模型服务」分区嵌入。
+ * 「添加模型」表单（设置页入口模态框内）：纯新建语义 ——
+ * 表单初始为空，保存即创建为新配置并启用，绝不覆盖已选中的配置。
+ * 已有配置在顶部列表中点击切换；切换不会动这份新建草稿。
  */
 export function ProviderSettingsForm() {
   const t = useT();
@@ -154,8 +141,8 @@ export function ProviderSettingsForm() {
       .getProviderSettings()
       .then((next) => {
         if (cancelled) return;
+        // 仅取凭据存储信息；表单保持空白 —— 这是「添加新模型」草稿
         setView(next);
-        setForm(toForm(next.provider));
       })
       .catch((loadError) => {
         if (!cancelled) setError(describeError(t, loadError));
@@ -196,20 +183,10 @@ export function ProviderSettingsForm() {
     setTestResult(null);
   }, []);
 
-  /** 表单相对当前已保存配置是否有未保存修改（切换配置前提示用） */
-  const isFormDirty = useCallback((): boolean => {
-    if (!view) return false;
-    const baseline = toForm(view.provider);
-    return (Object.keys(baseline) as Array<keyof FormState>).some(
-      (key) => baseline[key] !== form[key],
-    );
-  }, [form, view]);
-
   const handleSwitchProfile = useCallback(
     async (profile: ProviderProfileSummary) => {
       if (profile.isActive || profileBusy) return;
-      if (isFormDirty() && !window.confirm(t("settings.profileSwitchDirtyConfirm"))) return;
-
+      // 切换只影响激活配置；下方表单是独立的新建草稿，互不影响
       setProfileBusy(true);
       setError(null);
       setNotice(null);
@@ -217,9 +194,6 @@ export function ProviderSettingsForm() {
       try {
         const next = await api.switchProviderProfile(profile.config.id);
         setView(next);
-        setForm(toForm(next.provider));
-        setApiKey("");
-        setActivePreset(null);
         refreshProfiles();
         setNotice(t("settings.profileSwitched", { name: next.provider.name }));
       } catch (switchError) {
@@ -228,7 +202,7 @@ export function ProviderSettingsForm() {
         setProfileBusy(false);
       }
     },
-    [isFormDirty, profileBusy, refreshProfiles, t],
+    [profileBusy, refreshProfiles, t],
   );
 
   const handleDeleteProfile = useCallback(
@@ -298,102 +272,50 @@ export function ProviderSettingsForm() {
     };
   }, [form, view, t]);
 
-  const persist = useCallback(async () => {
-    const provider = buildProvider();
-    if (!provider) return null;
-
-    const next = await api.saveProviderSettings({
-      provider,
-      apiKey: apiKey.trim() || undefined,
-    });
-    setView(next);
-    setForm(toForm(next.provider));
-    setApiKey("");
-    return next;
-  }, [apiKey, buildProvider]);
-
+  /** 保存 = 创建为新配置并启用（重名由客户端预检 + 服务端兜底）；绝不覆盖已有配置 */
   const handleSave = useCallback(
     async (withTest: boolean) => {
+      const provider = buildProvider();
+      if (!provider) return;
+      const name = provider.name;
+      if (profiles?.profiles.some((profile) => profile.config.name === name)) {
+        setError(t("settings.profileDuplicateName", { name }));
+        return;
+      }
+
       setSaving(true);
       setError(null);
       setNotice(null);
       setTestResult(null);
 
       try {
-        const saved = await persist();
-        if (!saved) return;
+        const next = await api.saveProviderProfile({
+          name,
+          provider,
+          apiKey: apiKey.trim() || undefined,
+        });
+        setView(next);
         refreshProfiles();
 
         if (withTest) {
           const result = await api.testProvider();
           setTestResult(result);
         } else {
-          setNotice(t("settings.saved"));
+          setNotice(t("settings.profileSavedNew", { name: next.provider.name }));
         }
+
+        // 保存成功后重置草稿，方便连续添加多个模型
+        setForm(EMPTY_FORM);
+        setApiKey("");
+        setActivePreset(null);
       } catch (saveError) {
         setError(describeError(t, saveError));
       } finally {
         setSaving(false);
       }
     },
-    [persist, refreshProfiles, t],
+    [apiKey, buildProvider, profiles, refreshProfiles, t],
   );
-
-  /** 以表单当前内容另存为新配置（名称取表单服务名称，重名由客户端预检 + 服务端兜底） */
-  const handleSaveAsNewProfile = useCallback(async () => {
-    const provider = buildProvider();
-    if (!provider) return;
-    const name = provider.name;
-    if (profiles?.profiles.some((profile) => profile.config.name === name)) {
-      setError(t("settings.profileDuplicateName", { name }));
-      return;
-    }
-
-    setProfileBusy(true);
-    setError(null);
-    setNotice(null);
-    setTestResult(null);
-    try {
-      const next = await api.saveProviderProfile({ name, provider });
-      setView(next);
-      setForm(toForm(next.provider));
-      setApiKey("");
-      setActivePreset(null);
-      refreshProfiles();
-      setNotice(t("settings.profileSavedNew", { name: next.provider.name }));
-    } catch (saveError) {
-      setError(describeError(t, saveError));
-    } finally {
-      setProfileBusy(false);
-    }
-  }, [buildProvider, profiles, refreshProfiles, t]);
-
-  const handleClearKey = useCallback(async () => {
-    const provider = buildProvider();
-    if (!provider) return;
-
-    setSaving(true);
-    setError(null);
-    setNotice(null);
-    setTestResult(null);
-
-    try {
-      const next = await api.saveProviderSettings({
-        provider,
-        clearApiKey: true,
-      });
-      setView(next);
-      setApiKey("");
-      refreshProfiles();
-      setNotice(t("settings.keyCleared"));
-    } catch (clearError) {
-      setError(describeError(t, clearError));
-    } finally {
-      setSaving(false);
-    }
-  }, [buildProvider, refreshProfiles, t]);
-
-  const hasApiKey = view?.hasApiKey ?? false;
   /** 额外设置是否偏离默认值：折叠状态下给出「已自定义」提醒，避免隐藏字段被遗忘 */
   const advancedCustomized =
     form.temperature.trim() !== "" || form.maxTokens.trim() !== "" || !form.supportsVision;
@@ -439,16 +361,6 @@ export function ProviderSettingsForm() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
               <span className={labelClass}>{t("settings.profilesLabel")}</span>
-              <button
-                type="button"
-                onClick={() => void handleSaveAsNewProfile()}
-                disabled={profileBusy || loading}
-                title={t("settings.profileSaveAsNewHint")}
-                className="inline-flex h-6 items-center gap-1 rounded-md border border-line bg-field px-2 text-[11px] text-ink-soft transition-colors hover:bg-selection hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Plus size={12} />
-                {t("settings.profileSaveAsNew")}
-              </button>
             </div>
             {profiles && profiles.profiles.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
@@ -632,12 +544,7 @@ export function ProviderSettingsForm() {
           ) : null}
 
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <span className={labelClass}>API Key</span>
-              <Badge tone={hasApiKey ? "success" : "warning"}>
-                {hasApiKey ? t("settings.keyConfigured") : t("settings.keyNotConfigured")}
-              </Badge>
-            </div>
+            <span className={labelClass}>API Key</span>
             <div className="relative">
               <KeyRound
                 size={13}
@@ -653,40 +560,13 @@ export function ProviderSettingsForm() {
                   setError(null);
                   setTestResult(null);
                 }}
-                placeholder={hasApiKey ? t("settings.keyPlaceholderKeep") : "sk-..."}
+                placeholder="sk-..."
                 autoComplete="off"
               />
             </div>
-            {hasApiKey && view ? (
-              <div className="space-y-1 rounded-md border border-line bg-field/60 px-3 py-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1.5 font-mono text-[12px] text-ink">
-                    <KeyRound size={12} className="text-brand" />
-                    {view.apiKeyMasked ?? "••••••••"}
-                  </span>
-                  <span className="text-[10.5px] text-ink-faint">
-                    {view.apiKeySavedAt
-                      ? t("settings.keySavedAt", { time: formatTime(view.apiKeySavedAt) })
-                      : t("settings.keyEncrypted")}
-                  </span>
-                </div>
-                <span className="block text-[11px] text-ink-faint">
-                  {t("settings.keyInfoPrefix", { name: view.provider.name })}
-                  {t(STORAGE_LABELS[view.credentialStorage])}
-                  {t("settings.keyInfoSuffix")}
-                </span>
-              </div>
-            ) : null}
-            {hasApiKey ? (
-              <button
-                type="button"
-                onClick={() => void handleClearKey()}
-                disabled={saving}
-                className="text-[11px] text-danger transition-opacity hover:opacity-80 disabled:opacity-50"
-              >
-                {t("settings.clearKey")}
-              </button>
-            ) : null}
+            <span className="block text-[11px] leading-relaxed text-ink-faint">
+              {t("settings.keyNewHint")}
+            </span>
           </div>
 
           {view?.credentialIssue ? (
