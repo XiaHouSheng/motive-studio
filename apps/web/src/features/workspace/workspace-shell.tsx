@@ -8,7 +8,7 @@ import { GroupSidebar } from "@/features/question-groups/group-sidebar";
 import { SolutionPanel } from "@/features/solutions/solution-panel";
 import { ChatPanel } from "@/features/discussions/chat-panel";
 import { SettingsPage } from "@/features/settings/settings-page";
-import { ImageImportDialog } from "@/features/question-groups/image-import-dialog";
+import { AddQuestionDialog } from "@/features/question-groups/add-question-dialog";
 import { MobileCaptureDialog } from "@/features/mobile-capture/mobile-capture-dialog";
 import { ResizeHandle } from "@/components/shared/resize-handle";
 import { CHAT_WIDTH_LIMITS, SIDEBAR_WIDTH_LIMITS } from "@/stores/ui";
@@ -250,7 +250,7 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
       >
         <ChatPanel workspace={workspace} onClose={closeMobileChat} />
       </aside>
-      <ImageImportDialog workspace={workspace} />
+      <AddQuestionDialog workspace={workspace} />
       <MobileCaptureDialog workspace={workspace} />
     </div>
   );

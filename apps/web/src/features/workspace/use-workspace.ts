@@ -92,6 +92,8 @@ export function useWorkspace() {
   const [revisionsLoading, setRevisionsLoading] = useState(false);
   const [restoringRevision, setRestoringRevision] = useState(false);
   const [imageImportGroupId, setImageImportGroupId] = useState<string | null>(null);
+  /** 统一添加题目弹窗的初始页签：文字添加 / 图片导入 */
+  const [imageImportTab, setImageImportTab] = useState<"text" | "image">("text");
   const [imageImportAnalyzing, setImageImportAnalyzing] = useState(false);
   const [imageImportCreating, setImageImportCreating] = useState(false);
   const [imageImportError, setImageImportError] = useState<string | null>(null);
@@ -654,13 +656,15 @@ export function useWorkspace() {
     [load, run],
   );
 
-  const createQuestion = useCallback(
-    (content: string) => {
+  /** 在指定题组下以文字新建题目；成功后关闭添加弹窗并选中新题目 */
+  const createQuestionIn = useCallback(
+    (groupId: string, content: string) => {
       const trimmed = content.trim();
-      const groupId = useUiStore.getState().selectedGroupId;
       if (!trimmed || !groupId) return;
       void run(async () => {
         const created = await api.createQuestion(groupId, trimmed);
+        setImageImportGroupId(null);
+        useUiStore.getState().selectGroup(groupId);
         useUiStore.getState().selectQuestion(created.id);
         await load();
       });
@@ -668,14 +672,19 @@ export function useWorkspace() {
     [load, run],
   );
 
-  const openImageImport = useCallback((groupId: string) => {
-    setImageImportGroupId(groupId);
-    setImageImportQuestions([]);
-    setImageImportError(null);
-  }, []);
+  const openImageImport = useCallback(
+    (groupId: string, tab: "text" | "image" = "text") => {
+      setImageImportGroupId(groupId);
+      setImageImportTab(tab);
+      setImageImportQuestions([]);
+      setImageImportError(null);
+    },
+    [],
+  );
 
   const closeImageImport = useCallback(() => {
     setImageImportGroupId(null);
+    setImageImportTab("text");
     setImageImportQuestions([]);
     setImageImportError(null);
   }, []);
@@ -923,12 +932,12 @@ export function useWorkspace() {
     retry,
     dismissError,
     createGroup,
-    createQuestion,
     imageImportGroupId,
     imageImportAnalyzing,
     imageImportCreating,
     imageImportError,
     imageImportQuestions,
+    imageImportTab,
     openImageImport,
     closeImageImport,
     analyzeImages,
@@ -941,6 +950,7 @@ export function useWorkspace() {
     closeMobileLink,
     deleteGroup,
     deleteQuestion,
+    createQuestionIn,
     providerSupportsVision,
     setQuestionImagePolicy,
     uploadQuestionAssets,

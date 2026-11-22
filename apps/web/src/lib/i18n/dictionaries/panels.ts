@@ -23,6 +23,10 @@ export const panelsZh = {
   "groups.cancel": "取消",
   "groups.add": "添加",
   "groups.newQuestion": "新建题目",
+  "groups.addQuestionTitle": "添加题目",
+  "groups.addQuestionHint": "将添加到题组「{group}」，可切换文字添加或图片导入。",
+  "groups.tabText": "文字添加",
+  "groups.tabImage": "图片导入",
 
   // ── 图片导入 image-import-dialog ──
   "import.readFailed": "读取图片失败",
@@ -283,6 +287,10 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "groups.cancel": "Cancel",
   "groups.add": "Add",
   "groups.newQuestion": "New question",
+  "groups.addQuestionTitle": "Add questions",
+  "groups.addQuestionHint": "Questions will be added to group “{group}”. Switch between text and image import.",
+  "groups.tabText": "Text",
+  "groups.tabImage": "Images",
 
   // ── Image import dialog ──
   "import.readFailed": "Failed to read the image",

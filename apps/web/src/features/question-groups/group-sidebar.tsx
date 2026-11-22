@@ -19,7 +19,6 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
     questionsInGroup,
     selectedGroup,
     createGroup,
-    createQuestion,
     deleteGroup,
     deleteQuestion,
     exportGroupMarkdown,
@@ -33,21 +32,12 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
 
   const [groupDraft, setGroupDraft] = useState("");
   const [addingGroup, setAddingGroup] = useState(false);
-  const [questionDraft, setQuestionDraft] = useState("");
-  const [addingQuestion, setAddingQuestion] = useState(false);
 
   const submitGroup = () => {
     if (!groupDraft.trim()) return;
     createGroup(groupDraft);
     setGroupDraft("");
     setAddingGroup(false);
-  };
-
-  const submitQuestion = () => {
-    if (!questionDraft.trim()) return;
-    createQuestion(questionDraft);
-    setQuestionDraft("");
-    setAddingQuestion(false);
   };
 
   if (loading) {
@@ -117,7 +107,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                     }}
                     title={group.title}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md py-1.5 pr-28 pl-2 text-left transition-colors",
+                      "flex w-full items-center gap-2 rounded-md py-1.5 pr-16 pl-2 text-left transition-colors",
                       active
                         ? "bg-selection text-ink"
                         : "text-ink-soft hover:bg-selection/60 hover:text-ink",
@@ -134,18 +124,6 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                   </button>
                   <div className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-1.5">
                     <div className="flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover/row:opacity-100">
-                      <button
-                        type="button"
-                        aria-label={t("groups.importToAria", { title: group.title })}
-                        title={t("groups.importTitle")}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openImageImport(group.id);
-                        }}
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-brand"
-                      >
-                        <ImagePlus size={13} />
-                      </button>
                       <button
                         type="button"
                         aria-label={t("groups.exportAria", { title: group.title })}
@@ -189,70 +167,22 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
 
       <div className="mx-3 border-t border-line" />
 
+      {/* 「题目」行：唯一的添加入口（弹窗支持文字 / 图片两种方式），不再显示题目总数 */}
       <div className="flex items-center justify-between px-3 pt-3 pb-2">
-        <div className="flex items-center gap-1">
-          <span className="text-[10.5px] font-semibold tracking-[0.1em] text-ink-faint uppercase">
-            {t("groups.questionsTitle")}
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              if (addingQuestion) {
-                setAddingQuestion(false);
-                setQuestionDraft("");
-              } else {
-                setAddingQuestion(true);
-              }
-            }}
-            disabled={!selectedGroup}
-            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label={addingQuestion ? t("groups.cancel") : t("groups.newQuestion")}
-          >
-            {addingQuestion ? <X size={14} /> : <Plus size={14} />}
-          </button>
-        </div>
-        <span className="text-[10.5px] text-ink-faint">{questionsInGroup.length}</span>
+        <span className="text-[10.5px] font-semibold tracking-[0.1em] text-ink-faint uppercase">
+          {t("groups.questionsTitle")}
+        </span>
+        <button
+          type="button"
+          onClick={() => selectedGroup && openImageImport(selectedGroup.id)}
+          disabled={!selectedGroup}
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label={t("groups.addQuestionTitle")}
+          title={t("groups.addQuestionTitle")}
+        >
+          <Plus size={14} />
+        </button>
       </div>
-
-      {addingQuestion ? (
-        <div className="animate-fade-in px-2 pb-2">
-          <textarea
-            autoFocus
-            value={questionDraft}
-            onChange={(event) => setQuestionDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) submitQuestion();
-              if (event.key === "Escape") {
-                setAddingQuestion(false);
-                setQuestionDraft("");
-              }
-            }}
-            rows={3}
-            placeholder={t("groups.questionPlaceholder")}
-            className="w-full resize-none rounded-md border border-line bg-field px-2.5 py-2 text-[12.5px] leading-relaxed text-ink outline-none placeholder:text-ink-faint focus:border-brand/50"
-          />
-          <div className="mt-1.5 flex items-center justify-end gap-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                setAddingQuestion(false);
-                setQuestionDraft("");
-              }}
-              className="h-7 rounded-md px-2 text-[12px] text-ink-soft transition-colors hover:bg-selection hover:text-ink"
-            >
-              {t("groups.cancel")}
-            </button>
-            <button
-              type="button"
-              onClick={submitQuestion}
-              disabled={!questionDraft.trim()}
-              className="h-7 rounded-md bg-brand px-2.5 text-[12px] font-medium text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {t("groups.add")}
-            </button>
-          </div>
-        </div>
-      ) : null}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
         {!selectedGroup ? (
@@ -262,7 +192,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
             <p className="text-[12px] leading-relaxed text-ink-faint">{t("groups.noQuestions")}</p>
             <button
               type="button"
-              onClick={() => openImageImport(selectedGroup.id)}
+              onClick={() => openImageImport(selectedGroup.id, "image")}
               className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-line px-2 py-1.5 text-[12px] text-ink-soft transition-colors hover:border-line-strong hover:bg-selection/50 hover:text-ink"
             >
               <ImagePlus size={13} />
