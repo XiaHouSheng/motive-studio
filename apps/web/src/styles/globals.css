@@ -232,7 +232,12 @@
   user-select: none;
 }
 
+/* 克隆内不留任何 padding/margin/阴影：内容纹理铺满条内，无留白 */
+.minimap-clone-host,
 .minimap-clone-host * {
+  margin: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
   pointer-events: none !important;
 }
 

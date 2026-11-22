@@ -57,18 +57,34 @@ export function OverviewScrollbar({
     const track = trackRef.current;
     const thumb = thumbRef.current;
     if (!overflow || !track || !thumb) return;
-    // minimap 模式下指示框映射到右上角的受限视口（非整条轨道高度）
-    const refH =
+    // minimap 模式下指示框映射到右上角受限视口内「实际绘制高度」
+    // （克隆剥离 padding 后高度小于原始 scrollHeight，按比例换算才对得上内容）
+    const vpH =
       minimap && minimapViewportRef.current
         ? minimapViewportRef.current.clientHeight
         : track.clientHeight;
-    if (refH <= 0) return;
+    if (vpH <= 0) return;
+    const paintedH = minimap ? paintedHeight(vpH, scrollHeight) : vpH;
+    if (paintedH <= 0) return;
     const maxScroll = scrollHeight - clientHeight;
-    const h = Math.max(MIN_THUMB_HEIGHT, (clientHeight / scrollHeight) * refH);
-    const top = maxScroll > 0 ? (scrollTop / maxScroll) * (refH - h) : 0;
+    const h = Math.max(MIN_THUMB_HEIGHT, (clientHeight / scrollHeight) * paintedH);
+    const top = maxScroll > 0 ? (scrollTop / maxScroll) * (paintedH - h) : 0;
     thumb.style.height = `${Math.round(h)}px`;
     thumb.style.transform = `translateY(${Math.round(top)}px)`;
   }, []);
+
+  /**
+   * minimap 内「实际绘制高度」：克隆剥离 padding 后其布局高度与原始
+   * scrollHeight 不同（晚加载的图片还会继续变化），指示框映射需要实时测量。
+   */
+  const paintedHeight = useCallback(
+    (viewportHeight: number, scrollHeight: number) => {
+      const host = cloneHostRef.current;
+      const cloneH = host?.scrollHeight || scrollHeight;
+      return viewportHeight * Math.min(1, cloneH / Math.max(1, scrollHeight));
+    },
+    [],
+  );
 
   /**
    * 重建缩略图克隆：按「轨道高度 / 内容总高」缩放（上限 0.35）。
@@ -88,22 +104,22 @@ export function OverviewScrollbar({
       return;
     }
     const contentWidth = node.clientWidth;
-    const scale = Math.min(
-      MAX_MINIMAP_SCALE,
-      viewport.clientHeight / Math.max(1, node.scrollHeight),
-    );
-    if (scale <= 0) return;
     const clone = source.cloneNode(true) as HTMLElement;
     host.replaceChildren(clone);
     cloneWidthRef.current = contentWidth;
-    // 主体（正文列）相对滚动内容左缘的偏移：居中布局时为两侧留白宽度
-    const body = source.firstElementChild as HTMLElement | null;
-    let bodyLeft = 0;
-    if (body) {
-      bodyLeft =
-        body.getBoundingClientRect().left - source.getBoundingClientRect().left;
-    }
-    bodyLeftRef.current = Math.max(0, bodyLeft);
+    // 克隆内 margin/padding 已被 CSS 清零：按其实际高度定缩放，纹理铺满无留白
+    // （transform 不影响 offsetHeight，可同步测量）
+    const cloneHeight = Math.max(1, clone.offsetHeight);
+    const scale = Math.min(MAX_MINIMAP_SCALE, viewport.clientHeight / cloneHeight);
+    if (scale <= 0) return;
+    // 主体对齐兜底：量克隆内残余偏移（margin 清零后应为 0）
+    const body = clone.firstElementChild as HTMLElement | null;
+    bodyLeftRef.current = body
+      ? Math.max(
+          0,
+          body.getBoundingClientRect().left - clone.getBoundingClientRect().left,
+        )
+      : 0;
     setMinimapScale(scale);
   }, [minimap]);
 
@@ -127,11 +143,12 @@ export function OverviewScrollbar({
         ? minimapViewportRef.current
         : track;
     const rect = mapEl.getBoundingClientRect();
-    const mapH = rect.height;
-    if (mapH <= 0) return;
-    const h = Math.max(MIN_THUMB_HEIGHT, (clientHeight / scrollHeight) * mapH);
+    if (rect.height <= 0) return;
+    const paintedH = minimap ? paintedHeight(rect.height, scrollHeight) : rect.height;
+    if (paintedH <= 0) return;
+    const h = Math.max(MIN_THUMB_HEIGHT, (clientHeight / scrollHeight) * paintedH);
     const top = clientY - rect.top;
-    const ratio = Math.min(1, Math.max(0, top / (mapH - h)));
+    const ratio = Math.min(1, Math.max(0, top / (paintedH - h)));
     node.scrollTop = ratio * maxScroll;
   }, []);
 
