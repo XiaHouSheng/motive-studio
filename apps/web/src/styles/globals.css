@@ -222,39 +222,42 @@ div[data-streamdown="table-fullscreen"] {
   background: transparent;
 }
 
-/* 工具栏（复制/下载/全屏）悬浮右上角，hover 卡片时显现 */
+/* 工具栏（复制/下载/全屏）常驻固定在表头最右侧：
+   与粘性表头同底色（横向滚动时遮住滑过的列），只覆盖表头区域，
+   不随 hover 浮现、无投影描边，避免抢视觉 */
 .md div[data-streamdown="table-wrapper"] > div:first-child:not(:last-child) {
   position: absolute;
-  top: 7px;
-  right: 7px;
-  z-index: 10;
-  pointer-events: none;
-  opacity: 0;
-  transform: translateY(-2px);
-  transition:
-    opacity 0.15s ease,
-    transform 0.15s ease;
-  padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: color-mix(in oklab, var(--panel) 88%, transparent);
-  backdrop-filter: blur(6px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
-}
-
-.md div[data-streamdown="table-wrapper"]:hover > div:first-child:not(:last-child) {
-  pointer-events: auto;
+  top: 8px;
+  right: 8px;
+  z-index: 12;
+  padding: 2px 3px;
+  border-radius: 6px;
+  background: var(--sidebar);
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
+  transition: none;
+  pointer-events: auto;
 }
 
-/* 触屏无 hover：工具栏常显 */
-@media (hover: none) {
-  .md div[data-streamdown="table-wrapper"] > div:first-child:not(:last-child) {
-    pointer-events: auto;
-    opacity: 1;
-    transform: none;
-  }
+/* 按钮紧凑弱化：小图标 + 弱色，hover 才点亮 */
+.md div[data-streamdown="table-wrapper"] > div:first-child:not(:last-child) button {
+  padding: 2px;
+  color: var(--ink-faint);
+}
+
+.md div[data-streamdown="table-wrapper"] > div:first-child:not(:last-child) button:hover {
+  color: var(--ink);
+  background: var(--selection);
+}
+
+.md div[data-streamdown="table-wrapper"] > div:first-child:not(:last-child) button svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* 表头最后一列预留工具栏宽度，避免盖住表头文字（数据行不受影响） */
+.md div[data-streamdown="table-wrapper"] thead th:last-child {
+  padding-right: 88px;
 }
 
 /* ---------- Markdown ---------- */
