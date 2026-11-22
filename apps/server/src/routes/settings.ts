@@ -99,6 +99,27 @@ export function createSettingsRouter(
     res.json({ profileId });
   });
 
+  // 编辑指定配置（不改激活状态、不动其 Key，除非 clearApiKey=true 显式清除）
+  router.put("/settings/provider/profiles/:id", async (req: Request, res: Response) => {
+    const body = readBody(req.body);
+    if (
+      body.clearApiKey !== undefined &&
+      typeof body.clearApiKey !== "boolean"
+    ) {
+      throw new HttpError(400, "INVALID_FIELD", "clearApiKey 必须是布尔值");
+    }
+    res.json(
+      await store.updateProfile(readParam(req.params, "id"), body.provider, {
+        clearApiKey: body.clearApiKey === true,
+      }),
+    );
+  });
+
+  // 显式清除指定配置的 API Key（沿用语义的反向操作）
+  router.delete("/settings/provider/profiles/:id/key", async (req: Request, res: Response) => {
+    res.json(await store.clearProfileKey(readParam(req.params, "id")));
+  });
+
   router.post("/settings/provider/profiles/switch", async (req: Request, res: Response) => {
     const body = readBody(req.body);
     if (typeof body.profileId !== "string" || !body.profileId.trim()) {

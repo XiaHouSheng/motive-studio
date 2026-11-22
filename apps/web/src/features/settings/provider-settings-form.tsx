@@ -6,8 +6,9 @@ import {
   ChevronDown,
   KeyRound,
   Loader2,
+  Pencil,
   Plus,
-  X,
+  Trash2,
 } from "lucide-react";
 import type {
   CredentialStorageMode,
@@ -84,6 +85,18 @@ const inputClass =
   "h-8 w-full rounded-md border border-line bg-field px-2.5 text-[12.5px] text-ink outline-none placeholder:text-ink-faint focus:border-brand/50";
 const labelClass = "text-[11.5px] font-medium text-ink-soft";
 
+function toForm(provider: ProviderConfig): FormState {
+  return {
+    name: provider.name,
+    baseUrl: provider.baseUrl,
+    model: provider.model,
+    temperature:
+      provider.temperature === undefined ? "" : String(provider.temperature),
+    maxTokens: provider.maxTokens === undefined ? "" : String(provider.maxTokens),
+    supportsVision: provider.supportsVision !== false,
+  };
+}
+
 /**
  * 把错误转换为用户提示：ApiError 按错误码词条翻译（未知码保留服务端消息），
  * 普通 Error 保留原始 message，其余值展示固定兜底词条。
@@ -96,78 +109,78 @@ function describeError(
   return t("settings.operationFailed");
 }
 
+function buildProviderPayload(form: FormState): ProviderConfig {
+  return {
+    // add 模式下 id 由服务端生成；edit 模式由调用方以目标配置 id 覆盖
+    id: "new",
+    name: form.name.trim(),
+    baseUrl: form.baseUrl.trim(),
+    model: form.model.trim(),
+    protocol: "openai-chat-completions",
+    temperature: form.temperature.trim() === "" ? undefined : Number(form.temperature),
+    maxTokens: form.maxTokens.trim() === "" ? undefined : Number(form.maxTokens),
+    supportsVision: form.supportsVision,
+  };
+}
+
+interface ProviderSettingsFormProps {
+  /** add = 新建（保存即创建并启用）；edit = 编辑指定配置（Key 沿用原值） */
+  mode: "add" | "edit";
+  /** edit 模式的目标配置 */
+  profile?: ProviderProfileSummary;
+  /** 保存成功后的回调（编辑模式：保存后由父级关闭模态框） */
+  onSaved?: () => void;
+}
+
 /**
- * 「添加模型」表单（设置页入口模态框内）：纯新建语义 ——
- * 表单初始为空，保存即创建为新配置并启用，绝不覆盖已选中的配置。
- * 已有配置在顶部列表中点击切换；切换不会动这份新建草稿。
+ * 模型配置表单（设置页「添加模型 / 编辑配置」模态框内）。
+ *
+ * - add：表单初始为空，保存 = 创建为新配置并启用（绝不覆盖已有配置）；
+ *   API Key 随新配置保存，Base URL 与已有配置相同时可留空自动复制。
+ * - edit：预填目标配置，保存原位更新；不展示 Key（沿用原值），
+ *   仅提供显式「清除该配置的 API Key」按钮。
  */
-export function ProviderSettingsForm() {
+export function ProviderSettingsForm({ mode, profile, onSaved }: ProviderSettingsFormProps) {
   const t = useT();
+  const isEdit = mode === "edit" && profile !== undefined;
 
   const [view, setView] = useState<ProviderSettingsView | null>(null);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [form, setForm] = useState<FormState>(() =>
+    isEdit && profile ? toForm(profile.config) : EMPTY_FORM,
+  );
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [apiKey, setApiKey] = useState("");
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<ProviderTestResult | null>(null);
-  const [profiles, setProfiles] = useState<ProviderProfilesView | null>(null);
-  const [profileBusy, setProfileBusy] = useState(false);
 
-  const refreshProfiles = useCallback(() => {
-    api
-      .getProviderProfiles()
-      .then((next) => setProfiles(next))
-      .catch(() => setProfiles(null));
-  }, []);
-
-  useEffect(() => {
-    refreshProfiles();
-  }, [refreshProfiles]);
-
+  // 凭据存储信息 / 全局凭据异常提示（读取很快，静默刷新）
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setNotice(null);
-    setTestResult(null);
-    setApiKey("");
-    setActivePreset(null);
-
     api
       .getProviderSettings()
       .then((next) => {
-        if (cancelled) return;
-        // 仅取凭据存储信息；表单保持空白 —— 这是「添加新模型」草稿
-        setView(next);
+        if (!cancelled) setView(next);
       })
-      .catch((loadError) => {
-        if (!cancelled) setError(describeError(t, loadError));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+      .catch(() => {
+        if (!cancelled) setView(null);
       });
-
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, []);
 
-  const updateField = useCallback(
-    (field: keyof FormState, value: string) => {
-      setForm((prev) => ({ ...prev, [field]: value }));
-      if (field === "name" || field === "baseUrl" || field === "model") {
-        setActivePreset(null);
-      }
-      setNotice(null);
-      setError(null);
-      setTestResult(null);
-    },
-    [],
-  );
+  const updateField = useCallback((field: keyof FormState, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    if (field === "name" || field === "baseUrl" || field === "model") {
+      setActivePreset(null);
+    }
+    setNotice(null);
+    setError(null);
+    setTestResult(null);
+  }, []);
 
   const applyPreset = useCallback((preset: ProviderPreset) => {
     setForm((prev) => ({
@@ -183,142 +196,71 @@ export function ProviderSettingsForm() {
     setTestResult(null);
   }, []);
 
-  const handleSwitchProfile = useCallback(
-    async (profile: ProviderProfileSummary) => {
-      if (profile.isActive || profileBusy) return;
-      // 切换只影响激活配置；下方表单是独立的新建草稿，互不影响
-      setProfileBusy(true);
-      setError(null);
-      setNotice(null);
-      setTestResult(null);
-      try {
-        const next = await api.switchProviderProfile(profile.config.id);
-        setView(next);
-        refreshProfiles();
-        setNotice(t("settings.profileSwitched", { name: next.provider.name }));
-      } catch (switchError) {
-        setError(describeError(t, switchError));
-      } finally {
-        setProfileBusy(false);
-      }
-    },
-    [profileBusy, refreshProfiles, t],
-  );
+  /** 额外设置是否偏离默认值：折叠状态下给出「已自定义」提醒，避免隐藏字段被遗忘 */
+  const advancedCustomized =
+    form.temperature.trim() !== "" || form.maxTokens.trim() !== "" || !form.supportsVision;
 
-  const handleDeleteProfile = useCallback(
-    async (profile: ProviderProfileSummary) => {
-      if (profile.isActive || profileBusy) return;
-      if (!window.confirm(t("settings.profileDeleteConfirm", { name: profile.config.name }))) {
-        return;
-      }
-
-      setProfileBusy(true);
-      setError(null);
-      setNotice(null);
-      try {
-        const next = await api.deleteProviderProfile(profile.config.id);
-        setProfiles(next);
-        setNotice(t("settings.profileDeleted", { name: profile.config.name }));
-      } catch (deleteError) {
-        setError(describeError(t, deleteError));
-      } finally {
-        setProfileBusy(false);
-      }
-    },
-    [profileBusy, t],
-  );
-
-  const buildProvider = useCallback((): ProviderConfig | null => {
-    if (!form.name.trim()) {
-      setError(t("settings.nameRequired"));
-      return null;
-    }
-    if (!form.baseUrl.trim()) {
-      setError(t("settings.baseUrlRequired"));
-      return null;
-    }
-    if (!form.model.trim()) {
-      setError(t("settings.modelRequired"));
-      return null;
-    }
-
-    let temperature: number | undefined;
-    if (form.temperature.trim() !== "") {
-      temperature = Number(form.temperature);
-      if (!Number.isFinite(temperature) || temperature < 0 || temperature > 2) {
-        setError(t("settings.temperatureInvalid"));
-        return null;
-      }
-    }
-
-    let maxTokens: number | undefined;
-    if (form.maxTokens.trim() !== "") {
-      maxTokens = Number(form.maxTokens);
-      if (!Number.isInteger(maxTokens) || maxTokens < 1) {
-        setError(t("settings.maxTokensInvalid"));
-        return null;
-      }
-    }
-
-    return {
-      id: view?.provider.id ?? "default",
-      name: form.name.trim(),
-      baseUrl: form.baseUrl.trim(),
-      model: form.model.trim(),
-      protocol: "openai-chat-completions",
-      temperature,
-      maxTokens,
-      supportsVision: form.supportsVision,
-    };
-  }, [form, view, t]);
-
-  /** 保存 = 创建为新配置并启用（重名由客户端预检 + 服务端兜底）；绝不覆盖已有配置 */
   const handleSave = useCallback(
     async (withTest: boolean) => {
-      const provider = buildProvider();
-      if (!provider) return;
-      const name = provider.name;
-      if (profiles?.profiles.some((profile) => profile.config.name === name)) {
-        setError(t("settings.profileDuplicateName", { name }));
-        return;
-      }
-
       setSaving(true);
       setError(null);
       setNotice(null);
       setTestResult(null);
 
       try {
-        const next = await api.saveProviderProfile({
-          name,
-          provider,
-          apiKey: apiKey.trim() || undefined,
-        });
-        setView(next);
-        refreshProfiles();
-
-        if (withTest) {
-          const result = await api.testProvider();
-          setTestResult(result);
+        if (isEdit && profile) {
+          // 编辑：原位更新目标配置；Key 沿用原值（除非显式清除）
+          const next = await api.updateProviderProfile(profile.config.id, {
+            provider: { ...buildProviderPayload(form), id: profile.config.id },
+          });
+          setView(next);
+          setNotice(t("settings.updated", { name: next.provider.name }));
+          onSaved?.();
         } else {
-          setNotice(t("settings.profileSavedNew", { name: next.provider.name }));
+          // 新建：创建为新配置并启用（重名由服务端校验兜底）
+          const next = await api.saveProviderProfile({
+            name: form.name.trim(),
+            provider: buildProviderPayload(form),
+            apiKey: apiKey.trim() || undefined,
+          });
+          if (withTest) {
+            const result = await api.testProvider();
+            setTestResult(result);
+          } else {
+            setNotice(t("settings.profileSavedNew", { name: next.provider.name }));
+            onSaved?.();
+            // 保存成功后重置草稿，方便连续添加多个模型
+            setForm(EMPTY_FORM);
+            setApiKey("");
+            setActivePreset(null);
+          }
+          setView(next);
         }
-
-        // 保存成功后重置草稿，方便连续添加多个模型
-        setForm(EMPTY_FORM);
-        setApiKey("");
-        setActivePreset(null);
       } catch (saveError) {
         setError(describeError(t, saveError));
       } finally {
         setSaving(false);
       }
     },
-    [apiKey, buildProvider, profiles, refreshProfiles, t],
+    [apiKey, form, isEdit, onSaved, profile, t],
   );
-  /** 额外设置是否偏离默认值：折叠状态下给出「已自定义」提醒，避免隐藏字段被遗忘 */
-  const advancedCustomized =
-    form.temperature.trim() !== "" || form.maxTokens.trim() !== "" || !form.supportsVision;
+
+  /** 编辑模式：显式清除该配置已保存的 API Key（沿用语义的反向操作） */
+  const handleClearKey = useCallback(async () => {
+    if (!profile) return;
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const next = await api.clearProviderProfileKey(profile.config.id);
+      setView(next);
+      setNotice(t("settings.keyClearedProfile"));
+    } catch (clearError) {
+      setError(describeError(t, clearError));
+    } finally {
+      setSaving(false);
+    }
+  }, [profile, t]);
 
   return (
     <div className="space-y-4">
@@ -331,384 +273,476 @@ export function ProviderSettingsForm() {
             : t("settings.keyStorageFallback")}
         </span>
         <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void handleSave(true)}
-            disabled={saving || loading}
-          >
-            {saving ? <Loader2 size={13} className="animate-spin" /> : null}
-            {t("settings.saveAndTest")}
-          </Button>
+          {isEdit ? null : (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void handleSave(true)}
+              disabled={saving}
+            >
+              {saving ? <Loader2 size={13} className="animate-spin" /> : null}
+              {t("settings.saveAndTest")}
+            </Button>
+          )}
           <Button
             variant="primary"
             size="sm"
             onClick={() => void handleSave(false)}
-            disabled={saving || loading}
+            disabled={saving}
           >
+            {saving ? <Loader2 size={13} className="animate-spin" /> : null}
             {t("settings.save")}
           </Button>
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex items-center gap-2 py-6 text-[12px] text-ink-faint">
-          <Loader2 size={14} className="animate-spin" />
-          {t("settings.loading")}
+      <div className="space-y-1.5">
+        <span className={labelClass}>{t("settings.presetsLabel")}</span>
+        <div className="flex flex-wrap gap-1.5">
+          {PROVIDER_PRESETS.map((preset) => (
+            <button
+              key={preset.name}
+              type="button"
+              onClick={() => applyPreset(preset)}
+              className={cn(
+                "inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[11.5px] transition-colors",
+                activePreset === preset.name
+                  ? "border-brand/50 bg-brand/5 text-ink"
+                  : "border-line bg-field text-ink-soft hover:bg-selection hover:text-ink",
+              )}
+            >
+              {preset.name}
+              {preset.vision ? (
+                <span className="rounded bg-brand/10 px-1 text-[10px] leading-4 text-brand">
+                  {t("settings.visionBadge")}
+                </span>
+              ) : null}
+            </button>
+          ))}
         </div>
-      ) : (
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <span className={labelClass}>{t("settings.profilesLabel")}</span>
-            </div>
-            {profiles && profiles.profiles.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {profiles.profiles.map((profile) => (
-                  <div key={profile.config.id} className="group/profile relative">
-                    <button
-                      type="button"
-                      onClick={() => void handleSwitchProfile(profile)}
-                      disabled={profileBusy || loading || profile.isActive}
-                      title={`${profile.config.name} · ${profile.config.model}`}
-                      className={cn(
-                        "inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[11.5px] transition-colors",
-                        profile.isActive
-                          ? "border-brand/50 bg-brand/5 text-ink disabled:cursor-default"
-                          : "border-line bg-field text-ink-soft hover:bg-selection hover:text-ink disabled:cursor-not-allowed",
-                      )}
-                    >
-                      {profile.config.name}
-                      <span className="max-w-[120px] truncate text-[10px] text-ink-faint">
-                        {profile.config.model}
-                      </span>
-                      {profile.config.supportsVision !== false ? (
-                        <span className="rounded bg-brand/10 px-1 text-[10px] leading-4 text-brand">
-                          {t("settings.visionBadge")}
-                        </span>
-                      ) : null}
-                      <span
-                        className={cn(
-                          "h-1.5 w-1.5 rounded-full",
-                          profile.hasApiKey ? "bg-success" : "bg-warning",
-                        )}
-                        title={profile.hasApiKey ? t("settings.profileKeyOk") : t("settings.profileKeyMissing")}
-                      />
-                    </button>
-                    {!profile.isActive ? (
-                      <button
-                        type="button"
-                        onClick={() => void handleDeleteProfile(profile)}
-                        aria-label={t("settings.profileDeleteAria", { name: profile.config.name })}
-                        className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full border border-line bg-elevated text-ink-faint transition-colors hover:border-danger/40 hover:text-danger group-hover/profile:flex"
-                      >
-                        <X size={10} />
-                      </button>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            <span className="block text-[11px] text-ink-faint">
-              {t("settings.profilesHint")}
-            </span>
-          </div>
+        <span className="block text-[11px] text-ink-faint">
+          {t("settings.presetsHint")}
+        </span>
+      </div>
 
-          <div className="space-y-1.5">
-            <span className={labelClass}>{t("settings.presetsLabel")}</span>
-            <div className="flex flex-wrap gap-1.5">
-              {PROVIDER_PRESETS.map((preset) => (
-                <button
-                  key={preset.name}
-                  type="button"
-                  onClick={() => applyPreset(preset)}
-                  className={cn(
-                    "inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[11.5px] transition-colors",
-                    activePreset === preset.name
-                      ? "border-brand/50 bg-brand/5 text-ink"
-                      : "border-line bg-field text-ink-soft hover:bg-selection hover:text-ink",
-                  )}
-                >
-                  {preset.name}
-                  {preset.vision ? (
-                    <span className="rounded bg-brand/10 px-1 text-[10px] leading-4 text-brand">
-                      {t("settings.visionBadge")}
-                    </span>
-                  ) : null}
-                </button>
-              ))}
-            </div>
-            <span className="block text-[11px] text-ink-faint">
-              {t("settings.presetsHint")}
-            </span>
-          </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="space-y-1.5">
+          <span className={labelClass}>{t("settings.nameLabel")}</span>
+          <input
+            className={inputClass}
+            value={form.name}
+            onChange={(event) => updateField("name", event.target.value)}
+            placeholder={t("settings.namePlaceholder")}
+          />
+        </label>
+        <label className="space-y-1.5">
+          <span className={labelClass}>{t("settings.modelLabel")}</span>
+          <input
+            className={inputClass}
+            value={form.model}
+            onChange={(event) => updateField("model", event.target.value)}
+            placeholder={t("settings.modelPlaceholder")}
+          />
+        </label>
+      </div>
 
+      <label className="block space-y-1.5">
+        <span className={labelClass}>Base URL</span>
+        <input
+          className={inputClass}
+          value={form.baseUrl}
+          onChange={(event) => updateField("baseUrl", event.target.value)}
+          placeholder="https://api.openai.com/v1"
+        />
+        <span className="block text-[11px] text-ink-faint">
+          {t("settings.baseUrlHint")}
+        </span>
+      </label>
+
+      {/* 额外设置默认折叠：必填项只有名称 / 模型 / Base URL / API Key */}
+      <button
+        type="button"
+        onClick={() => setAdvancedOpen((value) => !value)}
+        aria-expanded={advancedOpen}
+        className="inline-flex w-full items-center gap-1.5 rounded-md border border-line bg-field/60 px-3 py-2 text-[11.5px] text-ink-soft transition-colors hover:bg-selection hover:text-ink"
+      >
+        <ChevronDown
+          size={13}
+          className={cn("transition-transform duration-150", advancedOpen && "rotate-180")}
+        />
+        {t("settings.advancedToggle")}
+        {!advancedOpen && advancedCustomized ? (
+          <span className="ml-auto rounded bg-brand/10 px-1.5 py-px text-[10px] text-brand">
+            {t("settings.advancedCustomized")}
+          </span>
+        ) : null}
+      </button>
+
+      {advancedOpen ? (
+        <div className="space-y-3 rounded-md border border-line bg-sidebar/60 p-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1.5">
-              <span className={labelClass}>{t("settings.nameLabel")}</span>
+              <span className={labelClass}>{t("settings.temperatureLabel")}</span>
               <input
                 className={inputClass}
-                value={form.name}
-                onChange={(event) => updateField("name", event.target.value)}
-                placeholder={t("settings.namePlaceholder")}
+                value={form.temperature}
+                onChange={(event) => updateField("temperature", event.target.value)}
+                inputMode="decimal"
+                placeholder="0.5"
               />
             </label>
             <label className="space-y-1.5">
-              <span className={labelClass}>{t("settings.modelLabel")}</span>
+              <span className={labelClass}>{t("settings.maxTokensLabel")}</span>
               <input
                 className={inputClass}
-                value={form.model}
-                onChange={(event) => updateField("model", event.target.value)}
-                placeholder={t("settings.modelPlaceholder")}
+                value={form.maxTokens}
+                onChange={(event) => updateField("maxTokens", event.target.value)}
+                inputMode="numeric"
+                placeholder={t("settings.maxTokensPlaceholder")}
               />
             </label>
           </div>
 
-          <label className="block space-y-1.5">
-            <span className={labelClass}>Base URL</span>
+          <label className="flex items-start gap-2.5 rounded-md border border-line bg-field px-3 py-2.5">
             <input
-              className={inputClass}
-              value={form.baseUrl}
-              onChange={(event) => updateField("baseUrl", event.target.value)}
-              placeholder="https://api.openai.com/v1"
+              type="checkbox"
+              className="mt-0.5 h-3.5 w-3.5 accent-brand"
+              checked={form.supportsVision}
+              onChange={(event) => {
+                setForm((prev) => ({ ...prev, supportsVision: event.target.checked }));
+                setNotice(null);
+                setError(null);
+                setTestResult(null);
+              }}
             />
-            <span className="block text-[11px] text-ink-faint">
-              {t("settings.baseUrlHint")}
+            <span className="space-y-0.5">
+              <span className={labelClass}>{t("settings.supportsVisionLabel")}</span>
+              <span className="block text-[11px] leading-relaxed text-ink-faint">
+                {t("settings.supportsVisionHint")}
+              </span>
             </span>
           </label>
+        </div>
+      ) : null}
 
-          {/* 额外设置默认折叠：必填项只有名称 / 模型 / Base URL / API Key */}
-          <button
-            type="button"
-            onClick={() => setAdvancedOpen((value) => !value)}
-            aria-expanded={advancedOpen}
-            className="inline-flex w-full items-center gap-1.5 rounded-md border border-line bg-field/60 px-3 py-2 text-[11.5px] text-ink-soft transition-colors hover:bg-selection hover:text-ink"
-          >
-            <ChevronDown
-              size={13}
-              className={cn("transition-transform duration-150", advancedOpen && "rotate-180")}
-            />
-            {t("settings.advancedToggle")}
-            {!advancedOpen && advancedCustomized ? (
-              <span className="ml-auto rounded bg-brand/10 px-1.5 py-px text-[10px] text-brand">
-                {t("settings.advancedCustomized")}
-              </span>
-            ) : null}
-          </button>
-
-          {advancedOpen ? (
-            <div className="space-y-3 rounded-md border border-line bg-sidebar/60 p-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="space-y-1.5">
-                  <span className={labelClass}>{t("settings.temperatureLabel")}</span>
-                  <input
-                    className={inputClass}
-                    value={form.temperature}
-                    onChange={(event) => updateField("temperature", event.target.value)}
-                    inputMode="decimal"
-                    placeholder="0.5"
-                  />
-                </label>
-                <label className="space-y-1.5">
-                  <span className={labelClass}>{t("settings.maxTokensLabel")}</span>
-                  <input
-                    className={inputClass}
-                    value={form.maxTokens}
-                    onChange={(event) => updateField("maxTokens", event.target.value)}
-                    inputMode="numeric"
-                    placeholder={t("settings.maxTokensPlaceholder")}
-                  />
-                </label>
-              </div>
-
-              <label className="flex items-start gap-2.5 rounded-md border border-line bg-field px-3 py-2.5">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-3.5 w-3.5 accent-brand"
-                  checked={form.supportsVision}
-                  onChange={(event) => {
-                    setForm((prev) => ({ ...prev, supportsVision: event.target.checked }));
-                    setNotice(null);
-                    setError(null);
-                    setTestResult(null);
-                  }}
-                />
-                <span className="space-y-0.5">
-                  <span className={labelClass}>{t("settings.supportsVisionLabel")}</span>
-                  <span className="block text-[11px] leading-relaxed text-ink-faint">
-                    {t("settings.supportsVisionHint")}
-                  </span>
-                </span>
-              </label>
-            </div>
-          ) : null}
-
-          <div className="space-y-1.5">
+      {isEdit ? (
+        /* 编辑模式：不展示 Key 输入，沿用已保存的 Key，仅提供显式清除 */
+        <div className="space-y-1.5 rounded-md border border-line bg-sidebar/60 px-3 py-2.5">
+          <div className="flex items-center justify-between gap-2">
             <span className={labelClass}>API Key</span>
-            <div className="relative">
-              <KeyRound
-                size={13}
-                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint"
-              />
-              <input
-                className={cn(inputClass, "pl-7")}
-                type="password"
-                value={apiKey}
-                onChange={(event) => {
-                  setApiKey(event.target.value);
-                  setNotice(null);
-                  setError(null);
-                  setTestResult(null);
-                }}
-                placeholder="sk-..."
-                autoComplete="off"
-              />
-            </div>
-            <span className="block text-[11px] leading-relaxed text-ink-faint">
-              {t("settings.keyNewHint")}
-            </span>
+            <Badge tone={profile?.hasApiKey ? "success" : "warning"}>
+              {profile?.hasApiKey ? t("settings.keyConfigured") : t("settings.keyNotConfigured")}
+            </Badge>
           </div>
-
-          {view?.credentialIssue ? (
-            <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-[11.5px] text-warning">
-              <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-              <span>{view.credentialIssue}</span>
-            </div>
-          ) : null}
-
-          {error ? (
-            <div className="flex items-start gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-[11.5px] text-danger">
-              <AlertCircle size={13} className="mt-0.5 shrink-0" />
-              <span>{error}</span>
-            </div>
-          ) : null}
-
-          {notice ? (
-            <div className="flex items-start gap-2 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-[11.5px] text-success">
-              <CheckCircle2 size={13} className="mt-0.5 shrink-0" />
-              <span>{notice}</span>
-            </div>
-          ) : null}
-
-          {testResult ? (
-            <div className="flex items-start gap-2 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-[11.5px] text-success">
-              <CheckCircle2 size={13} className="mt-0.5 shrink-0" />
-              <span>
-                {t("settings.testSuccess", {
-                  model: testResult.model,
-                  latencyMs: testResult.latencyMs,
-                })}
-              </span>
-            </div>
+          <span className="block text-[11px] leading-relaxed text-ink-faint">
+            {t("settings.keyKeepNote")}
+          </span>
+          {profile?.hasApiKey ? (
+            <button
+              type="button"
+              onClick={() => void handleClearKey()}
+              disabled={saving}
+              className="text-[11px] text-danger transition-opacity hover:opacity-80 disabled:opacity-50"
+            >
+              {t("settings.clearProfileKey")}
+            </button>
           ) : null}
         </div>
+      ) : (
+        <div className="space-y-1.5">
+          <span className={labelClass}>API Key</span>
+          <div className="relative">
+            <KeyRound
+              size={13}
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint"
+            />
+            <input
+              className={cn(inputClass, "pl-7")}
+              type="password"
+              value={apiKey}
+              onChange={(event) => {
+                setApiKey(event.target.value);
+                setNotice(null);
+                setError(null);
+                setTestResult(null);
+              }}
+              placeholder="sk-..."
+              autoComplete="off"
+            />
+          </div>
+          <span className="block text-[11px] leading-relaxed text-ink-faint">
+            {t("settings.keyNewHint")}
+          </span>
+        </div>
       )}
+
+      {view?.credentialIssue ? (
+        <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-[11.5px] text-warning">
+          <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+          <span>{view.credentialIssue}</span>
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="flex items-start gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-[11.5px] text-danger">
+          <AlertCircle size={13} className="mt-0.5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      ) : null}
+
+      {notice ? (
+        <div className="flex items-start gap-2 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-[11.5px] text-success">
+          <CheckCircle2 size={13} className="mt-0.5 shrink-0" />
+          <span>{notice}</span>
+        </div>
+      ) : null}
+
+      {testResult ? (
+        <div className="flex items-start gap-2 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-[11.5px] text-success">
+          <CheckCircle2 size={13} className="mt-0.5 shrink-0" />
+          <span>
+            {t("settings.testSuccess", {
+              model: testResult.model,
+              latencyMs: testResult.latencyMs,
+            })}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
 
+const PROFILES_CACHE_KEY = "motive.providerProfiles";
 
-interface ProviderSummary {
-  name: string;
-  model: string;
-  baseUrl: string;
-  hasApiKey: boolean;
-  supportsVision: boolean;
+function readProfilesCache(): ProviderProfilesView | null {
+  try {
+    const raw = window.localStorage.getItem(PROFILES_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ProviderProfilesView;
+    if (!Array.isArray(parsed.profiles) || typeof parsed.activeId !== "string") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
+function writeProfilesCache(view: ProviderProfilesView): void {
+  try {
+    window.localStorage.setItem(PROFILES_CACHE_KEY, JSON.stringify(view));
+  } catch {
+    // 持久化失败静默忽略：缓存只用于瞬时显示
+  }
+}
+
+type DialogState = { mode: "add" } | { mode: "edit"; profile: ProviderProfileSummary } | null;
+
 /**
- * 设置页「模型服务」分区：当前模型摘要卡 + 讨论模型选择直接放在页面上，
- * 「添加模型」打开模态框承载完整的配置管理（多配置切换 / 预设 / 表单 / API Key）。
+ * 设置页「模型服务」分区：
+ * - 已保存配置列表（localStorage 缓存瞬时显示，后台静默刷新），行内切换 / 编辑 / 删除
+ * - 讨论模型选择保留在页面
+ * - 「添加模型」打开新建模态框，编辑打开预填模态框（不展示 Key）
  */
 export function ProviderSettingsSection() {
   const t = useT();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [summary, setSummary] = useState<ProviderSummary | null>(null);
-  /** 模态框关闭后递增，驱动讨论模型选择器重新拉取配置列表 */
+  const [profiles, setProfiles] = useState<ProviderProfilesView | null>(() =>
+    readProfilesCache(),
+  );
+  const [dialog, setDialog] = useState<DialogState>(null);
+  const [listBusy, setListBusy] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+  /** 模态框关闭 / 列表变化后递增，驱动讨论模型选择器刷新 */
   const [chatModelRefreshKey, setChatModelRefreshKey] = useState(0);
   const dialogWasOpen = useRef(false);
 
-  // 关闭模态框（保存/切换后）刷新摘要与讨论模型选择器
+  const refreshProfiles = useCallback(() => {
+    api
+      .getProviderProfiles()
+      .then((next) => {
+        setProfiles(next);
+        writeProfilesCache(next);
+      })
+      .catch(() => {
+        // 刷新失败保留缓存显示
+      });
+  }, []);
+
   useEffect(() => {
-    if (dialogOpen) {
+    refreshProfiles();
+  }, [refreshProfiles]);
+
+  // 关闭模态框（保存后）刷新列表与讨论模型选择器
+  useEffect(() => {
+    if (dialog) {
       dialogWasOpen.current = true;
       return;
     }
     if (!dialogWasOpen.current) return;
     dialogWasOpen.current = false;
     setChatModelRefreshKey((value) => value + 1);
-    let cancelled = false;
-    api
-      .getProviderSettings()
-      .then((view) => {
-        if (cancelled) return;
-        setSummary({
-          name: view.provider.name,
-          model: view.provider.model,
-          baseUrl: view.provider.baseUrl,
-          hasApiKey: view.hasApiKey,
-          supportsVision: view.provider.supportsVision !== false,
-        });
-      })
-      .catch(() => {
-        if (!cancelled) setSummary(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [dialogOpen]);
+    refreshProfiles();
+  }, [dialog, refreshProfiles]);
+
+  const refreshAll = useCallback(() => {
+    refreshProfiles();
+    setChatModelRefreshKey((value) => value + 1);
+  }, [refreshProfiles]);
+
+  const handleSwitchProfile = useCallback(
+    async (profile: ProviderProfileSummary) => {
+      if (profile.isActive || listBusy) return;
+      setListBusy(true);
+      setListError(null);
+      try {
+        await api.switchProviderProfile(profile.config.id);
+        refreshAll();
+      } catch (switchError) {
+        setListError(describeError(t, switchError));
+      } finally {
+        setListBusy(false);
+      }
+    },
+    [listBusy, refreshAll, t],
+  );
+
+  const handleDeleteProfile = useCallback(
+    async (profile: ProviderProfileSummary) => {
+      if (listBusy) return;
+      if (!window.confirm(t("settings.profileDeleteConfirm", { name: profile.config.name }))) {
+        return;
+      }
+      setListBusy(true);
+      setListError(null);
+      try {
+        await api.deleteProviderProfile(profile.config.id);
+        refreshAll();
+      } catch (deleteError) {
+        // 激活中的配置服务端拒绝删除：错误原样展示
+        setListError(describeError(t, deleteError));
+      } finally {
+        setListBusy(false);
+      }
+    },
+    [listBusy, refreshAll, t],
+  );
 
   return (
     <div className="space-y-3">
       <div className="rounded-xl border border-line bg-sidebar/60 px-4 py-3.5">
         <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            {summary ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <span className="truncate text-[13px] font-semibold text-ink">
-                    {summary.name}
-                  </span>
-                  <span className="truncate font-mono text-[11.5px] text-ink-faint">
-                    {summary.model}
-                  </span>
-                  {summary.supportsVision ? (
-                    <span className="shrink-0 rounded bg-brand/10 px-1 text-[10px] leading-4 text-brand">
-                      {t("settings.visionBadge")}
-                    </span>
-                  ) : null}
-                  <Badge tone={summary.hasApiKey ? "success" : "warning"}>
-                    {summary.hasApiKey ? t("settings.keyConfigured") : t("settings.keyNotConfigured")}
-                  </Badge>
-                </div>
-                <p className="mt-0.5 truncate text-[11px] text-ink-faint">{summary.baseUrl}</p>
-              </>
-            ) : (
-              <span className="text-[12.5px] text-ink-faint">{t("settings.loading")}</span>
-            )}
-          </div>
+          <span className={labelClass}>{t("settings.profilesLabel")}</span>
           <Button
             variant="primary"
             size="sm"
-            onClick={() => setDialogOpen(true)}
+            onClick={() => setDialog({ mode: "add" })}
             className="shrink-0"
           >
             <Plus size={13} />
             {t("settings.addModel")}
           </Button>
         </div>
+
+        {profiles ? (
+          <div className="mt-2.5 space-y-1">
+            {profiles.profiles.map((profile) => (
+              <div
+                key={profile.config.id}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg border px-2.5 py-2",
+                  profile.isActive
+                    ? "border-brand/40 bg-brand/5"
+                    : "border-transparent bg-field/50",
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={() => void handleSwitchProfile(profile)}
+                  disabled={listBusy || profile.isActive}
+                  title={`${profile.config.name} · ${profile.config.baseUrl}`}
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-default"
+                >
+                  <span className="shrink-0 text-[12.5px] font-medium text-ink">
+                    {profile.config.name}
+                  </span>
+                  <span className="min-w-0 truncate font-mono text-[11px] text-ink-faint">
+                    {profile.config.model}
+                  </span>
+                  {profile.isActive ? (
+                    <span className="shrink-0 rounded bg-brand/10 px-1.5 text-[10px] leading-4 text-brand">
+                      {t("settings.profileActive")}
+                    </span>
+                  ) : null}
+                  {profile.config.supportsVision !== false ? (
+                    <span className="shrink-0 rounded bg-brand/10 px-1 text-[10px] leading-4 text-brand">
+                      {t("settings.visionBadge")}
+                    </span>
+                  ) : null}
+                </button>
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 shrink-0 rounded-full",
+                    profile.hasApiKey ? "bg-success" : "bg-warning",
+                  )}
+                  title={profile.hasApiKey ? t("settings.profileKeyOk") : t("settings.profileKeyMissing")}
+                />
+                <div className="flex shrink-0 items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setDialog({ mode: "edit", profile })}
+                    aria-label={t("settings.profilesEdit")}
+                    title={t("settings.profilesEdit")}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-ink"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteProfile(profile)}
+                    aria-label={t("settings.profileDeleteAria", { name: profile.config.name })}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-danger/10 hover:text-danger"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-2.5 flex items-center gap-2 py-2 text-[12px] text-ink-faint">
+            <Loader2 size={13} className="animate-spin" />
+            {t("settings.loading")}
+          </div>
+        )}
+        {listError ? (
+          <p className="mt-2 text-[11px] text-danger">{listError}</p>
+        ) : null}
       </div>
 
       <ChatModelSection refreshKey={chatModelRefreshKey} />
 
       <Dialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        title={t("settings.providerDialogTitle")}
-        description={t("settings.providerDialogHint")}
+        open={dialog !== null}
+        onClose={() => setDialog(null)}
+        title={
+          dialog?.mode === "edit"
+            ? t("settings.editProfileTitle", { name: dialog.profile.config.name })
+            : t("settings.providerDialogTitle")
+        }
+        description={
+          dialog?.mode === "edit"
+            ? t("settings.editProfileHint")
+            : t("settings.providerDialogHint")
+        }
         className="max-w-[680px]"
       >
-        <ProviderSettingsForm />
+        {dialog?.mode === "edit" ? (
+          <ProviderSettingsForm
+            mode="edit"
+            profile={dialog.profile}
+            onSaved={() => setDialog(null)}
+          />
+        ) : (
+          <ProviderSettingsForm mode="add" onSaved={() => setDialog(null)} />
+        )}
       </Dialog>
     </div>
   );

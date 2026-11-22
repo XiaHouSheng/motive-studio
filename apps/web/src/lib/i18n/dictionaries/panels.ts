@@ -121,6 +121,15 @@ export const panelsZh = {
   "settings.profileDeleted": "已删除配置「{name}」",
   "settings.profileDuplicateName": "已存在同名配置「{name}」，请换个名称",
   "settings.addModel": "添加模型",
+  "settings.profilesEdit": "编辑",
+  "settings.profileActive": "使用中",
+  "settings.editProfileTitle": "编辑配置「{name}」",
+  "settings.editProfileHint":
+    "保存后更新该配置；已保存的 API Key 会继续沿用，除非在下方主动清除。",
+  "settings.keyKeepNote": "已保存的 API Key 会继续沿用；如需清除请使用下方按钮。",
+  "settings.clearProfileKey": "清除该配置的 API Key",
+  "settings.keyClearedProfile": "已清除该配置的 API Key",
+  "settings.updated": "配置「{name}」已更新",
   "settings.keyNewHint":
     "保存给新建的配置使用；Base URL 与已有配置相同时可留空，自动复制该配置的 Key。",
   "settings.providerDialogTitle": "模型服务",
@@ -393,6 +402,15 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "settings.profileDeleted": "Deleted configuration “{name}”",
   "settings.profileDuplicateName": "A configuration named “{name}” already exists. Use another name.",
   "settings.addModel": "Add model",
+  "settings.profilesEdit": "Edit",
+  "settings.profileActive": "In use",
+  "settings.editProfileTitle": "Edit configuration “{name}”",
+  "settings.editProfileHint":
+    "Saving updates this configuration. The saved API key keeps working unless explicitly cleared below.",
+  "settings.keyKeepNote": "The saved API key keeps working; use the button below to clear it.",
+  "settings.clearProfileKey": "Clear this configuration's API key",
+  "settings.keyClearedProfile": "API key cleared for this configuration",
+  "settings.updated": "Configuration “{name}” updated",
   "settings.keyNewHint":
     "Used for the new configuration. Leave empty to copy the key automatically when the base URL matches an existing configuration.",
   "settings.providerDialogTitle": "Model service",

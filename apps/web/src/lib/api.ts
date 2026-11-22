@@ -335,6 +335,19 @@ export const api = {
       method: "POST",
       body: JSON.stringify(input),
     }),
+  updateProviderProfile: (
+    id: string,
+    input: { provider: ProviderConfig; clearApiKey?: boolean },
+  ) =>
+    request<ProviderSettingsView>(
+      `/api/settings/provider/profiles/${encodeURIComponent(id)}`,
+      { method: "PUT", body: JSON.stringify(input) },
+    ),
+  clearProviderProfileKey: (id: string) =>
+    request<ProviderSettingsView>(
+      `/api/settings/provider/profiles/${encodeURIComponent(id)}/key`,
+      { method: "DELETE" },
+    ),
   switchProviderProfile: (profileId: string) =>
     request<ProviderSettingsView>("/api/settings/provider/profiles/switch", {
       method: "POST",

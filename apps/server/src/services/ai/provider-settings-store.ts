@@ -475,6 +475,67 @@ export class ProviderSettingsStore {
     return this.listProfiles();
   }
 
+  /**
+   * 更新指定配置（不改激活状态、不动其 API Key，除非显式清除）。
+   * 编辑激活中的配置时同步镜像 provider_config，保证后续请求使用新值。
+   */
+  async updateProfile(
+    profileId: string,
+    provider: unknown,
+    options: { clearApiKey?: boolean } = {},
+  ): Promise<ProviderSettingsView> {
+    const normalized = normalizeConfig(provider as Record<string, unknown>);
+    const state = this.readProfilesState();
+    const index = state.profiles.findIndex((profile) => profile.id === profileId);
+    if (index < 0) {
+      throw new HttpError(404, "NOT_FOUND", "模型配置不存在");
+    }
+    if (state.profiles.some((profile, i) => i !== index && profile.name === normalized.name)) {
+      throw new HttpError(400, "INVALID_CONFIG", `已存在名为「${normalized.name}」的配置`);
+    }
+
+    state.profiles[index] = { ...normalized, id: profileId };
+    this.writeProfilesState(state);
+    if (profileId === state.activeId) {
+      this.upsertSetting(SETTINGS_KEY, JSON.stringify(state.profiles[index]));
+    }
+
+    if (options.clearApiKey) {
+      await this.deleteProfileKey(profileId, state.activeId === profileId);
+    }
+
+    return this.getView();
+  }
+
+  /** 清除指定配置的 API Key（显式动作；激活中的配置同时清空内存缓存） */
+  async clearProfileKey(profileId: string): Promise<ProviderSettingsView> {
+    const state = this.readProfilesState();
+    if (!state.profiles.some((profile) => profile.id === profileId)) {
+      throw new HttpError(404, "NOT_FOUND", "模型配置不存在");
+    }
+    await this.deleteProfileKey(profileId, state.activeId === profileId);
+    return this.getView();
+  }
+
+  private async deleteProfileKey(profileId: string, isActive: boolean): Promise<void> {
+    try {
+      await this.credentials.delete(credentialKeyFor(profileId));
+    } catch {
+      throw new HttpError(
+        500,
+        "CREDENTIAL_STORE_FAILED",
+        "API Key 删除失败，请检查系统凭据服务后重试",
+      );
+    }
+    this.db
+      .prepare("DELETE FROM app_settings WHERE key = ?")
+      .run(credentialMetaKeyFor(profileId));
+    if (isActive) {
+      this.apiKey = null;
+      this.credentialIssue = null;
+    }
+  }
+
   /** 同步读取内存缓存中的密钥，供 AI 路由在请求期使用 */
   getApiKey(): string | null {
     return this.apiKey;
