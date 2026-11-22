@@ -26,8 +26,8 @@ interface ZoomableImageProps {
 }
 
 /**
- * 可交互图片查看器：滚轮以光标为中心缩放，按住拖拽平移，双击复位。
- * 缩放/平移仅通过 transform 实现，容器自身不产生滚动，也不影响对话框布局。
+ * 可交互图片查看器：滚轮以光标为中心缩放，按住拖拽平移（任意缩放状态均可直接拖动），
+ * 双击复位。缩放/平移仅通过 transform 实现，容器自身不产生滚动，也不影响对话框布局。
  */
 export function ZoomableImage({ src, alt, className, hint }: ZoomableImageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -78,7 +78,7 @@ export function ZoomableImage({ src, alt, className, hint }: ZoomableImageProps)
 
   const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      if (event.button !== 0 || view.scale <= MIN_SCALE) return;
+      if (event.button !== 0) return;
       event.currentTarget.setPointerCapture(event.pointerId);
       dragRef.current = {
         pointerId: event.pointerId,
@@ -89,7 +89,7 @@ export function ZoomableImage({ src, alt, className, hint }: ZoomableImageProps)
       };
       setDragging(true);
     },
-    [view.scale, view.x, view.y],
+    [view.x, view.y],
   );
 
   const handlePointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
@@ -114,7 +114,7 @@ export function ZoomableImage({ src, alt, className, hint }: ZoomableImageProps)
       ref={containerRef}
       className={cn(
         "group relative w-full select-none overflow-hidden rounded-lg border border-line bg-field/40",
-        view.scale > MIN_SCALE && (dragging ? "cursor-grabbing" : "cursor-grab"),
+        dragging ? "cursor-grabbing" : "cursor-grab",
         className,
       )}
       style={{ touchAction: "none" }}

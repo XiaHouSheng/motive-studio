@@ -34,7 +34,7 @@ export const solutionsZh = {
   "solution.asset.imageLabel": "图片",
   "solution.asset.viewOriginal": "查看原图",
   "solution.asset.original": "题目原图",
-  "solution.asset.zoomHint": "滚轮缩放 · 拖拽移动 · 双击复位",
+  "solution.asset.zoomHint": "拖拽移动 · 滚轮缩放 · 双击复位",
   "solution.warning.vision": "当前模型未声明支持图片输入，「始终附带」会直接报错。",
   "solution.warning.openSettings": "去设置",
   "solution.steps.none": "尚无步骤",
@@ -169,7 +169,7 @@ export const solutionsEn: Record<keyof typeof solutionsZh, string> = {
   "solution.asset.imageLabel": "Image",
   "solution.asset.viewOriginal": "View original image",
   "solution.asset.original": "Original question image",
-  "solution.asset.zoomHint": "Wheel to zoom · drag to pan · double-click to reset",
+  "solution.asset.zoomHint": "Drag to pan · wheel to zoom · double-click to reset",
   "solution.warning.vision":
     "The current model does not declare image input support; \"Always attach\" will fail outright.",
   "solution.warning.openSettings": "Open settings",
