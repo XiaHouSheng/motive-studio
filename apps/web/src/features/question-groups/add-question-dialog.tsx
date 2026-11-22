@@ -292,10 +292,10 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
 
   const tabButtonClass = (active: boolean) =>
     cn(
-      "inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12.5px] transition-colors",
+      "inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-[12px] transition-colors",
       active
-        ? "border-brand/50 bg-brand/5 font-medium text-ink"
-        : "border-transparent text-ink-soft hover:bg-selection/60 hover:text-ink",
+        ? "bg-panel font-medium text-ink shadow-soft"
+        : "text-ink-faint hover:text-ink-soft",
     );
 
   return (
@@ -309,7 +309,9 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
         description={t("groups.addQuestionHint", { group: groupTitle })}
         className="max-w-[640px]"
       >
-        <div className="mb-4 inline-flex gap-1 rounded-lg border border-line bg-sidebar/70 p-1" role="tablist" aria-label={t("groups.addQuestionTitle")}>
+        {/* 内容区定高：两个页签高度一致，切换不引起弹窗尺寸变化 */}
+        <div className="flex h-[420px] flex-col">
+        <div className="inline-flex shrink-0 self-start gap-0.5 rounded-lg bg-sidebar/70 p-1" role="tablist" aria-label={t("groups.addQuestionTitle")}>
           <button
             type="button"
             role="tab"
@@ -333,7 +335,7 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
         </div>
 
         {tab === "text" ? (
-          <div className="space-y-3">
+          <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3">
             <textarea
               autoFocus
               value={textDraft}
@@ -342,9 +344,8 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
                 if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) handleAddText();
                 if (event.key === "Escape") closeImageImport();
               }}
-              rows={7}
               placeholder={t("groups.questionPlaceholder")}
-              className="w-full resize-y rounded-md border border-line bg-field px-3 py-2.5 text-[12.8px] leading-relaxed text-ink outline-none placeholder:text-ink-faint focus:border-brand/50"
+              className="min-h-0 w-full flex-1 resize-none rounded-md border border-line bg-field px-3 py-2.5 text-[12.8px] leading-relaxed text-ink outline-none placeholder:text-ink-faint focus:border-brand/50"
             />
             {error ? (
               <div className="flex items-start gap-2 rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-[11.5px] leading-relaxed text-danger">
@@ -353,7 +354,7 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
               </div>
             ) : null}
 
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex shrink-0 items-center justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={closeImageImport} disabled={busy}>
                 {t("import.cancel")}
               </Button>
@@ -368,7 +369,8 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
             <div
               onDragOver={(event) => {
                 event.preventDefault();
@@ -504,12 +506,6 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
               </div>
             ) : null}
 
-            {error ? (
-              <div className="flex items-start gap-2 rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-[11.5px] leading-relaxed text-danger">
-                <AlertCircle size={13} className="mt-0.5 shrink-0" />
-                <span>{error}</span>
-              </div>
-            ) : null}
 
             {drafts.length > 0 ? (
               <div className="space-y-2">
@@ -578,11 +574,18 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
               </div>
             ) : null}
           </div>
+          {error ? (
+            <div className="flex shrink-0 items-start gap-2 rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-[11.5px] leading-relaxed text-danger">
+              <AlertCircle size={13} className="mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          ) : null}
+          </div>
         )}
         {tab === "image" ? (
           <>
-            <p className="mt-3 text-[11px] text-ink-faint">{t("import.modelHint")}</p>
-            <div className="mt-3 flex items-center justify-end gap-2 border-t border-line pt-3">
+            <p className="shrink-0 pb-1 text-[11px] text-ink-faint">{t("import.modelHint")}</p>
+            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line pt-3">
               <Button variant="ghost" size="sm" onClick={closeImageImport} disabled={busy}>
                 {t("import.cancel")}
               </Button>
@@ -616,6 +619,7 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
             </div>
           </>
         ) : null}
+        </div>
       </Dialog>
 
       {croppingImage ? (
