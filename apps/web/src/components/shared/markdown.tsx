@@ -281,6 +281,7 @@ export function Markdown({ content, className }: MarkdownProps) {
       <Streamdown
         className="md-streamdown"
         components={components}
+        controls={{ table: false }}
         plugins={enableMermaid ? { math, renderers: mermaidRenderers } : { math }}
         translations={translations}
       >
