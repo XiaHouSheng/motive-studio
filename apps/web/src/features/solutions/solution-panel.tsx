@@ -50,6 +50,13 @@ const statusMeta: Record<
   failed: { label: "solution.status.failed", tone: "danger" },
 };
 
+/** 胶囊式 Tab 按钮（与 add-question-dialog 的页签样式一致） */
+const tabButtonClass = (active: boolean) =>
+  cn(
+    "inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-[12px] transition-colors",
+    active ? "bg-panel font-medium text-ink shadow-soft" : "text-ink-faint hover:text-ink-soft",
+  );
+
 function ExplanationCard({
   explanation,
   index,
@@ -139,6 +146,8 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
   const activeStepId = useUiStore((state) => state.activeStepId);
   const openDiscussion = useUiStore((state) => state.openDiscussion);
   const openSettings = useUiStore((state) => state.openSettings);
+  const solutionView = useUiStore((state) => state.solutionView);
+  const setSolutionView = useUiStore((state) => state.setSolutionView);
   const { t, locale } = useI18n();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [revisionOpen, setRevisionOpen] = useState(false);
@@ -258,175 +267,207 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
         ) : null}
       </div>
 
-      <section className="mt-8">
-        <div className="mb-2.5 flex items-center gap-2">
-          <h2 className="text-[12px] font-semibold tracking-[0.06em] text-ink-soft">
-            {t("solution.explanation.title")}
-          </h2>
-          <span className="text-[11px] text-ink-faint">{t("solution.explanation.subtitle")}</span>
-          <div className="ml-auto flex items-center gap-1.5">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => exportQuestionMarkdown(question.id)}
-              title={t("solution.export.title")}
-            >
-              <Download size={13} strokeWidth={1.9} />
-              {t("solution.export.action")}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void generateExplanation()}
-              disabled={generatingExplanation || steps.length === 0}
-              title={
-                steps.length === 0
-                  ? t("solution.explanation.needSteps")
-                  : t("solution.explanation.tooltip")
-              }
-            >
-              {generatingExplanation ? (
-                <Loader2 size={13} className="animate-spin" />
-              ) : (
-                <Sparkles size={13} />
-              )}
-              {generatingExplanation
-                ? t("solution.explanation.generating")
-                : explanations.length > 0
-                  ? t("solution.explanation.regenerate")
-                  : t("solution.explanation.generate")}
-            </Button>
-          </div>
-        </div>
-        {explanationError ? (
-          <div className="mb-2.5 flex items-start gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-[11.5px] leading-relaxed text-danger">
-            <AlertCircle size={13} className="mt-0.5 shrink-0" />
-            <span className="min-w-0 flex-1">{explanationError}</span>
-          </div>
-        ) : null}
-        {explanations.length > 0 ? (
-          <div className="space-y-2.5">
-            {explanations.slice(0, 5).map((explanation, index) => (
-              <ExplanationCard
-                key={explanation.id}
-                explanation={explanation}
-                index={index}
-                defaultOpen={index === 0}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="flex items-start gap-2.5 rounded-xl border border-dashed border-line px-4 py-3.5">
-            <CircleHelp size={15} strokeWidth={1.8} className="mt-0.5 shrink-0 text-ink-faint" />
-            <div className="space-y-0.5">
-              <p className="text-[12.5px] font-medium text-ink-soft">
-                {t("solution.explanation.empty.title")}
-              </p>
-              <p className="text-[12px] leading-relaxed text-ink-faint">
-                {t("solution.explanation.empty.description")}
-              </p>
-            </div>
-          </div>
-        )}
-      </section>
+      {/* 分步题解 / 题目详解 双 Tab：互斥展示，题目信息始终可见 */}
+      <div
+        className="mt-6 inline-flex gap-0.5 rounded-lg bg-sidebar/70 p-1"
+        role="tablist"
+        aria-label={t("solution.tabs.aria")}
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={solutionView === "steps"}
+          onClick={() => setSolutionView("steps")}
+          className={tabButtonClass(solutionView === "steps")}
+        >
+          <ListChecks size={13} />
+          {t("solution.section.steps")}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={solutionView === "explanation"}
+          onClick={() => setSolutionView("explanation")}
+          className={tabButtonClass(solutionView === "explanation")}
+        >
+          <BookOpen size={13} />
+          {t("solution.explanation.title")}
+        </button>
+      </div>
 
-      <section className="mt-8">
-        <div className="mb-2.5 flex items-center gap-2">
-          <h2 className="text-[12px] font-semibold tracking-[0.06em] text-ink-soft">
-            {t("solution.section.steps")}
-          </h2>
-          {steps.length > 0 ? (
+      {solutionView === "explanation" ? (
+        <section key={solutionView} className="mt-5 animate-fade-in">
+          <div className="mb-2.5 flex items-center gap-2">
+            <h2 className="text-[12px] font-semibold tracking-[0.06em] text-ink-soft">
+              {t("solution.explanation.title")}
+            </h2>
             <span className="text-[11px] text-ink-faint">
-              {t("solution.steps.total", { count: steps.length })}
+              {t("solution.explanation.subtitle")}
             </span>
-          ) : null}
-          {steps.length > 0 ? (
             <div className="ml-auto flex items-center gap-1.5">
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setRevisionOpen(true)}
-                disabled={generatingSolution}
+                onClick={() => exportQuestionMarkdown(question.id)}
+                title={t("solution.export.title")}
               >
-                <History size={13} strokeWidth={1.9} />
-                {t("solution.history.action")}
+                <Download size={13} strokeWidth={1.9} />
+                {t("solution.export.action")}
               </Button>
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => setConfirmOpen(true)}
-                disabled={generatingSolution}
+                onClick={() => void generateExplanation()}
+                disabled={generatingExplanation || steps.length === 0}
+                title={
+                  steps.length === 0
+                    ? t("solution.explanation.needSteps")
+                    : t("solution.explanation.tooltip")
+                }
               >
-                {generatingSolution ? (
+                {generatingExplanation ? (
                   <Loader2 size={13} className="animate-spin" />
                 ) : (
                   <Sparkles size={13} />
                 )}
-                {generatingSolution ? t("solution.regenerating") : t("solution.regenerate")}
+                {generatingExplanation
+                  ? t("solution.explanation.generating")
+                  : explanations.length > 0
+                    ? t("solution.explanation.regenerate")
+                    : t("solution.explanation.generate")}
               </Button>
+            </div>
+          </div>
+          {explanationError ? (
+            <div className="mb-2.5 flex items-start gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-[11.5px] leading-relaxed text-danger">
+              <AlertCircle size={13} className="mt-0.5 shrink-0" />
+              <span className="min-w-0 flex-1">{explanationError}</span>
             </div>
           ) : null}
-        </div>
-
-        {solutionError ? (
-          <div className="mb-2.5 flex flex-wrap items-center gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-[11.5px] text-danger">
-            <AlertCircle size={13} className="shrink-0" />
-            <span className="min-w-0 flex-1">{solutionError.message}</span>
-            {solutionError.code === "INVALID_CONFIG" ? (
-              <button
-                type="button"
-                onClick={openSettings}
-                className="shrink-0 font-medium underline underline-offset-2 transition-opacity hover:opacity-80"
-              >
-                {t("solution.error.configureModel")}
-              </button>
+          {explanations.length > 0 ? (
+            <div className="space-y-2.5">
+              {explanations.slice(0, 5).map((explanation, index) => (
+                <ExplanationCard
+                  key={explanation.id}
+                  explanation={explanation}
+                  index={index}
+                  defaultOpen={index === 0}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-start gap-2.5 rounded-xl border border-dashed border-line px-4 py-3.5">
+              <CircleHelp size={15} strokeWidth={1.8} className="mt-0.5 shrink-0 text-ink-faint" />
+              <div className="space-y-0.5">
+                <p className="text-[12.5px] font-medium text-ink-soft">
+                  {t("solution.explanation.empty.title")}
+                </p>
+                <p className="text-[12px] leading-relaxed text-ink-faint">
+                  {t("solution.explanation.empty.description")}
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
+      ) : (
+        <section key={solutionView} className="mt-5 animate-fade-in">
+          <div className="mb-2.5 flex items-center gap-2">
+            <h2 className="text-[12px] font-semibold tracking-[0.06em] text-ink-soft">
+              {t("solution.section.steps")}
+            </h2>
+            {steps.length > 0 ? (
+              <span className="text-[11px] text-ink-faint">
+                {t("solution.steps.total", { count: steps.length })}
+              </span>
+            ) : null}
+            {steps.length > 0 ? (
+              <div className="ml-auto flex items-center gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setRevisionOpen(true)}
+                  disabled={generatingSolution}
+                >
+                  <History size={13} strokeWidth={1.9} />
+                  {t("solution.history.action")}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setConfirmOpen(true)}
+                  disabled={generatingSolution}
+                >
+                  {generatingSolution ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={13} />
+                  )}
+                  {generatingSolution ? t("solution.regenerating") : t("solution.regenerate")}
+                </Button>
+              </div>
             ) : null}
           </div>
-        ) : null}
 
-        {steps.length > 0 ? (
-          <div className="space-y-2.5">
-            {steps.map((step) => (
-              <StepCard
-                key={step.id}
-                step={step}
-                active={step.id === activeStepId}
-                discussionCount={tagCountByStep[step.id] ?? 0}
-                onDiscuss={openDiscussion}
-                onEdit={(stepId) => {
-                  const target = steps.find((item) => item.id === stepId);
-                  if (target) setEditingStep(target);
-                }}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            <EmptyState
-              icon={ListChecks}
-              title={t("solution.empty.noSolution")}
-              description={t("solution.empty.noSolutionDesc")}
-              compact
-              className="rounded-xl border border-dashed border-line"
-            />
-            <div className="flex justify-center">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => void generateSolution()}
-                disabled={generatingSolution}
-              >
-                {generatingSolution ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : (
-                  <Sparkles size={13} />
-                )}
-                {generatingSolution ? t("solution.generating") : t("solution.generate")}
-              </Button>
+          {solutionError ? (
+            <div className="mb-2.5 flex flex-wrap items-center gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-[11.5px] text-danger">
+              <AlertCircle size={13} className="shrink-0" />
+              <span className="min-w-0 flex-1">{solutionError.message}</span>
+              {solutionError.code === "INVALID_CONFIG" ? (
+                <button
+                  type="button"
+                  onClick={openSettings}
+                  className="shrink-0 font-medium underline underline-offset-2 transition-opacity hover:opacity-80"
+                >
+                  {t("solution.error.configureModel")}
+                </button>
+              ) : null}
             </div>
-          </div>
-        )}
-      </section>
+          ) : null}
+
+          {steps.length > 0 ? (
+            <div className="space-y-2.5">
+              {steps.map((step) => (
+                <StepCard
+                  key={step.id}
+                  step={step}
+                  active={step.id === activeStepId}
+                  discussionCount={tagCountByStep[step.id] ?? 0}
+                  onDiscuss={openDiscussion}
+                  onEdit={(stepId) => {
+                    const target = steps.find((item) => item.id === stepId);
+                    if (target) setEditingStep(target);
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              <EmptyState
+                icon={ListChecks}
+                title={t("solution.empty.noSolution")}
+                description={t("solution.empty.noSolutionDesc")}
+                compact
+                className="rounded-xl border border-dashed border-line"
+              />
+              <div className="flex justify-center">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => void generateSolution()}
+                  disabled={generatingSolution}
+                >
+                  {generatingSolution ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={13} />
+                  )}
+                  {generatingSolution ? t("solution.generating") : t("solution.generate")}
+                </Button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       <Dialog
         open={confirmOpen}
