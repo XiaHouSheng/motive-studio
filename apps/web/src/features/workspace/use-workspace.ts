@@ -9,6 +9,7 @@ import type {
   TurnTagStatus,
   WorkspaceData,
 } from "@motive/shared";
+import { replaceStepReferences } from "@motive/shared";
 import { useUiStore } from "@/stores/ui";
 import { ApiError, api } from "@/lib/api";
 import { useT } from "@/lib/i18n/use-i18n";
@@ -315,7 +316,8 @@ export function useWorkspace() {
         pairs.push({
           id: `${turn.id}-assistant`,
           role: "assistant",
-          content: turn.assistantMessage,
+          // 兜底清洗：存量消息正文可能含模型输出的步骤 UUID，渲染为「步骤 N（标题）」
+          content: replaceStepReferences(turn.assistantMessage, data.steps),
           createdAt: turn.createdAt,
           tagStatus: turn.tagStatus,
           generationStatus: turn.generationStatus,
@@ -339,7 +341,8 @@ export function useWorkspace() {
         pairs.push({
           id: `stream-${activeStep.id}-assistant`,
           role: "assistant",
-          content: streaming.assistantText,
+          // 流式文本同样清洗（UUID 跨 chunk 时短暂保持原样，完整后即替换）
+          content: replaceStepReferences(streaming.assistantText, data.steps),
           createdAt: streaming.startedAt + 1,
           tags: [],
           streaming: true,
