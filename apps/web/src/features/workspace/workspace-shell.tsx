@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, X } from "lucide-react";
 import { useUiStore } from "@/stores/ui";
 import { useT } from "@/lib/i18n/use-i18n";
@@ -34,7 +34,23 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
   const toggleChat = useUiStore((state) => state.toggleChat);
   const closeMobileNav = useUiStore((state) => state.closeMobileNav);
   const closeMobileChat = useUiStore((state) => state.closeMobileChat);
+  const solutionView = useUiStore((state) => state.solutionView);
   const [resizing, setResizing] = useState(false);
+
+  // 中栏 minimap 缩略图的内容签名：仅这些内容变化时才重建克隆，
+  // 模态框开合、流式输出、面板拖宽等 DOM 扰动不触发刷新。
+  // question/steps/explanations 均为 useMemo 稳定引用，签名在流式期间保持不变。
+  const minimapRebuildKey = useMemo(() => {
+    const question = workspace.question;
+    return [
+      question ? `${question.id}:${question.updatedAt}` : "none",
+      workspace.steps.map((step) => `${step.id}:${step.updatedAt}`).join(","),
+      workspace.explanations
+        .map((explanation) => `${explanation.id}:${explanation.status}:${explanation.content.length}`)
+        .join(","),
+      solutionView,
+    ].join("|");
+  }, [workspace.question, workspace.steps, workspace.explanations, solutionView]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -139,9 +155,10 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
           />
         )}
 
-        {/* 主内容区：VSCode 式缩略图滚动条替代原生滚动条；拖宽期间暂停克隆重建 */}
+        {/* 主内容区：VSCode 式缩略图滚动条替代原生滚动条；拖宽期间暂停重排 */}
         <OverviewScrollbar
           minimap
+          rebuildKey={minimapRebuildKey}
           rebuildPaused={resizing}
           className="flex min-w-0 flex-1 flex-col"
           scrollClassName="flex flex-col"

@@ -16,7 +16,9 @@ interface OverviewScrollbarProps {
   scrollClassName?: string;
   /** 开启后右侧渲染 VSCode 式内容缩略图（minimap），而非纯滚动轨道 */
   minimap?: boolean;
-  /** 暂停缩略图克隆重建（如面板拖宽过程中），恢复后补一次重建 */
+  /** 内容签名：变化时才重建缩略图克隆（切题、步骤重生成/编辑、详解变化、Tab 切换等） */
+  rebuildKey?: string;
+  /** 暂停缩略图重建与几何重排（如面板拖宽过程中），恢复后按 pending 补做 */
   rebuildPaused?: boolean;
 }
 
@@ -28,14 +30,16 @@ interface OverviewScrollbarProps {
  *   thumb 为视口位置指示框 —— 高度 = clientHeight×scale、位置 = scrollTop×scale，
  *   点击/拖拽按 1/scale 反算滚动位置，与缩略图像素精确对应
  *
- * 内容变化（流式输出、图片加载）通过 MutationObserver 同步：
- * rAF 批量更新几何，防抖重建缩略图克隆。
+ * 缩略图是内容签名（rebuildKey）变化时刻的静态快照：签名不变则不重建克隆，
+ * 模态框开合、流式输出等 DOM 扰动都不会触发闪动；容器尺寸变化只按新宽度
+ * 重排现有克隆（无 DOM 替换），拖宽期间暂停、结束后补排一次。
  */
 export function OverviewScrollbar({
   children,
   className,
   scrollClassName,
   minimap = false,
+  rebuildKey,
   rebuildPaused = false,
 }: OverviewScrollbarProps) {
   const t = useT();
@@ -45,13 +49,14 @@ export function OverviewScrollbar({
   const minimapViewportRef = useRef<HTMLDivElement>(null);
   const cloneHostRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ offsetY: number } | null>(null);
-  const cloneWidthRef = useRef(0);
-  const bodyLeftRef = useRef(0);
-  /** 当前克隆缩放（仅用于 host transform） */
-  const minimapScaleRef = useRef(0);
+  /** 当前克隆几何：宿主宽度、缩放与主体残余偏移（null = 尚未构建） */
+  const [minimapGeometry, setMinimapGeometry] = useState<{
+    width: number;
+    scale: number;
+    bodyLeft: number;
+  } | null>(null);
   const [hasOverflow, setHasOverflow] = useState(false);
   const [active, setActive] = useState(false);
-  const [minimapScale, setMinimapScale] = useState(0);
 
   const sync = useCallback(() => {
     const node = scrollRef.current;
@@ -88,33 +93,24 @@ export function OverviewScrollbar({
   const syncRef = useRef(sync);
   syncRef.current = sync;
 
-  // 面板拖宽等场景暂停重建：克隆代价高（全量子树布局），恢复后补一次即可
+  // 面板拖宽等场景暂停重建/重排：克隆代价高（全量子树布局），恢复后按 pending 补做
   const rebuildPausedRef = useRef(rebuildPaused);
   rebuildPausedRef.current = rebuildPaused;
-  const rebuildPendingRef = useRef(false);
+  /** 暂停期间记录的待办：签名变化要求重建（优先），或仅几何重排 */
+  const pendingRef = useRef<"rebuild" | "reflow" | null>(null);
 
-  /** 重建缩略图克隆：缩放 = 轨道可用高度 / 克隆实际高度（上限 0.35） */
-  const rebuildMinimap = useCallback(() => {
+  /** 按当前容器宽度测量并提交克隆几何（克隆 DOM 不替换：拖宽只重排，无闪烁） */
+  const measureMinimap = useCallback(() => {
     if (!minimap) return;
-    if (rebuildPausedRef.current) {
-      rebuildPendingRef.current = true;
-      console.log("[ovs] paused, pending=true");
-      return;
-    }
     const node = scrollRef.current;
     const viewport = minimapViewportRef.current;
     const host = cloneHostRef.current;
     if (!node || !viewport || !host) return;
-    const source = node.firstElementChild as HTMLElement | null;
-    if (!source) {
-      host.replaceChildren();
-      minimapScaleRef.current = 0;
-      setMinimapScale(0);
-      return;
-    }
-    const clone = source.cloneNode(true) as HTMLElement;
-    host.replaceChildren(clone);
-    cloneWidthRef.current = node.clientWidth;
+    const clone = host.firstElementChild as HTMLElement | null;
+    if (!clone) return;
+    // 先命令式写入宽度再测量（强制同步布局），随后提交状态供渲染层复现同一几何
+    const width = node.clientWidth;
+    host.style.width = `${width}px`;
     // 克隆内 margin/padding 已被 CSS 清零：按其实际高度定缩放，纹理铺满无留白
     // （transform 不影响 offsetHeight，可同步测量）
     const cloneHeight = Math.max(1, clone.offsetHeight);
@@ -123,17 +119,38 @@ export function OverviewScrollbar({
     if (scale <= 0) return;
     // 主体对齐兜底：量克隆内残余偏移（margin 清零后应为 0）
     const body = clone.firstElementChild as HTMLElement | null;
-    bodyLeftRef.current = body
+    const bodyLeft = body
       ? Math.max(
           0,
           body.getBoundingClientRect().left - clone.getBoundingClientRect().left,
         )
       : 0;
-    minimapScaleRef.current = scale;
-    setMinimapScale(scale);
-    // scale 已写入 ref：立即按新几何同步指示框（不依赖下一次滚动/变更）
+    setMinimapGeometry({ width, scale, bodyLeft });
+    // 几何已更新：立即按新几何同步指示框（不依赖下一次滚动/变更）
     syncRef.current();
   }, [minimap]);
+
+  /** 重建缩略图克隆（全量 cloneNode）：仅在初始构建与 rebuildKey 签名变化时调用 */
+  const rebuildMinimap = useCallback(() => {
+    if (!minimap) return;
+    if (rebuildPausedRef.current) {
+      pendingRef.current = "rebuild";
+      return;
+    }
+    const node = scrollRef.current;
+    const host = cloneHostRef.current;
+    if (!node || !host) return;
+    const source = node.firstElementChild as HTMLElement | null;
+    if (!source) {
+      host.replaceChildren();
+      setMinimapGeometry(null);
+      syncRef.current();
+      return;
+    }
+    const clone = source.cloneNode(true) as HTMLElement;
+    host.replaceChildren(clone);
+    measureMinimap();
+  }, [minimap, measureMinimap]);
 
   const rebuildMinimapTimer = useRef(0);
   const rebuildMinimapSoon = useCallback(() => {
@@ -215,33 +232,25 @@ export function OverviewScrollbar({
     syncRef.current();
     const onScroll = () => syncRef.current();
     node.addEventListener("scroll", onScroll, { passive: true });
-    // 容器自身尺寸变化（窗口缩放、侧栏拖宽）：同步几何并防抖重建缩略图（scale 依赖宽度）
+    // 容器自身尺寸变化（窗口缩放、侧栏拖宽）：同步几何 + 按新宽度重排现有克隆。
+    // 不重建克隆（快照内容不变）；暂停期间记 pending，恢复后补排。
     const resizeObserver = new ResizeObserver(() => {
       syncRef.current();
-      rebuildMinimapSoon();
+      if (rebuildPausedRef.current) {
+        if (pendingRef.current === null) pendingRef.current = "reflow";
+        return;
+      }
+      measureMinimap();
     });
     resizeObserver.observe(node);
-    // 内容变化（流式输出、骨架屏替换、图片加载）：rAF 批量同步几何 + 防抖重建克隆
-    let raf = 0;
-    const mutationObserver = new MutationObserver(() => {
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        raf = 0;
-        syncRef.current();
-        rebuildMinimapSoon();
-      });
-    });
-    mutationObserver.observe(node, { childList: true, subtree: true });
     return () => {
       node.removeEventListener("scroll", onScroll);
       resizeObserver.disconnect();
-      mutationObserver.disconnect();
-      if (raf) cancelAnimationFrame(raf);
       window.clearTimeout(rebuildMinimapTimer.current);
     };
-  }, [rebuildMinimapSoon]);
+  }, [measureMinimap]);
 
-  // 轨道首次渲染后立即计算一次 thumb 几何与缩略图；暂停结束（拖宽结束）后补重建
+  // 轨道首次渲染后立即计算一次 thumb 几何与缩略图
   useEffect(() => {
     if (hasOverflow) {
       sync();
@@ -249,12 +258,30 @@ export function OverviewScrollbar({
     }
   }, [hasOverflow, sync, rebuildMinimap]);
 
+  // rebuildKey 签名变化（切题、步骤重生成/编辑、详解变化、Tab 切换）：防抖重建克隆。
+  // 首次运行跳过 —— 初始构建由上方 hasOverflow 效应负责；暂停期间仅记 pending。
+  const rebuildKeyMountedRef = useRef(false);
   useEffect(() => {
-    console.log("[ovs] unpause-effect", { rebuildPaused, pending: rebuildPendingRef.current });
-    if (rebuildPaused || !rebuildPendingRef.current) return;
-    rebuildPendingRef.current = false;
-    rebuildMinimap();
-  }, [rebuildPaused, rebuildMinimap]);
+    if (!rebuildKey) return;
+    if (!rebuildKeyMountedRef.current) {
+      rebuildKeyMountedRef.current = true;
+      return;
+    }
+    if (rebuildPausedRef.current) {
+      pendingRef.current = "rebuild";
+      return;
+    }
+    rebuildMinimapSoon();
+  }, [rebuildKey, rebuildMinimapSoon]);
+
+  // 暂停结束（拖宽结束）后按 pending 补做：签名变了重建克隆，否则仅重排几何
+  useEffect(() => {
+    if (rebuildPaused || !pendingRef.current) return;
+    const pending = pendingRef.current;
+    pendingRef.current = null;
+    if (pending === "rebuild") rebuildMinimap();
+    else measureMinimap();
+  }, [rebuildPaused, rebuildMinimap, measureMinimap]);
 
   return (
     <div className={cn("relative min-h-0", className)}>
@@ -286,10 +313,10 @@ export function OverviewScrollbar({
                 ref={cloneHostRef}
                 className="minimap-clone-host"
                 style={
-                  minimapScale > 0
+                  minimapGeometry
                     ? {
-                        width: cloneWidthRef.current,
-                        transform: `scale(${minimapScale}) translateX(${-bodyLeftRef.current}px)`,
+                        width: minimapGeometry.width,
+                        transform: `scale(${minimapGeometry.scale}) translateX(${-minimapGeometry.bodyLeft}px)`,
                       }
                     : undefined
                 }

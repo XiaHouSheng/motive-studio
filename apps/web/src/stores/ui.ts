@@ -58,6 +58,8 @@ interface UiState {
   selectedGroupId: string | null;
   selectedQuestionId: string | null;
   activeStepId: string | null;
+  /** 中栏题解视图：分步题解 / 题目详解 双 Tab */
+  solutionView: "steps" | "explanation";
   sidebarCollapsed: boolean;
   sidebarWidth: number;
   chatVisible: boolean;
@@ -72,6 +74,7 @@ interface UiState {
   selectQuestion: (questionId: string) => void;
   initializeSelection: (groupId: string, questionId: string | null) => void;
   resetSelection: () => void;
+  setSolutionView: (view: "steps" | "explanation") => void;
   openDiscussion: (stepId: string) => void;
   toggleSidebar: () => void;
   toggleChat: () => void;
@@ -89,6 +92,7 @@ export const useUiStore = create<UiState>((set) => ({
   selectedGroupId: null,
   selectedQuestionId: null,
   activeStepId: null,
+  solutionView: "steps",
   sidebarCollapsed: false,
   sidebarWidth: readStoredWidth("sidebarWidth", SIDEBAR_WIDTH_LIMITS),
   chatVisible: true,
@@ -106,6 +110,7 @@ export const useUiStore = create<UiState>((set) => ({
       selectedGroupId: groupId,
       selectedQuestionId: null,
       activeStepId: null,
+      solutionView: "steps",
       mobileNavOpen: false,
       mobileChatOpen: false,
     }),
@@ -113,6 +118,7 @@ export const useUiStore = create<UiState>((set) => ({
     set({
       selectedQuestionId: questionId,
       activeStepId: null,
+      solutionView: "steps",
       mobileNavOpen: false,
       mobileChatOpen: false,
     }),
@@ -121,9 +127,16 @@ export const useUiStore = create<UiState>((set) => ({
       selectedGroupId: groupId,
       selectedQuestionId: questionId,
       activeStepId: null,
+      solutionView: "steps",
     }),
   resetSelection: () =>
-    set({ selectedGroupId: null, selectedQuestionId: null, activeStepId: null }),
+    set({
+      selectedGroupId: null,
+      selectedQuestionId: null,
+      activeStepId: null,
+      solutionView: "steps",
+    }),
+  setSolutionView: (view) => set({ solutionView: view }),
   openDiscussion: (stepId) =>
     set({
       activeStepId: stepId,
