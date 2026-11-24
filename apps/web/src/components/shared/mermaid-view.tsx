@@ -17,6 +17,8 @@ const CACHE_LIMIT = 50;
 
 /** 自适应放大上限：小图最多放大到原始尺寸的 2 倍，避免少量节点被拉成巨幅空框 */
 const MAX_UPSCALE = 2;
+/** 自适应高度上限（× 可视高度）：竖长图铺满宽度会撑满整屏，按比例截住 */
+const MAX_HEIGHT_VIEWPORT_RATIO = 0.7;
 
 const diagramPlugin = createMermaidPlugin();
 
@@ -66,10 +68,12 @@ export function MermaidView({ code, isIncomplete }: MermaidViewProps) {
     [svg],
   );
 
-  /** 从 SVG 字符串解析 viewBox 原始尺寸，作为自适应缩放的基准 */
+  /** 从 SVG 字符串解析 viewBox 原始尺寸（允许负原点），作为自适应缩放的基准 */
   const naturalSize = useMemo(() => {
     if (!svg) return null;
-    const match = /viewBox="\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*"/.exec(svg);
+    const match = /viewBox="\s*(-?[\d.e+-]+)\s+(-?[\d.e+-]+)\s+(-?[\d.e+-]+)\s+(-?[\d.e+-]+)\s*"/.exec(
+      svg,
+    );
     if (!match) return null;
     const width = Number.parseFloat(match[3]);
     const height = Number.parseFloat(match[4]);
@@ -88,7 +92,13 @@ export function MermaidView({ code, isIncomplete }: MermaidViewProps) {
       if (!svgEl) return;
       const available = host.clientWidth;
       if (available <= 0) return;
-      const scale = Math.min(available / naturalSize.width, MAX_UPSCALE);
+      // 宽度铺满（上限 2 倍），同时限制缩放后高度不超过可视高度的 70%（竖长图）
+      const maxHeight = window.innerHeight * MAX_HEIGHT_VIEWPORT_RATIO;
+      const scale = Math.min(
+        available / naturalSize.width,
+        MAX_UPSCALE,
+        maxHeight / naturalSize.height,
+      );
       // mermaid 把 max-width 写成 style 属性，CSS 类盖不掉，只能改内联样式
       svgEl.style.maxWidth = "none";
       svgEl.style.width = `${Math.round(naturalSize.width * scale)}px`;
