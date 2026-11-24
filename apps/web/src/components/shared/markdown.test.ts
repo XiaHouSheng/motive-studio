@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeAsterisks, normalizePlainFormulas } from "./markdown";
+import { normalizeAsterisks, normalizeOrphanListMarkers, normalizePlainFormulas } from "./markdown";
 
 describe("normalizeAsterisks", () => {
   it("把数学星号 ∗（U+2217）的加粗结构归一化为 ASCII 星号", () => {
@@ -57,5 +57,39 @@ describe("normalizePlainFormulas", () => {
   it("代码与公式片段内的内容不做处理", () => {
     const text = "记 `x=3` 或 $y=4$ 即可";
     expect(normalizePlainFormulas(text)).toBe(text);
+  });
+});
+
+describe("normalizeOrphanListMarkers", () => {
+  it("单独成行的题号与下一行题干合并", () => {
+    expect(normalizeOrphanListMarkers("8.\n在一个请求分页系统中，某程序…")).toBe(
+      "8. 在一个请求分页系统中，某程序…",
+    );
+  });
+
+  it("全角句号与顿号分隔符同样合并，且保留原文分隔符", () => {
+    expect(normalizeOrphanListMarkers("8．\n题目内容")).toBe("8． 题目内容");
+    expect(normalizeOrphanListMarkers("6、\n题目内容")).toBe("6、 题目内容");
+  });
+
+  it("下一行是块级结构或另一条序号行时不合并", () => {
+    expect(normalizeOrphanListMarkers("8.\n## 小标题")).toBe("8.\n## 小标题");
+    expect(normalizeOrphanListMarkers("8.\n| 表格 |")).toBe("8.\n| 表格 |");
+    expect(normalizeOrphanListMarkers("8.\n9. 下一题")).toBe("8.\n9. 下一题");
+    expect(normalizeOrphanListMarkers("8.\n12、逻辑地址引用")).toBe("8.\n12、逻辑地址引用");
+  });
+
+  it("序号行后是空行时不合并", () => {
+    expect(normalizeOrphanListMarkers("8.\n\n题目内容")).toBe("8.\n\n题目内容");
+  });
+
+  it("行内已有文字的普通列表项不受影响", () => {
+    const text = "6. 假设有一个进程的分页使用如下顺序";
+    expect(normalizeOrphanListMarkers(text)).toBe(text);
+  });
+
+  it("代码块内的孤儿序号保持原样", () => {
+    const text = "```\n8.\n文字\n```";
+    expect(normalizeOrphanListMarkers(text)).toBe(text);
   });
 });

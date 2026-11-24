@@ -236,6 +236,37 @@ export function normalizeAsterisks(content: string): string {
 }
 
 /**
+ * 孤儿题号归一化：`8.` 这类序号被单独写成一行（导入转写/手输常见）时，
+ * Markdown 会把它解析成空有序列表项、题干落到下一段，渲染成两截。
+ * 把仅含序号的行与紧随的普通文本行合并（`8.` + 换行 + 文字 → `8. 文字`），
+ * 与正常书写的「6. 题干」形态对齐。下一行是标题/列表/表格/引用/围栏或另一条
+ * 序号行时不合并；代码与公式片段保持原样。分隔符保留原文（. / ． / ) / 、）。
+ */
+const ORPHAN_MARKER = /^ {0,3}(\d{1,3})([.．)、])\s*$/;
+/** 合并目标行的排除形态：块级结构或另一条序号行不与序号行拼接 */
+const STRUCTURAL_LINE = /^(#{1,6}\s| {0,3}[-*+]\s| {0,3}\d{1,3}[.．)]\s|\||>|\d{1,3}[.．、)]|```)/;
+
+export function normalizeOrphanListMarkers(content: string): string {
+  return content
+    .split(VERBATIM_SEGMENT)
+    .map((part, index) => {
+      if (index % 2 === 1) return part;
+      const lines = part.split("\n");
+      for (let i = 0; i < lines.length - 1; i += 1) {
+        const marker = ORPHAN_MARKER.exec(lines[i]);
+        if (!marker) continue;
+        const next = lines[i + 1];
+        if (next.trim() === "" || STRUCTURAL_LINE.test(next)) continue;
+        // 序号与文字合并为一行，后续行整体前移
+        lines[i] = `${marker[1]}${marker[2]} ${next.replace(/^[ \t]+/, "")}`;
+        lines.splice(i + 1, 1);
+      }
+      return lines.join("\n");
+    })
+    .join("");
+}
+
+/**
  * 兼容 AI 常见的 LaTeX 分隔符：\(…\) 行内、\[…\] 块级。
  * remark-math 只识别 $…$ / $$…$$，模型不守约定时公式会原样显示，这里统一归一化。
  */
@@ -243,9 +274,11 @@ function normalizeMath(content: string): string {
   return splitLongFormulas(
     normalizePlainFormulas(
       normalizeAsterisks(
-        content
-          .replace(/\\\(([\s\S]+?)\\\)/g, (_match, inner: string) => `$${inner}$`)
-          .replace(/\\\[([\s\S]+?)\\\]/g, (_match, inner: string) => `\n\n$$\n${inner}\n$$\n\n`),
+        normalizeOrphanListMarkers(
+          content
+            .replace(/\\\(([\s\S]+?)\\\)/g, (_match, inner: string) => `$${inner}$`)
+            .replace(/\\\[([\s\S]+?)\\\]/g, (_match, inner: string) => `\n\n$$\n${inner}\n$$\n\n`),
+        ),
       ),
     ),
   );
