@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ArrowLeft,
+  BarChart3,
   Globe,
   Languages,
   Monitor,
@@ -29,8 +30,9 @@ import { Markdown } from "@/components/shared/markdown";
 import { PromptsSettings } from "./prompts-settings";
 import { ProviderSettingsSection } from "./provider-settings-form";
 import { RemoteAccessPanel } from "./remote-access-panel";
+import { UsageSection } from "./usage-section";
 
-type SectionId = "general" | "prompts" | "provider" | "remote";
+type SectionId = "general" | "prompts" | "provider" | "usage" | "remote";
 
 const SECTIONS: Array<{
   id: SectionId;
@@ -40,6 +42,7 @@ const SECTIONS: Array<{
   { id: "general", labelKey: "settings.sectionGeneral", icon: Languages },
   { id: "prompts", labelKey: "settings.sectionPrompts", icon: Sparkles },
   { id: "provider", labelKey: "settings.sectionProvider", icon: Server },
+  { id: "usage", labelKey: "settings.sectionUsage", icon: BarChart3 },
   { id: "remote", labelKey: "settings.sectionRemote", icon: Globe },
 ];
 
@@ -338,6 +341,7 @@ export function SettingsPage() {
               {section === "general" ? <GeneralSettings /> : null}
               {section === "prompts" ? <PromptsSettings /> : null}
               {section === "provider" ? <ProviderSettingsSection /> : null}
+              {section === "usage" ? <UsageSection /> : null}
               {section === "remote" ? <RemoteAccessPanel /> : null}
             </div>
           </main>

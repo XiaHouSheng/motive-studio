@@ -23,6 +23,7 @@ import {
   type SubConversation,
   type TurnStepTag,
   type UiPreferences,
+  type AiUsageView,
   type WorkspaceData,
 } from "@motive/shared";
 
@@ -394,6 +395,8 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(input),
     }),
+  getAiUsage: (days: number) =>
+    request<AiUsageView>(`/api/settings/usage?days=${days}`),
 
   getRemoteAccess: () => request<RemoteAccessView>("/api/settings/remote-access"),
   saveRemoteAccess: (input: { enabled?: boolean; publicOrigin?: string; serverAddr?: string }) =>
