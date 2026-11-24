@@ -2,12 +2,12 @@ import { useState, memo } from "react";
 import {
   AlertCircle,
   BookOpen,
-  ChevronDown,
   CircleHelp,
   Download,
   History,
   ListChecks,
   Loader2,
+  MessageCircle,
   Sparkles,
 } from "lucide-react";
 import type {
@@ -51,56 +51,33 @@ const tabButtonClass = (active: boolean) =>
     active ? "bg-panel font-medium text-ink shadow-soft" : "text-ink-faint hover:text-ink-soft",
   );
 
-function ExplanationCard({
-  explanation,
-  index,
-  defaultOpen,
-}: {
-  explanation: SolutionExplanation;
-  index: number;
-  defaultOpen: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
+/** 详解卡片：与 StepCard 同构的中性卡片（无编号、常驻展开） */
+function ExplanationCard({ explanation }: { explanation: SolutionExplanation }) {
   const { t, locale } = useI18n();
   const meta = statusMeta[explanation.status];
 
   return (
-    <article className="rounded-xl border border-brand/40 bg-brand/8 transition-colors">
-      <div className="flex items-start gap-3 px-4 pt-3.5 pb-1">
-        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-brand/45 bg-brand/15 font-mono text-[11px] tabular-nums text-brand">
-          {index + 1}
+    <article className="rounded-xl border border-line bg-panel transition-colors">
+      <div className="flex flex-wrap items-center gap-2 px-4 pt-3.5 pb-1">
+        <h3 className="text-[13.5px] leading-snug font-semibold text-ink">
+          {t("solution.explanation.title")}
+        </h3>
+        <Badge tone={meta.tone}>{t(meta.label)}</Badge>
+        <span className="text-[11px] text-ink-faint">
+          {formatTime(explanation.createdAt, locale)}
         </span>
-
-        <div className="min-w-0 flex-1 pt-0.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-[13.5px] leading-snug font-semibold text-ink">
-              {t("solution.explanation.title")}
-            </h3>
-            <Badge tone={meta.tone}>{t(meta.label)}</Badge>
-            <span className="text-[11px] text-ink-faint">
-              {formatTime(explanation.createdAt, locale)}
-            </span>
-          </div>
-        </div>
-
-        <Button variant="ghost" size="sm" onClick={() => setOpen((value) => !value)}>
-          <ChevronDown
-            size={13}
-            className={cn("transition-transform duration-150", open && "rotate-180")}
-          />
-          {open ? t("solution.collapse") : t("solution.expand")}
-        </Button>
       </div>
 
-      <div className="px-4 pb-3.5 sm:pl-[52px]">
+      <div className="px-4 pb-3.5">
         <p className="text-[13px] leading-[1.75] text-ink-soft">{explanation.summary}</p>
-        {open ? (
-          <div className="mt-2.5 border-t border-brand/15 pt-2.5">
-            <Markdown content={explanation.content} className="md-compact" />
-          </div>
-        ) : null}
+        <div className="mt-2.5 border-t border-line pt-2.5">
+          <Markdown content={explanation.content} className="md-compact" />
+        </div>
         <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-faint">
-          <span>{t("solution.explanation.turns", { count: explanation.turnIds.length })}</span>
+          <span className="inline-flex items-center gap-1.5">
+            <MessageCircle size={11.5} strokeWidth={1.9} />
+            {t("solution.explanation.turns", { count: explanation.turnIds.length })}
+          </span>
           {explanation.usage ? (
             <span>
               {t("solution.explanation.usage", {
@@ -326,13 +303,8 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
           ) : null}
           {explanations.length > 0 ? (
             <div className="space-y-2.5">
-              {explanations.slice(0, 5).map((explanation, index) => (
-                <ExplanationCard
-                  key={explanation.id}
-                  explanation={explanation}
-                  index={index}
-                  defaultOpen={index === 0}
-                />
+              {explanations.slice(0, 5).map((explanation) => (
+                <ExplanationCard key={explanation.id} explanation={explanation} />
               ))}
             </div>
           ) : (
