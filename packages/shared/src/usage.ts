@@ -10,11 +10,12 @@ export const AI_REQUEST_TASK_TYPES = [
 
 export type AiRequestTaskType = (typeof AI_REQUEST_TASK_TYPES)[number];
 
-/** 按天 × 模型聚合的一行用量 */
+/** 按天 × 模型 × 任务类型聚合的一行用量 */
 export interface AiUsageDayModel {
   /** 本地时区日期（YYYY-MM-DD） */
   date: string;
   model: string;
+  taskType: AiRequestTaskType;
   requests: number;
   inputTokens: number;
   outputTokens: number;

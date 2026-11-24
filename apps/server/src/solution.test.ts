@@ -359,6 +359,7 @@ describe("正式题解生成", () => {
       days: Array<{
         date: string;
         model: string;
+        taskType: string;
         requests: number;
         inputTokens: number;
         outputTokens: number;
@@ -371,6 +372,7 @@ describe("正式题解生成", () => {
     expect(view.days).toContainEqual({
       date: localDate(noon(0)),
       model: "model-a",
+      taskType: "solution_generation",
       requests: 2,
       inputTokens: 180,
       outputTokens: 90,
@@ -379,6 +381,7 @@ describe("正式题解生成", () => {
     expect(view.days).toContainEqual({
       date: localDate(noon(-1)),
       model: "model-b",
+      taskType: "chat",
       requests: 1,
       inputTokens: 200,
       outputTokens: 300,

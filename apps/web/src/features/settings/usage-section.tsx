@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3 } from "lucide-react";
-import type { AiUsageView } from "@motive/shared";
+import type { AiUsageDayModel, AiUsageView } from "@motive/shared";
 import { api } from "@/lib/api";
 import { useT } from "@/lib/i18n/use-i18n";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,27 @@ import { Skeleton } from "@/components/ui/skeleton";
 const RANGE_DAYS = 84;
 
 type Metric = "requests" | "tokens";
+
+/** 三大分类：识别（图片导入）/ 题解与详解 / 讨论 */
+type Category = "all" | "import" | "solution" | "chat";
+
+const CATEGORY_TASK_TYPES: Record<Exclude<Category, "all">, AiUsageDayModel["taskType"][]> = {
+  import: ["image_import"],
+  solution: ["solution_generation", "explanation_generation"],
+  chat: ["chat"],
+};
+
+function categoryOfTaskType(taskType: AiUsageDayModel["taskType"]): Exclude<Category, "all"> {
+  if (taskType === "image_import") return "import";
+  if (taskType === "chat") return "chat";
+  return "solution";
+}
+
+const CATEGORY_LABEL_KEYS: Record<Exclude<Category, "all">, "settings.usage.categoryImport" | "settings.usage.categorySolution" | "settings.usage.categoryChat"> = {
+  import: "settings.usage.categoryImport",
+  solution: "settings.usage.categorySolution",
+  chat: "settings.usage.categoryChat",
+};
 
 /** GitHub 式日历热力图的色阶（0 = 无请求，4 = 最密集） */
 const LEVEL_CLASSES = [
@@ -38,6 +59,7 @@ export function UsageSection() {
   const [error, setError] = useState<string | null>(null);
   const [metric, setMetric] = useState<Metric>("requests");
   const [modelFilter, setModelFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<Category>("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -62,9 +84,55 @@ export function UsageSection() {
 
   const filteredRows = useMemo(() => {
     if (!view) return [];
-    return modelFilter === "all"
-      ? view.days
-      : view.days.filter((day) => day.model === modelFilter);
+    return view.days.filter((day) => {
+      if (
+        categoryFilter !== "all" &&
+        !CATEGORY_TASK_TYPES[categoryFilter].includes(day.taskType)
+      ) {
+        return false;
+      }
+      if (modelFilter !== "all" && day.model !== modelFilter) return false;
+      return true;
+    });
+  }, [view, categoryFilter, modelFilter]);
+
+  /** 分类汇总：只按模型筛选（不受分类筛选影响），始终展示三大分类 */
+  const categorySummary = useMemo(() => {
+    if (!view) return [];
+    const modelRows =
+      modelFilter === "all"
+        ? view.days
+        : view.days.filter((day) => day.model === modelFilter);
+    const byCategory = new Map<
+      Exclude<Category, "all">,
+      { category: Exclude<Category, "all">; requests: number; inputTokens: number; outputTokens: number; failures: number }
+    >();
+    for (const row of modelRows) {
+      const category = categoryOfTaskType(row.taskType);
+      const current = byCategory.get(category) ?? {
+        category,
+        requests: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        failures: 0,
+      };
+      current.requests += row.requests;
+      current.inputTokens += row.inputTokens;
+      current.outputTokens += row.outputTokens;
+      current.failures += row.failures;
+      byCategory.set(category, current);
+    }
+    const order: Array<Exclude<Category, "all">> = ["solution", "chat", "import"];
+    return order.map(
+      (category) =>
+        byCategory.get(category) ?? {
+          category,
+          requests: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          failures: 0,
+        },
+    );
   }, [view, modelFilter]);
 
   const totals = useMemo(() => {
@@ -160,8 +228,8 @@ export function UsageSection() {
         />
       </div>
 
-      {/* 指标切换 + 模型筛选 */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* 指标切换 + 分类筛选 + 模型筛选 */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div
           className="inline-flex gap-0.5 rounded-lg bg-sidebar/70 p-1"
           role="tablist"
@@ -182,6 +250,33 @@ export function UsageSection() {
               )}
             >
               {t(value === "requests" ? "settings.usage.requestsMetric" : "settings.usage.tokensMetric")}
+            </button>
+          ))}
+        </div>
+        <div
+          className="inline-flex gap-0.5 rounded-lg bg-sidebar/70 p-1"
+          role="radiogroup"
+          aria-label={t("settings.usage.categoryAria")}
+        >
+          {(["all", "import", "solution", "chat"] as Category[]).map((value) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={categoryFilter === value}
+              onClick={() => setCategoryFilter(value)}
+              className={cn(
+                "inline-flex h-7 items-center rounded-md px-2.5 text-[12px] transition-colors",
+                categoryFilter === value
+                  ? "bg-panel font-medium text-ink shadow-soft"
+                  : "text-ink-faint hover:text-ink-soft",
+              )}
+            >
+              {t(
+                value === "all"
+                  ? "settings.usage.categoryAll"
+                  : CATEGORY_LABEL_KEYS[value],
+              )}
             </button>
           ))}
         </div>
@@ -288,10 +383,68 @@ export function UsageSection() {
         </div>
       )}
 
+      {/* 按分类汇总：识别 / 题解与详解 / 讨论（跟随模型筛选，不受分类筛选影响） */}
+      {categorySummary.some((row) => row.requests > 0) ? (
+        <div className="space-y-2">
+          <p className="text-[10.5px] font-semibold uppercase tracking-wide text-ink-faint">
+            {t("settings.usage.byCategoryTitle")}
+          </p>
+          <div className="overflow-hidden rounded-xl border border-line">
+            <table className="w-full text-[12px]">
+              <thead>
+                <tr className="border-b border-line bg-sidebar/50 text-left text-[10.5px] uppercase tracking-wide text-ink-faint">
+                  <th className="px-3 py-2 font-medium">{t("settings.usage.categoryColumn")}</th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    {t("settings.usage.requestsColumn")}
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    {t("settings.usage.inputTokens")}
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    {t("settings.usage.outputTokens")}
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    {t("settings.usage.failures")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {categorySummary.map((row) => (
+                  <tr
+                    key={row.category}
+                    className="border-b border-line/60 last:border-b-0"
+                  >
+                    <td className="px-3 py-2 text-ink">
+                      {t(CATEGORY_LABEL_KEYS[row.category])}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-ink-soft">
+                      {row.requests}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-ink-soft">
+                      {row.inputTokens.toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-ink-soft">
+                      {row.outputTokens.toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-ink-soft">
+                      {row.failures}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+
       {/* 按模型汇总 */}
       {filteredRows.length > 0 ? (
-        <div className="overflow-hidden rounded-xl border border-line">
-          <table className="w-full text-[12px]">
+        <div className="space-y-2">
+          <p className="text-[10.5px] font-semibold uppercase tracking-wide text-ink-faint">
+            {t("settings.usage.byModelTitle")}
+          </p>
+          <div className="overflow-hidden rounded-xl border border-line">
+            <table className="w-full text-[12px]">
             <thead>
               <tr className="border-b border-line bg-sidebar/50 text-left text-[10.5px] uppercase tracking-wide text-ink-faint">
                 <th className="px-3 py-2 font-medium">{t("settings.usage.modelColumn")}</th>
@@ -329,6 +482,7 @@ export function UsageSection() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       ) : null}
 
