@@ -230,47 +230,49 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
         </div>
       ) : null}
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11.5px] text-ink-faint">
-        <span>
-          {steps.length > 0
-            ? t("solution.steps.count", { count: steps.length })
-            : t("solution.steps.none")}
-        </span>
-        <span className="h-3 w-px bg-line" />
-        <span>{t("solution.updatedAt", { time: formatTime(question.updatedAt, locale) })}</span>
-        {steps.length > 0 ? (
-          <Badge tone="success" className="ml-1">
-            {t("solution.badge.generated")}
-          </Badge>
-        ) : null}
-      </div>
+      {/* 元信息与双 Tab 同行：页签靠左，步骤数/更新时间/徽章靠最右 */}
+      <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div
+          className="inline-flex gap-0.5 rounded-lg bg-sidebar/70 p-1"
+          role="tablist"
+          aria-label={t("solution.tabs.aria")}
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={solutionView === "steps"}
+            onClick={() => setSolutionView("steps")}
+            className={tabButtonClass(solutionView === "steps")}
+          >
+            <ListChecks size={13} />
+            {t("solution.section.steps")}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={solutionView === "explanation"}
+            onClick={() => setSolutionView("explanation")}
+            className={tabButtonClass(solutionView === "explanation")}
+          >
+            <BookOpen size={13} />
+            {t("solution.explanation.title")}
+          </button>
+        </div>
 
-      {/* 分步题解 / 题目详解 双 Tab：互斥展示，题目信息始终可见 */}
-      <div
-        className="mt-6 inline-flex gap-0.5 rounded-lg bg-sidebar/70 p-1"
-        role="tablist"
-        aria-label={t("solution.tabs.aria")}
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={solutionView === "steps"}
-          onClick={() => setSolutionView("steps")}
-          className={tabButtonClass(solutionView === "steps")}
-        >
-          <ListChecks size={13} />
-          {t("solution.section.steps")}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={solutionView === "explanation"}
-          onClick={() => setSolutionView("explanation")}
-          className={tabButtonClass(solutionView === "explanation")}
-        >
-          <BookOpen size={13} />
-          {t("solution.explanation.title")}
-        </button>
+        <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11.5px] text-ink-faint">
+          <span>
+            {steps.length > 0
+              ? t("solution.steps.count", { count: steps.length })
+              : t("solution.steps.none")}
+          </span>
+          <span className="h-3 w-px bg-line" />
+          <span>{t("solution.updatedAt", { time: formatTime(question.updatedAt, locale) })}</span>
+          {steps.length > 0 ? (
+            <Badge tone="success" className="ml-1">
+              {t("solution.badge.generated")}
+            </Badge>
+          ) : null}
+        </div>
       </div>
 
       {solutionView === "explanation" ? (
