@@ -1423,14 +1423,6 @@ export class WorkspaceRepository {
     return count;
   }
 
-  setQuestionImagePolicy(questionId: string, imagePolicy: ImagePolicy): Question {
-    this.requireQuestion(questionId);
-    this.db
-      .prepare("UPDATE questions SET image_policy = ?, updated_at = ? WHERE id = ?")
-      .run(imagePolicy, Date.now(), questionId);
-    return this.getQuestion(questionId);
-  }
-
   /** 题解生成所需的题目文本、图片策略与原图清单 */
   getQuestionContext(questionId: string): QuestionContextSource {
     const row = this.requireQuestion(questionId);

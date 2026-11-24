@@ -12,7 +12,6 @@ import {
   type ProviderSettingsUpdate,
   type ProviderSettingsView,
   type ProviderTestResult,
-  type ImagePolicy,
   type Question,
   type QuestionAsset,
   type QuestionGroup,
@@ -192,11 +191,6 @@ export const api = {
     request<{ ok: true }>(
       `/api/questions/${encodeURIComponent(questionId)}/assets/${encodeURIComponent(assetId)}`,
       { method: "DELETE" },
-    ),
-  setQuestionImagePolicy: (questionId: string, imagePolicy: ImagePolicy) =>
-    request<Question>(
-      `/api/questions/${encodeURIComponent(questionId)}/image-policy`,
-      { method: "PATCH", body: JSON.stringify({ imagePolicy }) },
     ),
   createStep: (questionId: string, input: StepInput) =>
     request<SolutionStep>(`/api/questions/${encodeURIComponent(questionId)}/steps`, {

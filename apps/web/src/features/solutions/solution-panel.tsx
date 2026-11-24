@@ -12,12 +12,12 @@ import {
 } from "lucide-react";
 import type {
   ExplanationStatus,
-  ImagePolicy,
   QuestionAsset,
   SolutionExplanation,
   SolutionStep,
 } from "@motive/shared";
 import { useUiStore } from "@/stores/ui";
+import { usePreferencesStore } from "@/stores/preferences";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import type { DictionaryKey } from "@/lib/i18n/zh-CN";
 import { formatTime } from "@/lib/format";
@@ -33,12 +33,6 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { StepCard } from "./step-card";
 import { StepEditDialog } from "./step-edit-dialog";
 import { RevisionHistoryDialog } from "./revision-history-dialog";
-
-const policyLabels: Record<ImagePolicy, DictionaryKey> = {
-  auto: "solution.policy.auto",
-  always: "solution.policy.always",
-  never: "solution.policy.never",
-};
 
 const statusMeta: Record<
   ExplanationStatus,
@@ -141,13 +135,13 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
     generateExplanation,
     exportQuestionMarkdown,
     providerSupportsVision,
-    setQuestionImagePolicy,
   } = workspace;
   const activeStepId = useUiStore((state) => state.activeStepId);
   const openDiscussion = useUiStore((state) => state.openDiscussion);
   const openSettings = useUiStore((state) => state.openSettings);
   const solutionView = useUiStore((state) => state.solutionView);
   const setSolutionView = useUiStore((state) => state.setSolutionView);
+  const imagePolicy = usePreferencesStore((state) => state.imagePolicy);
   const { t, locale } = useI18n();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [revisionOpen, setRevisionOpen] = useState(false);
@@ -219,26 +213,10 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
               />
             </button>
           ))}
-          <label className="ml-auto inline-flex items-center gap-1.5 text-[11.5px] text-ink-faint">
-            {t("solution.asset.imageLabel")}
-            <select
-              value={question.imagePolicy}
-              onChange={(event) =>
-                setQuestionImagePolicy(question.id, event.target.value as ImagePolicy)
-              }
-              className="h-7 rounded-md border border-line bg-field px-1.5 text-[11.5px] text-ink-soft outline-none focus:border-brand/50"
-            >
-              {(Object.keys(policyLabels) as ImagePolicy[]).map((policy) => (
-                <option key={policy} value={policy}>
-                  {t(policyLabels[policy])}
-                </option>
-              ))}
-            </select>
-          </label>
         </div>
       ) : null}
 
-      {question.imagePolicy === "always" && providerSupportsVision === false ? (
+      {imagePolicy === "always" && providerSupportsVision === false ? (
         <div className="mt-2.5 flex flex-wrap items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-[11.5px] text-warning">
           <AlertCircle size={13} className="shrink-0" />
           <span className="min-w-0 flex-1">{t("solution.warning.vision")}</span>

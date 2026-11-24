@@ -249,6 +249,12 @@ export const panelsZh = {
   "settings.mermaidLabel": "Mermaid 示意图",
   "settings.mermaidHint":
     "开启后，分步题解会用 Mermaid 绘制流程、时序等示意图，并渲染为图形显示；示意图代码会明显增加 token 消耗，默认关闭。",
+  "settings.imagePolicyLabel": "题目图片附带",
+  "settings.imagePolicyHint":
+    "生成分步题解时是否把题目原图一并发给模型。「自动」会按当前模型是否声明支持图片输入来决定；「始终附带」在模型不支持时会直接报错，默认自动。",
+  "settings.imagePolicyAuto": "自动（按模型能力）",
+  "settings.imagePolicyAlways": "始终附带",
+  "settings.imagePolicyNever": "不附带",
   "settings.mdFontSizeLabel": "Markdown 字体大小",
   "settings.mdFontSizeHint": "调整题目详解、分步题解与讨论消息的渲染字号，拖动即时生效并保存。",
   "settings.mdFontSizePreview": "预览",
@@ -545,6 +551,12 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "settings.mermaidLabel": "Mermaid diagrams",
   "settings.mermaidHint":
     "When enabled, step solutions draw flow / sequence diagrams as Mermaid code blocks rendered as graphics. Diagram code noticeably increases token usage; disabled by default.",
+  "settings.imagePolicyLabel": "Question images",
+  "settings.imagePolicyHint":
+    "Whether the original question images are sent to the model when generating a step solution. Auto depends on whether the active model declares vision support; Always fails outright when the model lacks vision. Default is auto.",
+  "settings.imagePolicyAuto": "Auto (by model)",
+  "settings.imagePolicyAlways": "Always attach",
+  "settings.imagePolicyNever": "Never attach",
   "settings.mdFontSizeLabel": "Markdown font size",
   "settings.mdFontSizeHint": "Adjust the rendered size of explanations, step solutions and discussion messages. Changes apply instantly and are saved automatically.",
   "settings.mdFontSizePreview": "Preview",

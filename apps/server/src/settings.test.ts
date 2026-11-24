@@ -290,6 +290,7 @@ describe("界面偏好接口", () => {
     language: string;
     markdownFontSize: number;
     enableMermaid: boolean;
+    imagePolicy: string;
   };
 
   function putUi(body: unknown) {
@@ -304,6 +305,7 @@ describe("界面偏好接口", () => {
       language: "zh-CN",
       markdownFontSize: 15,
       enableMermaid: false,
+      imagePolicy: "auto",
     });
   });
 
@@ -314,6 +316,7 @@ describe("界面偏好接口", () => {
       language: "en",
       markdownFontSize: 15,
       enableMermaid: false,
+      imagePolicy: "auto",
     });
 
     const themeOnly = await putUi({ theme: "dark" });
@@ -322,6 +325,7 @@ describe("界面偏好接口", () => {
       language: "en",
       markdownFontSize: 15,
       enableMermaid: false,
+      imagePolicy: "auto",
     });
   });
 
@@ -335,6 +339,7 @@ describe("界面偏好接口", () => {
       language: "zh-CN",
       markdownFontSize: 18,
       enableMermaid: false,
+      imagePolicy: "auto",
     });
 
     const restored = await putUi({ markdownFontSize: 15 });
@@ -349,6 +354,7 @@ describe("界面偏好接口", () => {
       language: "en",
       markdownFontSize: 15,
       enableMermaid: false,
+      imagePolicy: "auto",
     });
   });
 
@@ -366,6 +372,7 @@ describe("界面偏好接口", () => {
       language: "en",
       markdownFontSize: 15,
       enableMermaid: false,
+      imagePolicy: "auto",
     });
   });
 
@@ -383,6 +390,9 @@ describe("界面偏好接口", () => {
     expect((await putUi({ markdownFontSize: "16" })).status).toBe(400);
     // mermaid 开关必须是布尔值
     expect((await putUi({ enableMermaid: "yes" })).status).toBe(400);
+    // 图片策略必须是 auto / always / never
+    expect((await putUi({ imagePolicy: "sometimes" })).status).toBe(400);
+    expect((await putUi({ imagePolicy: 1 })).status).toBe(400);
 
     const after = await call<UiPrefsBody>(running, "GET", "/api/settings/ui");
     expect(after.body).toEqual({
@@ -390,6 +400,7 @@ describe("界面偏好接口", () => {
       language: "en",
       markdownFontSize: 16,
       enableMermaid: false,
+      imagePolicy: "auto",
     });
   });
 

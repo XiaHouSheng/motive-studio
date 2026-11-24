@@ -34,6 +34,9 @@ export function App() {
       if (!preferencesState.mermaidTouched) {
         preferencesState.hydrateEnableMermaid(preferences.enableMermaid);
       }
+      if (!preferencesState.imagePolicyTouched) {
+        preferencesState.hydrateImagePolicy(preferences.imagePolicy);
+      }
     });
     return () => {
       cancelled = true;

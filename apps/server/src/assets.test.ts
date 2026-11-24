@@ -187,25 +187,14 @@ describe("题目图片资源", () => {
     )).assets).toHaveLength(0);
   });
 
-  it("图片策略校验并回写", async () => {
+  it("每题图片策略端点已移除，策略由全局 UI 偏好接管", async () => {
     const question = await createQuestion(app);
 
-    const invalid = await fetch(`${app.baseUrl}/api/questions/${question.id}/image-policy`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ imagePolicy: "sometimes" }),
-    });
-    expect(invalid.status).toBe(400);
-
-    const response = await fetch(`${app.baseUrl}/api/questions/${question.id}/image-policy`, {
+    const removed = await fetch(`${app.baseUrl}/api/questions/${question.id}/image-policy`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ imagePolicy: "never" }),
     });
-    expect(response.status).toBe(200);
-    expect((await json<Question>(response)).imagePolicy).toBe("never");
-
-    const workspace = await bootstrap(app);
-    expect(workspace.questions.find((item) => item.id === question.id)?.imagePolicy).toBe("never");
+    expect(removed.status).toBe(404);
   });
 });

@@ -146,9 +146,10 @@ async function createQuestionWithImage(app: RunningApp): Promise<Question> {
   return question;
 }
 
-async function setPolicy(app: RunningApp, questionId: string, imagePolicy: string): Promise<void> {
-  const response = await fetch(`${app.baseUrl}/api/questions/${questionId}/image-policy`, {
-    method: "PATCH",
+/** 图片附带策略现在是全局 UI 偏好（PUT /api/settings/ui），不再有每题端点 */
+async function setPolicy(app: RunningApp, _questionId: string, imagePolicy: string): Promise<void> {
+  const response = await fetch(`${app.baseUrl}/api/settings/ui`, {
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ imagePolicy }),
   });

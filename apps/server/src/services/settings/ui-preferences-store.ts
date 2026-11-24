@@ -2,6 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 import type { UiPreferences } from "@motive/shared";
 import {
   isBoolean,
+  isImagePolicy,
   isMarkdownFontSize,
   isUiLanguage,
   isUiTheme,
@@ -16,6 +17,7 @@ export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   language: "zh-CN",
   markdownFontSize: MD_FONT_SIZE_DEFAULT,
   enableMermaid: false,
+  imagePolicy: "auto",
 };
 
 /**
@@ -49,6 +51,9 @@ export class UiPreferencesStore {
         enableMermaid: isBoolean(parsed.enableMermaid)
           ? parsed.enableMermaid
           : DEFAULT_UI_PREFERENCES.enableMermaid,
+        imagePolicy: isImagePolicy(parsed.imagePolicy)
+          ? parsed.imagePolicy
+          : DEFAULT_UI_PREFERENCES.imagePolicy,
       };
     } catch {
       return { ...DEFAULT_UI_PREFERENCES };
@@ -89,6 +94,11 @@ export class UiPreferencesStore {
           throw new HttpError(400, "INVALID_FIELD", "enableMermaid 必须是布尔值");
         }
         next.enableMermaid = value;
+      } else if (key === "imagePolicy") {
+        if (!isImagePolicy(value)) {
+          throw new HttpError(400, "INVALID_FIELD", "imagePolicy 必须是 auto / always / never");
+        }
+        next.imagePolicy = value;
       } else {
         throw new HttpError(400, "INVALID_FIELD", `不支持的字段：「${key}」`);
       }

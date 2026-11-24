@@ -33,8 +33,10 @@ export function createSolutionRouter(
 
         const config = settingsStore.getConfig();
         const provider = new OpenAIProvider(config, apiKey);
+        // 图片附带策略为全局设置（默认按模型能力），不再读取每题的 image_policy 列
+        const questionContext = repository.getQuestionContext(questionId);
         const context = buildQuestionContext({
-          question: repository.getQuestionContext(questionId),
+          question: { ...questionContext, imagePolicy: uiStore.get().imagePolicy },
           provider: {
             supportsVision: config.supportsVision !== false,
             model: config.model,

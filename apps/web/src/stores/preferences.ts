@@ -2,6 +2,7 @@ import { create } from "zustand";
 import {
   isMarkdownFontSize,
   MD_FONT_SIZE_DEFAULT,
+  type ImagePolicy,
   type UiLanguage,
 } from "@motive/shared";
 import { PreferenceFieldQueue } from "@/lib/preferences-writer";
@@ -45,12 +46,16 @@ interface PreferencesState {
   markdownFontSize: number;
   /** 是否启用 Mermaid 示意图渲染与提示词（服务端权威，无首帧预绘需求） */
   enableMermaid: boolean;
+  /** 题解生成的题目原图附带策略（全局，服务端权威） */
+  imagePolicy: ImagePolicy;
   /** 用户在启动偏好加载完成前是否手动改过语言（竞态守卫） */
   touched: boolean;
   /** 用户在启动偏好加载完成前是否手动改过字号（竞态守卫） */
   fontSizeTouched: boolean;
   /** 用户在启动偏好加载完成前是否手动改过 Mermaid 开关（竞态守卫） */
   mermaidTouched: boolean;
+  /** 用户在启动偏好加载完成前是否手动改过图片策略（竞态守卫） */
+  imagePolicyTouched: boolean;
   setLanguage: (language: UiLanguage) => void;
   /** 应用服务端权威值：更新状态与 <html lang>，回写 localStorage，但不再次发请求 */
   hydrateLanguage: (language: UiLanguage) => void;
@@ -58,12 +63,15 @@ interface PreferencesState {
   hydrateMarkdownFontSize: (size: number) => void;
   setEnableMermaid: (enabled: boolean) => void;
   hydrateEnableMermaid: (enabled: boolean) => void;
+  setImagePolicy: (policy: ImagePolicy) => void;
+  hydrateImagePolicy: (policy: ImagePolicy) => void;
 }
 
 /** 界面偏好写入队列（主题、语言、字号各自独立） */
 export const languageWriteQueue = new PreferenceFieldQueue("language");
 export const markdownFontSizeWriteQueue = new PreferenceFieldQueue<number>("markdownFontSize");
 export const enableMermaidWriteQueue = new PreferenceFieldQueue<boolean>("enableMermaid");
+export const imagePolicyWriteQueue = new PreferenceFieldQueue<ImagePolicy>("imagePolicy");
 
 function persistMarkdownFontSize(size: number): void {
   try {
@@ -78,9 +86,11 @@ export const usePreferencesStore = create<PreferencesState>((set) => ({
   language: initialLanguage(),
   markdownFontSize: initialMarkdownFontSize(),
   enableMermaid: false,
+  imagePolicy: "auto",
   touched: false,
   fontSizeTouched: false,
   mermaidTouched: false,
+  imagePolicyTouched: false,
   setLanguage: (language) => {
     try {
       window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
@@ -115,5 +125,12 @@ export const usePreferencesStore = create<PreferencesState>((set) => ({
   },
   hydrateEnableMermaid: (enabled) => {
     set({ enableMermaid: enabled });
+  },
+  setImagePolicy: (policy) => {
+    set({ imagePolicy: policy, imagePolicyTouched: true });
+    imagePolicyWriteQueue.push(policy);
+  },
+  hydrateImagePolicy: (policy) => {
+    set({ imagePolicy: policy });
   },
 }));

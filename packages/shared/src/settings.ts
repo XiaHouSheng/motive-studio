@@ -1,3 +1,5 @@
+import type { ImagePolicy } from "./types";
+
 /**
  * AI 环节标识：提示词设置存储、设置页与各生成器共用。
  * 顺序即设置页展示顺序。
@@ -56,6 +58,13 @@ export function isUiLanguage(value: unknown): value is UiLanguage {
   return typeof value === "string" && UI_LANGUAGES.includes(value as UiLanguage);
 }
 
+/** 题解生成时题目原图的附带策略（auto=按模型能力，always=强制附带，never=不附带） */
+export const IMAGE_POLICIES = ["auto", "always", "never"] as const;
+
+export function isImagePolicy(value: unknown): value is ImagePolicy {
+  return typeof value === "string" && IMAGE_POLICIES.includes(value as ImagePolicy);
+}
+
 /** 界面偏好；SQLite 为权威值，localStorage 仅负责首帧预绘与失败回退 */
 export interface UiPreferences {
   /** 用户选择的主题模式（非解析后的实际主题） */
@@ -68,6 +77,11 @@ export interface UiPreferences {
    * 且题解生成的默认提示词改为要求模型输出 mermaid；会增加 token 消耗。
    */
   enableMermaid: boolean;
+  /**
+   * 题解生成时题目原图的附带策略（全局，默认 auto=按模型能力决定；
+   * always=强制附带、模型不支持时直接报错，never=不附带）。
+   */
+  imagePolicy: ImagePolicy;
 }
 
 export function isBoolean(value: unknown): value is boolean {

@@ -1,7 +1,12 @@
 import { api } from "@/lib/api";
 import type { UiPreferences } from "@motive/shared";
 
-export type PreferenceFieldName = "theme" | "language" | "markdownFontSize" | "enableMermaid";
+export type PreferenceFieldName =
+  | "theme"
+  | "language"
+  | "markdownFontSize"
+  | "enableMermaid"
+  | "imagePolicy";
 
 /**
  * 界面偏好写入队列：同一字段的 PUT 请求串行化，且始终以最新待写值发送，

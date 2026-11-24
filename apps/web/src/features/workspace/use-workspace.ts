@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
-  ImagePolicy,
   TurnImage,
   Question,
   SolutionRevision,
@@ -792,16 +791,6 @@ export function useWorkspace() {
     [load, run],
   );
 
-  const setQuestionImagePolicy = useCallback(
-    (questionId: string, imagePolicy: ImagePolicy) => {
-      void run(async () => {
-        await api.setQuestionImagePolicy(questionId, imagePolicy);
-        await load();
-      });
-    },
-    [load, run],
-  );
-
   const uploadQuestionAssets = useCallback(
     async (
       questionId: string,
@@ -955,7 +944,6 @@ export function useWorkspace() {
     deleteQuestion,
     createQuestionIn,
     providerSupportsVision,
-    setQuestionImagePolicy,
     uploadQuestionAssets,
     deleteQuestionAsset,
     sendMessage,

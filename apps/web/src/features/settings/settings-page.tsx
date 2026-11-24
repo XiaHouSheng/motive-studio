@@ -14,6 +14,7 @@ import {
   MD_FONT_SIZE_DEFAULT,
   MD_FONT_SIZE_MAX,
   MD_FONT_SIZE_MIN,
+  type ImagePolicy,
   type UiLanguage,
 } from "@motive/shared";
 import { useThemeStore } from "@/stores/theme";
@@ -57,6 +58,12 @@ const THEME_OPTIONS: Array<{
   { mode: "system", labelKey: "theme.system", icon: Monitor },
 ];
 
+const IMAGE_POLICY_OPTIONS: Array<{ value: ImagePolicy; labelKey: DictionaryKey }> = [
+  { value: "auto", labelKey: "settings.imagePolicyAuto" },
+  { value: "always", labelKey: "settings.imagePolicyAlways" },
+  { value: "never", labelKey: "settings.imagePolicyNever" },
+];
+
 const sectionHeadingClass = "text-[13px] font-semibold text-ink";
 const hintClass = "text-[11px] leading-relaxed text-ink-faint";
 
@@ -71,6 +78,8 @@ function GeneralSettings() {
   const setMarkdownFontSize = usePreferencesStore((state) => state.setMarkdownFontSize);
   const enableMermaid = usePreferencesStore((state) => state.enableMermaid);
   const setEnableMermaid = usePreferencesStore((state) => state.setEnableMermaid);
+  const imagePolicy = usePreferencesStore((state) => state.imagePolicy);
+  const setImagePolicy = usePreferencesStore((state) => state.setImagePolicy);
 
   return (
     <div className="space-y-6">
@@ -155,6 +164,37 @@ function GeneralSettings() {
             />
           </button>
         </div>
+      </section>
+
+      <section className="space-y-2.5" aria-label={t("settings.imagePolicyLabel")}>
+        <h2 className={sectionHeadingClass}>{t("settings.imagePolicyLabel")}</h2>
+        <div
+          className="flex flex-wrap gap-2"
+          role="radiogroup"
+          aria-label={t("settings.imagePolicyLabel")}
+        >
+          {IMAGE_POLICY_OPTIONS.map(({ value, labelKey }) => {
+            const active = imagePolicy === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => setImagePolicy(value)}
+                className={cn(
+                  "inline-flex h-8 items-center rounded-md border px-3 text-[12.5px] transition-colors",
+                  active
+                    ? "border-brand/50 bg-brand/5 font-medium text-ink"
+                    : "border-line bg-field text-ink-soft hover:bg-selection hover:text-ink",
+                )}
+              >
+                {t(labelKey)}
+              </button>
+            );
+          })}
+        </div>
+        <p className={hintClass}>{t("settings.imagePolicyHint")}</p>
       </section>
 
       <section className="space-y-2.5" aria-label={t("settings.mdFontSizeLabel")}>
