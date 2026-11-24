@@ -556,7 +556,7 @@ export function useWorkspace() {
     [failedSendByStep, runStream],
   );
 
-  const generateSolution = useCallback(async () => {
+  const generateSolution = useCallback(async (extraRequirement?: string) => {
     const questionId = useUiStore.getState().selectedQuestionId;
     if (!questionId || generatingSolutionFor) return;
 
@@ -564,7 +564,7 @@ export function useWorkspace() {
     setSolutionError(null);
 
     try {
-      await api.generateSolution(questionId);
+      await api.generateSolution(questionId, extraRequirement);
       // 旧步骤已被覆盖，清空指向已删除步骤的讨论选择
       useUiStore.getState().selectQuestion(questionId);
       await load();
@@ -578,7 +578,7 @@ export function useWorkspace() {
     }
   }, [generatingSolutionFor, load, toMessage]);
 
-  const generateExplanation = useCallback(async () => {
+  const generateExplanation = useCallback(async (extraRequirement?: string) => {
     const questionId = useUiStore.getState().selectedQuestionId;
     if (!questionId || generatingExplanation) return;
 
@@ -586,7 +586,7 @@ export function useWorkspace() {
     setExplanationError(null);
 
     try {
-      await api.generateExplanation(questionId);
+      await api.generateExplanation(questionId, extraRequirement);
       await load();
     } catch (generationError) {
       setExplanationError(toMessage(generationError));

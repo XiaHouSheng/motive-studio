@@ -205,15 +205,25 @@ export const api = {
       `/api/questions/${encodeURIComponent(questionId)}/explanations`,
       { method: "POST", body: JSON.stringify(input) },
     ),
-  generateExplanation: (questionId: string) =>
+  generateExplanation: (questionId: string, extraRequirement?: string) =>
     request<SolutionExplanation>(
       `/api/questions/${encodeURIComponent(questionId)}/explanations/generate`,
-      { method: "POST" },
+      {
+        method: "POST",
+        body: JSON.stringify(
+          extraRequirement ? { extraRequirement } : {},
+        ),
+      },
     ),
-  generateSolution: (questionId: string) =>
+  generateSolution: (questionId: string, extraRequirement?: string) =>
     request<SolutionGenerationResult>(
       `/api/questions/${encodeURIComponent(questionId)}/solution/generate`,
-      { method: "POST" },
+      {
+        method: "POST",
+        body: JSON.stringify(
+          extraRequirement ? { extraRequirement } : {},
+        ),
+      },
     ),
   getRevisions: (questionId: string) =>
     request<SolutionRevision[]>(

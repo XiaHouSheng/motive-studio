@@ -102,4 +102,16 @@ describe("buildExplanationMessages", () => {
     expect(content).toContain("【轮次 1】用户：关于 步骤 1（第一步） 为什么要配方？");
     expect(content).not.toContain(uuid1);
   });
+
+  it("重新生成附带的补充要求注入用户提示词", () => {
+    // 未附带补充要求时不含该段落
+    expect(userContentOf(makeContext())).not.toContain("# 用户补充要求");
+
+    const messages = buildExplanationMessages(makeContext(), {
+      extraRequirement: "突出与第 2 步的衔接",
+    });
+    const withExtra = messages[1].content as string;
+    expect(withExtra).toContain("# 用户补充要求");
+    expect(withExtra).toContain("突出与第 2 步的衔接");
+  });
 });

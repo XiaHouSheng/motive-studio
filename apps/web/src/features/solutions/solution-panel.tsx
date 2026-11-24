@@ -51,6 +51,32 @@ const tabButtonClass = (active: boolean) =>
     active ? "bg-panel font-medium text-ink shadow-soft" : "text-ink-faint hover:text-ink-soft",
   );
 
+/** 重新生成对话框里的「补充要求（可选）」输入区 */
+function ExtraRequirementField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <label className="mt-3 block space-y-1.5">
+      <span className="block text-[12px] font-medium text-ink-soft">
+        {t("solution.extraRequirement.label")}
+      </span>
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={t("solution.extraRequirement.placeholder")}
+        maxLength={2000}
+        rows={3}
+        className="w-full resize-none rounded-md border border-line bg-field px-3 py-2.5 text-[12.8px] leading-relaxed text-ink outline-none placeholder:text-ink-faint focus:border-brand/50"
+      />
+    </label>
+  );
+}
+
 /** 详解卡片：与 StepCard 同构的中性卡片（无编号、常驻展开） */
 function ExplanationCard({ explanation }: { explanation: SolutionExplanation }) {
   const { t, locale } = useI18n();
@@ -122,6 +148,9 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
   const { t, locale } = useI18n();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [revisionOpen, setRevisionOpen] = useState(false);
+  const [solutionExtra, setSolutionExtra] = useState("");
+  const [explanationRegenOpen, setExplanationRegenOpen] = useState(false);
+  const [explanationExtra, setExplanationExtra] = useState("");
   const [editingStep, setEditingStep] = useState<SolutionStep | null>(null);
   const [previewAsset, setPreviewAsset] = useState<QuestionAsset | null>(null);
 
@@ -274,7 +303,14 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => void generateExplanation()}
+                onClick={() => {
+                  if (explanations.length > 0) {
+                    setExplanationExtra("");
+                    setExplanationRegenOpen(true);
+                  } else {
+                    void generateExplanation();
+                  }
+                }}
                 disabled={generatingExplanation || steps.length === 0}
                 title={
                   steps.length === 0
@@ -346,7 +382,10 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => setConfirmOpen(true)}
+                  onClick={() => {
+                    setSolutionExtra("");
+                    setConfirmOpen(true);
+                  }}
                   disabled={generatingSolution}
                 >
                   {generatingSolution ? (
@@ -436,7 +475,7 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
               size="sm"
               onClick={() => {
                 setConfirmOpen(false);
-                void generateSolution();
+                void generateSolution(solutionExtra.trim() || undefined);
               }}
             >
               <Sparkles size={13} />
@@ -448,6 +487,34 @@ export function SolutionPanel({ workspace }: SolutionPanelProps) {
         <p className="text-[12px] leading-relaxed text-ink-soft">
           {t("solution.confirm.body")}
         </p>
+        <ExtraRequirementField value={solutionExtra} onChange={setSolutionExtra} />
+      </Dialog>
+
+      <Dialog
+        open={explanationRegenOpen}
+        onClose={() => setExplanationRegenOpen(false)}
+        title={t("solution.explanation.confirm.title")}
+        description={t("solution.explanation.confirm.description")}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" size="sm" onClick={() => setExplanationRegenOpen(false)}>
+              {t("solution.cancel")}
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                setExplanationRegenOpen(false);
+                void generateExplanation(explanationExtra.trim() || undefined);
+              }}
+            >
+              <Sparkles size={13} />
+              {t("solution.explanation.regenerate")}
+            </Button>
+          </div>
+        }
+      >
+        <ExtraRequirementField value={explanationExtra} onChange={setExplanationExtra} />
       </Dialog>
 
       <Dialog

@@ -57,6 +57,12 @@ export const solutionsZh = {
     "将覆盖当前 {count} 个步骤，并删除这些步骤下的全部讨论记录，此操作不可撤销。",
   "solution.confirm.action": "确认重新生成",
   "solution.confirm.body": "生成过程会调用当前配置的模型，完成后正式题解将被新步骤替换。",
+  "solution.extraRequirement.label": "补充要求（可选）",
+  "solution.extraRequirement.placeholder":
+    "例如：步骤控制在 4 步以内；多讲讲与第 2 步的衔接；用表格汇总结果。",
+  "solution.explanation.confirm.title": "重新生成详解？",
+  "solution.explanation.confirm.description":
+    "将基于当前分步题解与讨论再生成一份完整详解，历史详解会保留。",
   "solution.cancel": "取消",
 
   // step-card.tsx
@@ -206,6 +212,12 @@ export const solutionsEn: Record<keyof typeof solutionsZh, string> = {
   "solution.confirm.action": "Regenerate",
   "solution.confirm.body":
     "Generation calls the currently configured model. When it finishes, the solution will be replaced by the new steps.",
+  "solution.extraRequirement.label": "Extra requirements (optional)",
+  "solution.extraRequirement.placeholder":
+    "e.g. keep it within 4 steps; elaborate the connection with step 2; summarize results in a table.",
+  "solution.explanation.confirm.title": "Regenerate the explanation?",
+  "solution.explanation.confirm.description":
+    "A new explanation will be generated from the current steps and discussions; previous ones are kept.",
   "solution.cancel": "Cancel",
 
   // step-card.tsx

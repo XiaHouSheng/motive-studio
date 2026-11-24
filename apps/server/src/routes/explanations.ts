@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { NextFunction, Request, Response } from "express";
 import type { WorkspaceRepository } from "../repositories/workspace-repository.js";
 import { HttpError } from "../http-error.js";
-import { readParam } from "./validation.js";
+import { readBody, readOptionalString, readParam } from "./validation.js";
 import { toHttpError } from "../services/ai/errors.js";
 import { OpenAIProvider } from "../services/ai/openai-provider.js";
 import { buildExplanationMessages } from "../services/ai/explanation-context-builder.js";
@@ -22,6 +22,12 @@ export function createExplanationsRouter(
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const questionId = readParam(req.params, "id");
+        // 重新生成时可附带自由输入的补充要求（旧客户端不发送请求体）
+        const body = readBody(req.body ?? {});
+        const extraRequirement = readOptionalString(body, "extraRequirement", {
+          max: 2000,
+          label: "补充要求",
+        });
         const apiKey = settingsStore.getApiKey();
         if (!apiKey) {
           throw new HttpError(400, "INVALID_CONFIG", "请先在模型设置中配置 API Key");
@@ -36,6 +42,7 @@ export function createExplanationsRouter(
         const provider = new OpenAIProvider(config, apiKey);
         const messages = buildExplanationMessages(context, {
           systemPrompt: promptStore.getSettings().explanation_generation,
+          extraRequirement,
         });
 
         const controller = new AbortController();

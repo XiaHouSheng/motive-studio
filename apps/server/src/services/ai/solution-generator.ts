@@ -9,9 +9,15 @@ const MAX_ATTEMPTS = 2;
 const MAX_STEPS = 10;
 const MAX_TITLE_LENGTH = 60;
 
+/** 拼接用户在重新生成时键入的补充要求（空串忽略） */
+export function appendExtraRequirement(userContent: string, extraRequirement?: string): string {
+  const trimmed = extraRequirement?.trim();
+  return trimmed ? `${userContent}\n\n# 用户补充要求\n${trimmed}` : userContent;
+}
+
 export function buildSolutionMessages(
   questionContent: string,
-  options?: { systemPrompt?: string; enableMermaid?: boolean },
+  options?: { systemPrompt?: string; enableMermaid?: boolean; extraRequirement?: string },
 ): ChatMessage[] {
   return [
     {
@@ -20,7 +26,10 @@ export function buildSolutionMessages(
         enableMermaid: options?.enableMermaid,
       }),
     },
-    { role: "user", content: `# 题目\n${questionContent}` },
+    {
+      role: "user",
+      content: appendExtraRequirement(`# 题目\n${questionContent}`, options?.extraRequirement),
+    },
   ];
 }
 

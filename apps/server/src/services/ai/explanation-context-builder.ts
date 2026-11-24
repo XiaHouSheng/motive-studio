@@ -1,13 +1,14 @@
 import type { ChatMessage } from "@motive/shared";
 import { replaceStepReferences } from "@motive/shared";
 import { resolveSystemPrompt } from "./effective-prompt.js";
+import { appendExtraRequirement } from "./solution-generator.js";
 import type { ExplanationContextData } from "../../repositories/workspace-repository.js";
 
 const REF_ONLY_LENGTH = 40;
 
 export function buildExplanationMessages(
   context: ExplanationContextData,
-  options?: { systemPrompt?: string },
+  options?: { systemPrompt?: string; extraRequirement?: string },
 ): ChatMessage[] {
   const steps = context.steps;
   const stepById = new Map(steps.map((step) => [step.id, step]));
@@ -60,14 +61,17 @@ export function buildExplanationMessages(
         )} / 助手：${replaceStepReferences(turn.assistantMessage, steps)}`,
     );
 
-  const userContent = `# 题目
+  const userContent = appendExtraRequirement(
+    `# 题目
 ${context.question.content}
 
 # 分步解答与各步骤关联讨论
 ${sections.join("\n\n")}
 
 # 未关联步骤的讨论
-${unlinked.length > 0 ? unlinked.join("\n") : "（无）"}`;
+${unlinked.length > 0 ? unlinked.join("\n") : "（无）"}`,
+    options?.extraRequirement,
+  );
 
   return [
     {

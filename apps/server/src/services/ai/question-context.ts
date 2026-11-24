@@ -2,7 +2,7 @@ import type { ChatMessage, ImagePolicy } from "@motive/shared";
 import { HttpError } from "../../http-error.js";
 import type { QuestionContextSource } from "../../repositories/workspace-repository.js";
 import type { AssetStore } from "../asset-store.js";
-import { buildSolutionMessages } from "./solution-generator.js";
+import { appendExtraRequirement, buildSolutionMessages } from "./solution-generator.js";
 
 /** 单次请求最多附带的原图数量，避免上下文过大 */
 export const MAX_CONTEXT_IMAGES = 4;
@@ -39,9 +39,15 @@ export function buildQuestionContext(input: {
   systemPrompt?: string;
   /** 示意图提示词开关（设置中的 enableMermaid），透传给默认 system prompt */
   enableMermaid?: boolean;
+  /** 重新生成时用户键入的补充要求（可选） */
+  extraRequirement?: string;
 }): BuiltQuestionContext {
-  const { question, provider, store, systemPrompt, enableMermaid } = input;
-  const base = buildSolutionMessages(question.content, { systemPrompt, enableMermaid });
+  const { question, provider, store, systemPrompt, enableMermaid, extraRequirement } = input;
+  const base = buildSolutionMessages(question.content, {
+    systemPrompt,
+    enableMermaid,
+    extraRequirement,
+  });
   const reasons: string[] = [];
   const warnings: string[] = [];
 
@@ -93,7 +99,10 @@ export function buildQuestionContext(input: {
       {
         role: "user",
         content: [
-          { type: "text", text: `# 题目\n${question.content}` },
+          {
+            type: "text",
+            text: appendExtraRequirement(`# 题目\n${question.content}`, extraRequirement),
+          },
           ...selected.map((asset) =>
             imagePart(asset.mimeType, store.read(asset.storagePath)),
           ),

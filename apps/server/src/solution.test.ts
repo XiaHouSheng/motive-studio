@@ -140,10 +140,18 @@ async function seededQuestion(app: RunningApp) {
   return question;
 }
 
-async function generate(app: RunningApp, questionId: string): Promise<Response> {
+async function generate(
+  app: RunningApp,
+  questionId: string,
+  body?: Record<string, unknown>,
+): Promise<Response> {
   return fetch(
     `${app.baseUrl}/api/questions/${encodeURIComponent(questionId)}/solution/generate`,
-    { method: "POST" },
+    {
+      method: "POST",
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    },
   );
 }
 
@@ -230,6 +238,22 @@ describe("正式题解生成", () => {
       "第二步",
       "第三步",
     ]);
+  });
+
+  it("重新生成可附带补充要求并注入用户提示词", async () => {
+    const { app, upstream } = await setup(() => VALID_SOLUTION);
+    const question = await seededQuestion(app);
+
+    const response = await generate(app, question.id, {
+      extraRequirement: "步骤控制在 4 步以内，多讲讲配方的动机",
+    });
+    expect(response.status).toBe(201);
+
+    const body = upstream.bodies[0] as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    expect(body.messages[1].content).toContain("# 用户补充要求");
+    expect(body.messages[1].content).toContain("步骤控制在 4 步以内，多讲讲配方的动机");
   });
 
   it("首次返回非法 JSON 时重试一次并成功", async () => {
