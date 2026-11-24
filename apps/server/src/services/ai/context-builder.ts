@@ -1,4 +1,5 @@
 import type { ChatMessage } from "@motive/shared";
+import { replaceStepReferences } from "@motive/shared";
 import { resolveSystemPrompt } from "./effective-prompt.js";
 import type { ChatContextData } from "../../repositories/workspace-repository.js";
 
@@ -22,23 +23,27 @@ export function buildChatMessages(
   userMessage: string,
   options?: { systemPrompt?: string; images?: ChatImageInput[] },
 ): ChatMessage[] {
+  // 步骤只用「步骤 N（标题）」指代，禁止把步骤 ID（UUID）注入上下文，
+  // 否则模型会模仿在回复里输出 UUID；历史讨论先清洗存量消息里的 UUID。
   const stepList = context.steps
-    .map((step) => `- [${step.id}] ${step.title}`)
+    .map((step) => `- 步骤 ${step.order}（${step.title}）`)
     .join("\n");
 
   const history =
     context.history.length === 0
       ? "暂无历史讨论"
       : context.history
-          .map(
-            (turn) => `用户：${turn.userMessage}\n助手：${turn.assistantMessage}`,
-          )
+          .map((turn) => {
+            const userText = replaceStepReferences(turn.userMessage, context.steps);
+            const assistantText = replaceStepReferences(turn.assistantMessage, context.steps);
+            return `用户：${userText}\n助手：${assistantText}`;
+          })
           .join("\n\n");
 
   const userContent = `# 题目
 ${context.question.content}
 
-# 解题步骤列表（[步骤ID] 标题）
+# 解题步骤列表（步骤序号（标题））
 ${stepList}
 
 # 入口步骤「${context.entryStep.title}」的正式内容

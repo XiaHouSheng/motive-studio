@@ -35,7 +35,7 @@ function makeTurn(id: string, userMessage: string): ConversationTurn {
 }
 
 function makeContext(
-  overrides: Partial<Pick<ExplanationContextData, "turns" | "tags">> = {},
+  overrides: Partial<Pick<ExplanationContextData, "steps" | "turns" | "tags">> = {},
 ): ExplanationContextData {
   return {
     question: makeQuestion(),
@@ -58,8 +58,10 @@ describe("buildExplanationMessages", () => {
     const content = userContentOf(makeContext());
 
     expect(content).toContain("题目内容");
-    expect(content).toContain("### 步骤「第一步」（s-1）");
+    expect(content).toContain("### 步骤 1（第一步）");
     expect(content).toContain("本步骤暂无关联讨论");
+    // 步骤 ID（含非 UUID 的短 id）不得进入上下文
+    expect(content).not.toContain("（s-1）");
     // 未关联讨论段为空时渲染占位符
     expect(content).toContain("（无）");
     // 不应出现任何轮次行
@@ -76,9 +78,28 @@ describe("buildExplanationMessages", () => {
     });
     const content = userContentOf(context);
 
-    expect(content).toContain("【轮次 t-1】用户：为什么要配方？");
+    expect(content).toContain("【轮次 1】用户：为什么要配方？");
     expect(content).toContain("回答：为什么要配方？");
-    // 未关联步骤的讨论单独列出
-    expect(content).toContain("【轮次 t-2】用户：端点怎么算？");
+    // 未关联步骤的讨论单独列出（按时间顺序编号）
+    expect(content).toContain("【轮次 2】用户：端点怎么算？");
+    // 轮次 ID 不得出现在上下文里
+    expect(content).not.toContain("t-1");
+    expect(content).not.toContain("t-2");
+  });
+
+  it("存量轮次文本里的步骤 UUID 清洗为「步骤 N（标题）」", () => {
+    const uuid1 = "550e8400-e29b-41d4-a716-446655440000";
+    const context = makeContext({
+      steps: [
+        { id: uuid1, questionId: "q-1", order: 1, title: "第一步", content: "步骤一内容", updatedAt: 0 },
+        { id: "s-2", questionId: "q-1", order: 2, title: "第二步", content: "步骤二内容", updatedAt: 0 },
+      ],
+      turns: [makeTurn("t-1", `关于 [${uuid1}] 为什么要配方？`)],
+      tags: [{ id: "tag-1", turnId: "t-1", stepId: uuid1, relevance: "相关", createdAt: 0 }],
+    });
+    const content = userContentOf(context);
+
+    expect(content).toContain("【轮次 1】用户：关于 步骤 1（第一步） 为什么要配方？");
+    expect(content).not.toContain(uuid1);
   });
 });

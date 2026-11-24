@@ -3,3 +3,4 @@ export type * from "./workspace";
 export type * from "./ai";
 export * from "./settings";
 export * from "./sse";
+export * from "./step-reference";

@@ -338,7 +338,10 @@ describe("流式对话", () => {
     expect(body.messages[0].role).toBe("system");
     const prompt = body.messages[1].content;
     expect(prompt).toContain("已知函数");
-    expect(prompt).toContain("[s-quad-1]");
+    // 步骤列表只暴露「步骤 N（标题）」，不暴露步骤 ID（防止模型模仿输出 UUID）
+    expect(prompt).toContain("- 步骤 1（");
+    expect(prompt).not.toContain("[s-quad-1]");
+    expect(prompt).not.toContain("s-quad-1");
     expect(prompt).toContain("入口步骤「配方并读出顶点」");
     expect(prompt).toContain("暂无历史讨论");
     expect(prompt).toContain("这一步为什么要配方？");
