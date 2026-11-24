@@ -77,10 +77,32 @@ export function createSolutionRouter(
         res.on("close", onClose);
 
         try {
-          const drafts = await generateSolution(provider, context.messages, controller.signal);
+          const { drafts, usage } = await generateSolution(
+            provider,
+            context.messages,
+            controller.signal,
+          );
           settled = true;
           res.off("close", onClose);
+          repository.recordAiRequest({
+            taskType: "solution_generation",
+            model: config.model,
+            profileId: config.id,
+            usage,
+            ok: true,
+          });
           res.status(201).json(repository.replaceSteps(questionId, drafts));
+        } catch (error) {
+          // settled 仍为 false 说明失败发生在上游调用阶段（区别于 replaceSteps 落库失败）
+          if (!settled) {
+            repository.recordAiRequest({
+              taskType: "solution_generation",
+              model: config.model,
+              profileId: config.id,
+              ok: false,
+            });
+          }
+          throw error;
         } finally {
           settled = true;
           res.off("close", onClose);

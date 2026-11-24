@@ -1,4 +1,4 @@
-import type { ChatMessage } from "@motive/shared";
+import type { ChatMessage, TokenUsage } from "@motive/shared";
 import { resolveSystemPrompt } from "./effective-prompt.js";
 import { AIError } from "./errors.js";
 import { stripCodeFence } from "./solution-generator.js";
@@ -88,12 +88,18 @@ export function parseImageQuestions(raw: string): string[] {
   return questions;
 }
 
-async function collectResponse(
+interface CollectedResponse {
+  text: string;
+  usage?: TokenUsage;
+}
+
+async function collectResponseWithUsage(
   provider: AIProvider,
   messages: ChatMessage[],
   signal?: AbortSignal,
-): Promise<string> {
+): Promise<CollectedResponse> {
   let text = "";
+  let usage: TokenUsage | undefined;
   for await (const event of provider.streamChat(
     { messages, temperature: IMAGE_IMPORT_TEMPERATURE },
     signal,
@@ -102,11 +108,26 @@ async function collectResponse(
       text += event.text;
       continue;
     }
+    if (event.type === "usage") {
+      if (event.inputTokens !== undefined || event.outputTokens !== undefined) {
+        usage = {
+          inputTokens: event.inputTokens ?? usage?.inputTokens ?? 0,
+          outputTokens: event.outputTokens ?? usage?.outputTokens ?? 0,
+        };
+      }
+      continue;
+    }
     if (event.type === "error") {
       throw new AIError(event.code, event.message);
     }
   }
-  return text;
+  return { text, usage };
+}
+
+/** 图片导入结果：识别出的题目文本 + 成功那次请求的 token 用量 */
+export interface ImageImportResult {
+  questions: string[];
+  usage?: TokenUsage;
 }
 
 export async function generateQuestionsFromImages(
@@ -114,14 +135,14 @@ export async function generateQuestionsFromImages(
   images: ImportImage[],
   signal?: AbortSignal,
   options?: { systemPrompt?: string; extraPrompt?: string },
-): Promise<string[]> {
+): Promise<ImageImportResult> {
   const messages = buildImageImportMessages(images, options);
   let lastError: AIError | undefined;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-    const raw = await collectResponse(provider, messages, signal);
+    const { text, usage } = await collectResponseWithUsage(provider, messages, signal);
     try {
-      return parseImageQuestions(raw);
+      return { questions: parseImageQuestions(text), usage };
     } catch (error) {
       if (!(error instanceof AIError)) throw error;
       lastError = error;

@@ -196,14 +196,32 @@ export function createMobileRouter(
           throw new HttpError(400, "INVALID_CONFIG", "请先在桌面端模型设置中配置 API Key");
         }
 
-        const provider = new OpenAIProvider(settingsStore.getConfig(), apiKey);
+        const config = settingsStore.getConfig();
+        const provider = new OpenAIProvider(config, apiKey);
         // 与桌面端图片导入（routes/image-import.ts）使用相同的环节提示词配置
         generateQuestionsFromImages(provider, images, undefined, {
           systemPrompt: promptStore.getSettings().image_import,
           extraPrompt,
         })
-          .then((questions) => res.json({ questions }))
-          .catch(next);
+          .then((result) => {
+            repository.recordAiRequest({
+              taskType: "image_import",
+              model: config.model,
+              profileId: config.id,
+              usage: result.usage,
+              ok: true,
+            });
+            res.json({ questions: result.questions });
+          })
+          .catch((error) => {
+            repository.recordAiRequest({
+              taskType: "image_import",
+              model: config.model,
+              profileId: config.id,
+              ok: false,
+            });
+            next(error);
+          });
       } catch (error) {
         next(error instanceof HttpError ? error : toHttpError(error));
       }

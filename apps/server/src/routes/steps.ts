@@ -186,6 +186,15 @@ export function createStepsRouter(
           saveError = error;
         }
 
+        // 用量统计：中断/失败也计入请求数（ok=false），usage 有则记
+        repository.recordAiRequest({
+          taskType: "chat",
+          model: chat.provider.model,
+          profileId: chat.provider.id,
+          usage,
+          ok: generationStatus === "completed",
+        });
+
         settled = true;
         res.off("close", onClose);
 

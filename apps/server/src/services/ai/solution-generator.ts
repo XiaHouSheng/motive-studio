@@ -1,4 +1,4 @@
-import type { ChatMessage, SolutionStepDraft } from "@motive/shared";
+import type { ChatMessage, SolutionStepDraft, TokenUsage } from "@motive/shared";
 import { resolveSystemPrompt } from "./effective-prompt.js";
 import { AIError } from "./errors.js";
 import type { AIProvider } from "./types.js";
@@ -8,6 +8,12 @@ export const SOLUTION_TEMPERATURE = 0.2;
 const MAX_ATTEMPTS = 2;
 const MAX_STEPS = 10;
 const MAX_TITLE_LENGTH = 60;
+
+/** 题解生成结果：解析出的步骤草稿 + 成功那次请求的 token 用量 */
+export interface SolutionGenerationWithUsage {
+  drafts: SolutionStepDraft[];
+  usage?: TokenUsage;
+}
 
 /** 拼接用户在重新生成时键入的补充要求（空串忽略） */
 export function appendExtraRequirement(userContent: string, extraRequirement?: string): string {
@@ -84,12 +90,19 @@ export function parseSolutionDraft(raw: string): SolutionStepDraft[] {
   });
 }
 
-async function collectResponse(
+/** 一次上游请求收集到的正文与用量（usage 事件由 provider 在流末尾发出） */
+interface CollectedResponse {
+  text: string;
+  usage?: TokenUsage;
+}
+
+async function collectResponseWithUsage(
   provider: AIProvider,
   messages: ChatMessage[],
   signal?: AbortSignal,
-): Promise<string> {
+): Promise<CollectedResponse> {
   let text = "";
+  let usage: TokenUsage | undefined;
   for await (const event of provider.streamChat(
     { messages, temperature: SOLUTION_TEMPERATURE },
     signal,
@@ -98,24 +111,33 @@ async function collectResponse(
       text += event.text;
       continue;
     }
+    if (event.type === "usage") {
+      if (event.inputTokens !== undefined || event.outputTokens !== undefined) {
+        usage = {
+          inputTokens: event.inputTokens ?? usage?.inputTokens ?? 0,
+          outputTokens: event.outputTokens ?? usage?.outputTokens ?? 0,
+        };
+      }
+      continue;
+    }
     if (event.type === "error") {
       throw new AIError(event.code, event.message);
     }
   }
-  return text;
+  return { text, usage };
 }
 
 export async function generateSolution(
   provider: AIProvider,
   messages: ChatMessage[],
   signal?: AbortSignal,
-): Promise<SolutionStepDraft[]> {
+): Promise<SolutionGenerationWithUsage> {
   let lastError: AIError | undefined;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-    const raw = await collectResponse(provider, messages, signal);
+    const { text, usage } = await collectResponseWithUsage(provider, messages, signal);
     try {
-      return parseSolutionDraft(raw);
+      return { drafts: parseSolutionDraft(text), usage };
     } catch (error) {
       if (!(error instanceof AIError)) throw error;
       lastError = error;

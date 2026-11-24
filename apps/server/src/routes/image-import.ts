@@ -32,13 +32,32 @@ export function createImageImportRouter(
           throw new HttpError(400, "INVALID_CONFIG", "请先在模型设置中配置 API Key");
         }
 
-        const provider = new OpenAIProvider(settingsStore.getConfig(), apiKey);
+        const config = settingsStore.getConfig();
+        const provider = new OpenAIProvider(config, apiKey);
         // 与手机拍照导入（routes/mobile.ts）使用相同的环节提示词配置
-        const questions = await generateQuestionsFromImages(provider, images, undefined, {
-          systemPrompt: promptStore.getSettings().image_import,
-          extraPrompt,
+        let result;
+        try {
+          result = await generateQuestionsFromImages(provider, images, undefined, {
+            systemPrompt: promptStore.getSettings().image_import,
+            extraPrompt,
+          });
+        } catch (error) {
+          repository.recordAiRequest({
+            taskType: "image_import",
+            model: config.model,
+            profileId: config.id,
+            ok: false,
+          });
+          throw error;
+        }
+        repository.recordAiRequest({
+          taskType: "image_import",
+          model: config.model,
+          profileId: config.id,
+          usage: result.usage,
+          ok: true,
         });
-        res.json({ questions });
+        res.json({ questions: result.questions });
       } catch (error) {
         if (error instanceof HttpError) {
           next(error);

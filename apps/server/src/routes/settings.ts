@@ -12,18 +12,32 @@ import type { UiPreferencesStore } from "../services/settings/ui-preferences-sto
 import type { RemoteAccessStore } from "../services/remote-access-store.js";
 import { parseServerAddr } from "../services/remote-access-store.js";
 import type { FrpcManager } from "../services/frpc-manager.js";
+import type { WorkspaceRepository } from "../repositories/workspace-repository.js";
 
 // 推理类模型（思考内容不算正文）首个正文可能较慢，放宽到 60 秒
 const TEST_TIMEOUT_MS = 60_000;
+
+/** 用量统计窗口上限（天），防止全表聚合失控 */
+const USAGE_MAX_RANGE_DAYS = 365;
 
 export function createSettingsRouter(
   store: ProviderSettingsStore,
   promptStore: PromptSettingsStore,
   uiStore: UiPreferencesStore,
   remoteAccess: RemoteAccessStore,
+  repository: WorkspaceRepository,
   frpc?: FrpcManager,
 ): Router {
   const router = Router();
+
+  // 用量统计：按天 × 模型的请求数与 token 聚合（设置页热力图数据源）
+  router.get("/settings/usage", (req: Request, res: Response) => {
+    const rawDays = req.query.days;
+    const parsed = typeof rawDays === "string" ? Number.parseInt(rawDays, 10) : Number.NaN;
+    const rangeDays =
+      Number.isInteger(parsed) && parsed > 0 && parsed <= USAGE_MAX_RANGE_DAYS ? parsed : 84;
+    res.json(repository.getAiUsage(rangeDays));
+  });
 
   router.get("/settings/provider", (_req: Request, res: Response) => {
     res.json(store.getView());

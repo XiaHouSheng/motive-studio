@@ -16,6 +16,7 @@ const SEED_STEP_ID = "s-quad-1";
 
 interface RunningApp {
   baseUrl: string;
+  db: DatabaseSync;
   close: () => Promise<void>;
 }
 
@@ -40,6 +41,7 @@ async function startApp(dbPath: string): Promise<RunningApp> {
   let closed = false;
   return {
     baseUrl: `http://127.0.0.1:${port}`,
+    db: app.locals.db as DatabaseSync,
     close: async () => {
       if (closed) return;
       closed = true;
@@ -296,5 +298,91 @@ describe("正式题解生成", () => {
     expect(((await response.json()) as { code: string }).code).toBe(
       "INVALID_CONFIG",
     );
+  });
+
+  it("成功生成记录用量日志（含 token 与模型）", async () => {
+    const { app } = await setup(() => VALID_SOLUTION);
+    const question = await seededQuestion(app);
+
+    const response = await generate(app, question.id);
+    expect(response.status).toBe(201);
+
+    const rows = app.db
+      .prepare(
+        "SELECT task_type, model, input_tokens, output_tokens, ok FROM ai_requests",
+      )
+      .all() as Array<{
+      task_type: string;
+      model: string;
+      input_tokens: number | null;
+      output_tokens: number | null;
+      ok: number;
+    }>;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toEqual({
+      task_type: "solution_generation",
+      model: "test-model",
+      input_tokens: 30,
+      output_tokens: 20,
+      ok: 1,
+    });
+  });
+
+  it("用量统计端点按天×模型聚合", async () => {
+    const { app } = await setup(() => VALID_SOLUTION);
+    const insert = app.db.prepare(
+      `INSERT INTO ai_requests (id, task_type, model, profile_id, input_tokens, output_tokens, ok, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    // 以本地正午为锚点，避免跨日边界抖动
+    const noon = (dayOffset: number) => {
+      const date = new Date();
+      date.setDate(date.getDate() + dayOffset);
+      date.setHours(12, 0, 0, 0);
+      return date.getTime();
+    };
+    const localDate = (time: number) => {
+      const date = new Date(time);
+      const month = `${date.getMonth() + 1}`.padStart(2, "0");
+      const day = `${date.getDate()}`.padStart(2, "0");
+      return `${date.getFullYear()}-${month}-${day}`;
+    };
+
+    insert.run("r1", "solution_generation", "model-a", "p-a", 100, 50, 1, noon(0));
+    insert.run("r2", "solution_generation", "model-a", "p-a", 80, 40, 0, noon(0));
+    insert.run("r3", "chat", "model-b", "p-b", 200, 300, 1, noon(-1));
+
+    const response = await fetch(`${app.baseUrl}/api/settings/usage?days=30`);
+    expect(response.status).toBe(200);
+    const view = (await response.json()) as {
+      rangeDays: number;
+      days: Array<{
+        date: string;
+        model: string;
+        requests: number;
+        inputTokens: number;
+        outputTokens: number;
+        failures: number;
+      }>;
+    };
+
+    expect(view.rangeDays).toBe(30);
+    expect(view.days).toHaveLength(2);
+    expect(view.days).toContainEqual({
+      date: localDate(noon(0)),
+      model: "model-a",
+      requests: 2,
+      inputTokens: 180,
+      outputTokens: 90,
+      failures: 1,
+    });
+    expect(view.days).toContainEqual({
+      date: localDate(noon(-1)),
+      model: "model-b",
+      requests: 1,
+      inputTokens: 200,
+      outputTokens: 300,
+      failures: 0,
+    });
   });
 });

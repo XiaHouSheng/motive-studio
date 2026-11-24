@@ -55,9 +55,27 @@ export function createExplanationsRouter(
         res.on("close", onClose);
 
         try {
-          const draft = await generateExplanation(provider, messages, controller.signal);
+          let draft: Awaited<ReturnType<typeof generateExplanation>>;
+          try {
+            draft = await generateExplanation(provider, messages, controller.signal);
+          } catch (error) {
+            repository.recordAiRequest({
+              taskType: "explanation_generation",
+              model: config.model,
+              profileId: config.id,
+              ok: false,
+            });
+            throw error;
+          }
           settled = true;
           res.off("close", onClose);
+          repository.recordAiRequest({
+            taskType: "explanation_generation",
+            model: config.model,
+            profileId: config.id,
+            usage: draft.usage,
+            ok: true,
+          });
           const turnIds = context.turns.map((turn) => turn.id);
           const explanation = repository.createExplanation(questionId, {
             content: draft.content,

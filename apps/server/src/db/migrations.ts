@@ -208,4 +208,22 @@ export const migrations: Migration[] = [
       `CREATE INDEX idx_turn_assets_turn ON turn_assets(turn_id, position)`,
     ],
   },
+  {
+    // AI 请求日志：设置页用量统计（请求数 / token 热力图）的统一数据源。
+    // 连接测试不计入；失败请求 ok=0 也计数（usage 可为空）。
+    version: 8,
+    statements: [
+      `CREATE TABLE ai_requests (
+        id TEXT PRIMARY KEY,
+        task_type TEXT NOT NULL,
+        model TEXT NOT NULL,
+        profile_id TEXT,
+        input_tokens INTEGER,
+        output_tokens INTEGER,
+        ok INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL
+      )`,
+      `CREATE INDEX idx_ai_requests_created_at ON ai_requests(created_at)`,
+    ],
+  },
 ];

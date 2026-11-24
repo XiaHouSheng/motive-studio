@@ -4,3 +4,4 @@ export type * from "./ai";
 export * from "./settings";
 export * from "./sse";
 export * from "./step-reference";
+export * from "./usage";

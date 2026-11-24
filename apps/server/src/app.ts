@@ -80,7 +80,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use("/api", createExplanationsRouter(repository, settingsStore, promptSettingsStore));
   app.use("/api", createExportRouter(repository));
   app.use("/api", createBackupRouter(repository, assetStore));
-  app.use("/api", createSettingsRouter(settingsStore, promptSettingsStore, uiPreferencesStore, remoteAccessStore, options.frpcManager));
+  app.use("/api", createSettingsRouter(settingsStore, promptSettingsStore, uiPreferencesStore, remoteAccessStore, repository, options.frpcManager));
   app.use(
     createMobileRouter(
       repository,

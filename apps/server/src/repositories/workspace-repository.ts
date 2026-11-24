@@ -23,6 +23,8 @@ import type {
   TurnStepTag,
   TurnTagStatus,
   WorkspaceData,
+  AiRequestRecordInput,
+  AiUsageView,
 } from "@motive/shared";
 import { insertWorkspaceData } from "../db/insert-workspace.js";
 import { withTransaction } from "../db/client.js";
@@ -1469,6 +1471,71 @@ export class WorkspaceRepository {
         input.model,
         Date.now(),
       );
+  }
+
+  /**
+   * 记录一次 AI 请求（设置页用量统计的数据源）。
+   * 写入失败仅告警不影响主流程——统计是尽力而为的旁路数据。
+   */
+  recordAiRequest(input: AiRequestRecordInput): void {
+    try {
+      this.db
+        .prepare(
+          `INSERT INTO ai_requests (
+             id, task_type, model, profile_id, input_tokens, output_tokens, ok, created_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          randomUUID(),
+          input.taskType,
+          input.model,
+          input.profileId ?? null,
+          input.usage?.inputTokens ?? null,
+          input.usage?.outputTokens ?? null,
+          input.ok === false ? 0 : 1,
+          Date.now(),
+        );
+    } catch (error) {
+      console.warn("[usage] 记录 AI 请求失败", error);
+    }
+  }
+
+  /** 按天 × 模型聚合最近 N 天（本地时区自然日）的请求数与 token 用量 */
+  getAiUsage(rangeDays: number): AiUsageView {
+    const since = Date.now() - rangeDays * 86_400_000;
+    const rows = this.db
+      .prepare(
+        `SELECT date(created_at / 1000, 'unixepoch', 'localtime') AS date,
+                model,
+                COUNT(*) AS requests,
+                COALESCE(SUM(input_tokens), 0) AS input_tokens,
+                COALESCE(SUM(output_tokens), 0) AS output_tokens,
+                SUM(CASE WHEN ok = 0 THEN 1 ELSE 0 END) AS failures
+         FROM ai_requests
+         WHERE created_at >= ?
+         GROUP BY date, model
+         ORDER BY date, model`,
+      )
+      .all(since) as unknown as Array<{
+      date: string;
+      model: string;
+      requests: number;
+      input_tokens: number;
+      output_tokens: number;
+      failures: number;
+    }>;
+
+    return {
+      rangeDays,
+      days: rows.map((row) => ({
+        date: row.date,
+        model: row.model,
+        requests: row.requests,
+        inputTokens: row.input_tokens,
+        outputTokens: row.output_tokens,
+        failures: row.failures,
+      })),
+    };
   }
 
   private requireGroup(groupId: string): GroupRow {
