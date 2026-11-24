@@ -243,9 +243,22 @@ export function OverviewScrollbar({
       measureMinimap();
     });
     resizeObserver.observe(node);
+    // 内容变化（首次撑高、切题、骨架屏替换）只同步 thumb/溢出几何，不重建克隆 ——
+    // 克隆重建完全由 rebuildKey 签名驱动；rAF 批量合并连续变更
+    let syncRaf = 0;
+    const mutationObserver = new MutationObserver(() => {
+      if (syncRaf) return;
+      syncRaf = requestAnimationFrame(() => {
+        syncRaf = 0;
+        syncRef.current();
+      });
+    });
+    mutationObserver.observe(node, { childList: true, subtree: true });
     return () => {
       node.removeEventListener("scroll", onScroll);
       resizeObserver.disconnect();
+      mutationObserver.disconnect();
+      if (syncRaf) cancelAnimationFrame(syncRaf);
       window.clearTimeout(rebuildMinimapTimer.current);
     };
   }, [measureMinimap]);
