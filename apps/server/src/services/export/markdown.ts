@@ -45,6 +45,10 @@ export function buildGroupFilename(groupTitle: string): string {
   return sanitizeFilename(`题组详解-${groupTitle}.md`);
 }
 
+export function buildPaperFilename(paperTitle: string): string {
+  return sanitizeFilename(`试卷详解-${paperTitle}.md`);
+}
+
 /** 渲染题目详解与分步题解两个小节，heading 层级由调用方决定 */
 function renderQuestionSections(input: QuestionExportInput, level: number): string[] {
   const section = "#".repeat(level);

@@ -4,6 +4,7 @@ import type { WorkspaceRepository } from "../repositories/workspace-repository.j
 import {
   buildGroupFilename,
   buildGroupMarkdown,
+  buildPaperFilename,
   buildQuestionFilename,
   buildQuestionMarkdown,
 } from "../services/export/markdown.js";
@@ -32,6 +33,15 @@ export function createExportRouter(repository: WorkspaceRepository): Router {
       res,
       buildGroupFilename(data.groupTitle),
       buildGroupMarkdown(data.groupTitle, data.questions),
+    );
+  });
+
+  router.get("/exports/papers/:id", (req: Request, res: Response) => {
+    const data = repository.getPaperGroupExport(readParam(req.params, "id"));
+    sendMarkdown(
+      res,
+      buildPaperFilename(data.paperTitle),
+      buildGroupMarkdown(data.paperTitle, data.questions),
     );
   });
 

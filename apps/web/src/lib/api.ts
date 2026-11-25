@@ -473,8 +473,8 @@ export const api = {
     request<BackupPayload>(options?.includeImages ? "/api/backup?images=1" : "/api/backup"),
   exportQuestionMarkdown: (questionId: string) =>
     downloadFile(`/api/exports/questions/${encodeURIComponent(questionId)}`),
-  exportGroupMarkdown: (groupId: string) =>
-    downloadFile(`/api/exports/groups/${encodeURIComponent(groupId)}`),
+  exportPaperMarkdown: (paperGroupId: string) =>
+    downloadFile(`/api/exports/papers/${encodeURIComponent(paperGroupId)}`),
   importBackup: (payload: unknown) =>
     request<WorkspaceData>("/api/backup/import", {
       method: "POST",

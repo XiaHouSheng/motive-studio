@@ -962,10 +962,11 @@ export function useWorkspace() {
     [run, saveFile],
   );
 
-  const exportGroupMarkdown = useCallback(
-    (groupId: string) => {
+  /** 导出试卷分组（题组之下的二级分组）的题目详解为 Markdown */
+  const exportPaperMarkdown = useCallback(
+    (paperGroupId: string) => {
       void run(async () => {
-        const file = await api.exportGroupMarkdown(groupId);
+        const file = await api.exportPaperMarkdown(paperGroupId);
         saveFile(file.blob, file.filename);
       });
     },
@@ -1066,7 +1067,7 @@ export function useWorkspace() {
     restoringRevision,
     exportBackup,
     exportQuestionMarkdown,
-    exportGroupMarkdown,
+    exportPaperMarkdown,
     importBackup,
   };
 }

@@ -1290,6 +1290,26 @@ export class WorkspaceRepository {
     };
   }
 
+  /** 试卷分组导出：仅导出归属于该试卷的题目（heading 用试卷名） */
+  getPaperGroupExport(paperGroupId: string): {
+    groupTitle: string;
+    paperTitle: string;
+    questions: QuestionExportData[];
+  } {
+    const paper = this.requirePaperGroup(paperGroupId);
+    const group = this.requireGroup(paper.group_id);
+    const rows = this.db
+      .prepare(
+        "SELECT * FROM questions WHERE paper_group_id = ? ORDER BY position, created_at",
+      )
+      .all(paperGroupId) as unknown as QuestionRow[];
+    return {
+      groupTitle: group.title,
+      paperTitle: paper.title,
+      questions: rows.map((row) => this.readQuestionExport(row, group.title)),
+    };
+  }
+
   private readQuestionExport(row: QuestionRow, groupTitle: string): QuestionExportData {
     const stepRows = this.db
       .prepare("SELECT * FROM solution_steps WHERE question_id = ? ORDER BY step_order")

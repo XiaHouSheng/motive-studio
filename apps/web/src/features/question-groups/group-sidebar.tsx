@@ -47,10 +47,9 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
     deleteGroup,
     deletePaperGroup,
     deleteQuestion,
-    exportGroupMarkdown,
+    exportPaperMarkdown,
     openImageImport,
-  } = workspace;
-  const selectedGroupId = useUiStore((state) => state.selectedGroupId);
+  } = workspace;  const selectedGroupId = useUiStore((state) => state.selectedGroupId);
   const selectedQuestionId = useUiStore((state) => state.selectedQuestionId);
   const selectGroup = useUiStore((state) => state.selectGroup);
   const selectPaperGroup = useUiStore((state) => state.selectPaperGroup);
@@ -217,7 +216,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                           }}
                           title={group.title}
                           className={cn(
-                            "flex w-full items-center gap-1.5 rounded-md py-1.5 pr-20 pl-1 text-left transition-colors",
+                            "flex w-full items-center gap-1.5 rounded-md py-1.5 pr-[76px] pl-1 text-left transition-colors",
                             active
                               ? "bg-selection text-ink"
                               : "text-ink-soft hover:bg-selection/60 hover:text-ink",
@@ -263,32 +262,6 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                             </button>
                             <button
                               type="button"
-                              aria-label={t("groups.addPaperAria", { title: group.title })}
-                              title={t("groups.addPaperGroup")}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setRenaming(null);
-                                setAddingPaperFor(group.id);
-                                setPaperDraft("");
-                              }}
-                              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-brand"
-                            >
-                              <Plus size={12} />
-                            </button>
-                            <button
-                              type="button"
-                              aria-label={t("groups.exportAria", { title: group.title })}
-                              title={t("groups.exportTitle")}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                exportGroupMarkdown(group.id);
-                              }}
-                              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-brand"
-                            >
-                              <Download size={13} />
-                            </button>
-                            <button
-                              type="button"
                               aria-label={t("groups.deleteAria", { title: group.title })}
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -313,9 +286,9 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                     )}
                   </div>
 
-                  {/* 试卷分组行（题组之下的二级分组） */}
+                  {/* 试卷分组行（题组之下的二级分组）：与题组行留出垂直间隔 */}
                   {!collapsed ? (
-                    <div className="ml-4 border-l border-line/70 pl-1.5">
+                    <div className="mt-1 mb-0.5 ml-4 space-y-0.5 border-l border-line/70 pl-1.5">
                       {papers.map((paper) => {
                         const paperActive =
                           active && paper.id === selectedPaperGroup?.id;
@@ -350,7 +323,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                                   }}
                                   title={paper.title}
                                   className={cn(
-                                    "flex w-full items-center gap-1.5 rounded-md py-1 pr-14 pl-1.5 text-left transition-colors",
+                                    "flex w-full items-center gap-1.5 rounded-md py-1 pr-[80px] pl-1.5 text-left transition-colors",
                                     paperActive
                                       ? "bg-selection text-ink"
                                       : "text-ink-soft hover:bg-selection/60 hover:text-ink",
@@ -370,6 +343,20 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                                 </button>
                                 <div className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5">
                                   <div className="flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover/paper:opacity-100">
+                                    <button
+                                      type="button"
+                                      aria-label={t("groups.exportPaperAria", {
+                                        title: paper.title,
+                                      })}
+                                      title={t("groups.exportPaperTitle")}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        exportPaperMarkdown(paper.id);
+                                      }}
+                                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-brand"
+                                    >
+                                      <Download size={12} />
+                                    </button>
                                     <button
                                       type="button"
                                       aria-label={t("groups.renamePaperAria", {
@@ -412,6 +399,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                         );
                       })}
 
+                      {/* 行内新建试卷分组入口（替代题组 hover 的 "+"） */}
                       {addingPaperFor === group.id ? (
                         <div className="animate-fade-in px-1 py-0.5">
                           <input
@@ -433,7 +421,20 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                             className="h-7 w-full rounded-md border border-line bg-field px-2 text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-brand/50"
                           />
                         </div>
-                      ) : null}
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRenaming(null);
+                            setAddingPaperFor(group.id);
+                            setPaperDraft("");
+                          }}
+                          className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-[11.5px] text-ink-faint transition-colors hover:bg-selection/60 hover:text-ink-soft"
+                        >
+                          <Plus size={12} className="shrink-0" />
+                          <span className="min-w-0 truncate">{t("groups.addPaperGroup")}</span>
+                        </button>
+                      )}
                     </div>
                   ) : null}
                 </div>
