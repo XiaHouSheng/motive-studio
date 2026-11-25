@@ -45,3 +45,20 @@ export function isNewerVersion(latestRaw: string, currentRaw: string): boolean {
   if (current.preLabel === null) return false;
   return latest.preNumber > current.preNumber;
 }
+
+/** 是否为预发布版本（beta 等）：自动更新提醒默认跳过这类发行版 */
+export function isPrereleaseVersion(raw: string): boolean {
+  const parsed = parseVersion(raw);
+  return parsed !== null && parsed.preLabel !== null;
+}
+
+/**
+ * 版本比较键：把同一版本的不同 tag 风格（v0.4.0b2 / desktop-v0.4.0-beta.2）
+ * 归一化到相同字符串，用于「跳过此版本」的持久化匹配。
+ */
+export function versionKey(raw: string): string | null {
+  const parsed = parseVersion(raw);
+  if (!parsed) return null;
+  const base = `${parsed.major}.${parsed.minor}.${parsed.patch}`;
+  return parsed.preLabel ? `${base}-${parsed.preLabel}.${parsed.preNumber}` : base;
+}

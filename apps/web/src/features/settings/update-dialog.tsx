@@ -5,7 +5,7 @@ import { Markdown } from "@/components/shared/markdown";
 import { GITHUB_REPO_URL, openExternal } from "@/lib/app";
 import { useT } from "@/lib/i18n/use-i18n";
 import { Button } from "@/components/ui/button";
-import type { ReleaseInfo, UpdateCheckState } from "./use-update-check";
+import { skipVersion, type ReleaseInfo, type UpdateCheckState } from "./use-update-check";
 
 function formatPublishedAt(value: string | null): string | null {
   if (!value) return null;
@@ -47,7 +47,21 @@ export function UpdateDialog({
       footer={
         state.phase === "available" ? (
           <div className="flex items-center justify-end gap-2">
-            <Button variant="ghost" size="sm" onClick={onClose}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                skipVersion(release?.tagName ?? "");
+                onClose();
+              }}
+            >
+              {t("update.skipVersion")}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onClose}
+            >
               {t("update.later")}
             </Button>
             <Button
@@ -98,6 +112,11 @@ export function UpdateDialog({
 
       {state.phase === "available" && release ? (
         <div className="space-y-3">
+          {state.skipped ? (
+            <p className="rounded-md border border-line bg-elevated/40 px-3 py-2 text-[11.5px] leading-relaxed text-ink-faint">
+              {t("update.skippedHint")}
+            </p>
+          ) : null}
           <div className="flex items-center gap-2 rounded-md border border-brand/40 bg-brand/5 px-3 py-2.5">
             <GithubIcon size={16} className="text-brand" />
             <span className="font-mono text-[12.5px] font-medium text-ink">{release.tagName}</span>

@@ -259,6 +259,8 @@ export const panelsZh = {
   "update.availableVersion": "发现新版本 {version}",
   "update.download": "前往下载",
   "update.later": "稍后再说",
+  "update.skipVersion": "跳过此版本",
+  "update.skippedHint": "你已跳过该版本：启动时不再自动提醒，可随时在 GitHub Releases 下载。",
   "update.failed": "检查更新失败：可能未联网或 GitHub 不可达，可稍后重试或直接前往 GitHub Releases。",
   "update.publishedAt": "发布于 {date}",
   "update.notes": "更新说明",
@@ -657,6 +659,9 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "update.availableVersion": "New version available: {version}",
   "update.download": "Go to download",
   "update.later": "Later",
+  "update.skipVersion": "Skip this version",
+  "update.skippedHint":
+    "You skipped this version: it won't be suggested automatically on startup. You can always download it from GitHub Releases.",
   "update.failed":
     "Update check failed: you may be offline or GitHub is unreachable. Try again later or visit GitHub Releases directly.",
   "update.publishedAt": "Released {date}",
