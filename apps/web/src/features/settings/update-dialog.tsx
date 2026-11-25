@@ -1,6 +1,7 @@
 import { Download, ExternalLink, Loader2 } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { GithubIcon } from "@/components/shared/github-icon";
+import { Markdown } from "@/components/shared/markdown";
 import { GITHUB_REPO_URL, openExternal } from "@/lib/app";
 import { useT } from "@/lib/i18n/use-i18n";
 import { Button } from "@/components/ui/button";
@@ -107,11 +108,9 @@ export function UpdateDialog({
             ) : null}
           </div>
           {release.body ? (
-            <div className="max-h-[220px] overflow-y-auto rounded-md border border-line bg-elevated/40 px-3 py-2.5">
+            <div className="max-h-[260px] overflow-y-auto rounded-md border border-line bg-elevated/40 px-3 py-2.5">
               <p className="mb-1 text-[11px] font-medium text-ink-soft">{t("update.notes")}</p>
-              <pre className="whitespace-pre-wrap font-sans text-[11.5px] leading-relaxed text-ink-soft">
-                {release.body}
-              </pre>
+              <Markdown content={release.body} className="text-[11.5px]" />
             </div>
           ) : null}
           <button
