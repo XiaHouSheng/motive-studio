@@ -233,6 +233,7 @@ export const panelsZh = {
   "settings.sectionProvider": "模型服务",
   "settings.sectionUsage": "用量统计",
   "settings.sectionRemote": "远程访问",
+  "settings.remotePreparing": "该功能正在准备中：当前提供基础的密钥门卫与内网穿透访问能力，配置流程与连接稳定性仍在持续打磨，遇到问题欢迎通过「关于」页反馈。",
   "settings.sectionKnowledge": "知识库",
   "settings.knowledgeTitle": "RAG 检索问答",
   "settings.knowledgeSubtitle": "基于本地题目库的检索增强问答（准备中）",
@@ -627,6 +628,8 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "settings.sectionProvider": "Model service",
   "settings.sectionUsage": "Usage",
   "settings.sectionRemote": "Remote access",
+  "settings.remotePreparing":
+    "This feature is in preparation: basic key-gated access and tunnel connectivity are usable today, while the setup flow and stability are still being polished. Report issues via the About page.",
   "settings.sectionKnowledge": "Knowledge base",
   "settings.knowledgeTitle": "RAG retrieval Q&A",
   "settings.knowledgeSubtitle": "Retrieval-augmented Q&A over your local question bank (in preparation)",

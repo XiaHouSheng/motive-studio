@@ -160,6 +160,11 @@ export function RemoteAccessPanel() {
 
   return (
     <div className="space-y-6">
+      {/* 准备中说明：与知识库页的准备中样式保持一致 */}
+      <p className="rounded-md border border-line bg-elevated/40 px-3 py-2.5 text-[11.5px] leading-relaxed text-ink-faint">
+        {t("settings.remotePreparing")}
+      </p>
+
       {/* 服务广播开关（桌面版联动内嵌 frpc；web 版仅为门卫开关） */}
       <section className="space-y-2.5">
         <h2 className={sectionHeadingClass}>{t("settings.sectionRemote")}</h2>
