@@ -226,4 +226,32 @@ export const migrations: Migration[] = [
       `CREATE INDEX idx_ai_requests_created_at ON ai_requests(created_at)`,
     ],
   },
+  {
+    // 试卷分组：题组之下的二级分组。为存量题组各补一个默认试卷分组，
+    // 并把已有题目全部归入该默认试卷分组。
+    version: 9,
+    statements: [
+      `CREATE TABLE paper_groups (
+        id TEXT PRIMARY KEY,
+        group_id TEXT NOT NULL REFERENCES question_groups(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )`,
+      `CREATE INDEX idx_paper_groups_group ON paper_groups(group_id, position)`,
+
+      `ALTER TABLE questions ADD COLUMN paper_group_id TEXT REFERENCES paper_groups(id) ON DELETE SET NULL`,
+
+      `INSERT INTO paper_groups (id, group_id, title, position, created_at, updated_at)
+       SELECT lower(hex(randomblob(16))), g.id, '默认试卷', 0, g.created_at, g.updated_at
+       FROM question_groups g`,
+
+      `UPDATE questions SET paper_group_id = (
+         SELECT pg.id FROM paper_groups pg
+         WHERE pg.group_id = questions.group_id
+         ORDER BY pg.position LIMIT 1
+       ) WHERE paper_group_id IS NULL`,
+    ],
+  },
 ];

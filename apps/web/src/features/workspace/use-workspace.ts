@@ -56,6 +56,7 @@ interface FailedSend {
 
 const EMPTY_WORKSPACE: WorkspaceData = {
   groups: [],
+  paperGroups: [],
   questions: [],
   steps: [],
   subs: [],
@@ -92,6 +93,8 @@ export function useWorkspace() {
   const [revisionsLoading, setRevisionsLoading] = useState(false);
   const [restoringRevision, setRestoringRevision] = useState(false);
   const [imageImportGroupId, setImageImportGroupId] = useState<string | null>(null);
+  /** 统一添加题目弹窗的目标试卷分组（题组之下的二级分组） */
+  const [imageImportPaperGroupId, setImageImportPaperGroupId] = useState<string | null>(null);
   /** 统一添加题目弹窗的初始页签：文字添加 / 图片导入 */
   const [imageImportTab, setImageImportTab] = useState<"text" | "image">("text");
   const [imageImportAnalyzing, setImageImportAnalyzing] = useState(false);
@@ -107,6 +110,7 @@ export function useWorkspace() {
   const lastLoadAt = useRef(0);
 
   const selectedGroupId = useUiStore((state) => state.selectedGroupId);
+  const selectedPaperGroupId = useUiStore((state) => state.selectedPaperGroupId);
   const selectedQuestionId = useUiStore((state) => state.selectedQuestionId);
   const activeStepId = useUiStore((state) => state.activeStepId);
   const initializeSelection = useUiStore((state) => state.initializeSelection);
@@ -211,15 +215,39 @@ export function useWorkspace() {
   const dismissError = useCallback(() => setError(null), []);
 
   const groups = data.groups;
+  const paperGroups = data.paperGroups ?? [];
+
+  /** 当前题组下的试卷分组列表 */
+  const paperGroupsInSelectedGroup = useMemo(
+    () => paperGroups.filter((paper) => paper.groupId === selectedGroupId),
+    [paperGroups, selectedGroupId],
+  );
+
+  /**
+   * 生效的试卷分组：显式选中且属于当前题组时用选中项，
+   * 否则回落到题组首个试卷分组（未选择/旧数据场景）。
+   */
+  const selectedPaperGroup = useMemo(() => {
+    const list = paperGroupsInSelectedGroup;
+    if (list.length === 0) return null;
+    const explicit = list.find((paper) => paper.id === selectedPaperGroupId);
+    return explicit ?? list[0];
+  }, [paperGroupsInSelectedGroup, selectedPaperGroupId]);
 
   const questionsInGroup = useMemo(() => {
     if (!selectedGroupId) return [];
     const group = data.groups.find((item) => item.id === selectedGroupId);
     if (!group) return [];
+    // 题目展示范围跟随生效的试卷分组；历史数据 paperGroupId 为空时按首个试卷分组兜底
+    const fallbackPaperId = paperGroupsInSelectedGroup[0]?.id ?? null;
     return group.questionIds
       .map((id) => data.questions.find((question) => question.id === id))
-      .filter((question): question is Question => Boolean(question));
-  }, [data.groups, data.questions, selectedGroupId]);
+      .filter((question): question is Question => {
+        if (!question) return false;
+        const paperId = question.paperGroupId ?? fallbackPaperId;
+        return paperId === selectedPaperGroup?.id;
+      });
+  }, [data.groups, data.questions, selectedGroupId, paperGroupsInSelectedGroup, selectedPaperGroup]);
 
   // 数据变化后恢复选择：题组/题目被删除或导入后自动落到第一个可用项
   useEffect(() => {
@@ -651,32 +679,88 @@ export function useWorkspace() {
       if (!trimmed) return;
       void run(async () => {
         const group = await api.createGroup(trimmed);
+        await load();
+        // 选中题组后试卷分组自动回落到首个（新建题组默认带一个「默认试卷」）
         useUiStore.getState().selectGroup(group.id);
+      });
+    },
+    [load, run],
+  );
+
+  const createPaperGroup = useCallback(
+    (groupId: string, title: string) => {
+      const trimmed = title.trim();
+      if (!trimmed) return;
+      void run(async () => {
+        const paper = await api.createPaperGroup(groupId, trimmed);
+        await load();
+        useUiStore.getState().selectPaperGroup(groupId, paper.id);
+      });
+    },
+    [load, run],
+  );
+
+  const renameGroup = useCallback(
+    (groupId: string, title: string) => {
+      const trimmed = title.trim();
+      if (!trimmed) return;
+      void run(async () => {
+        await api.renameGroup(groupId, trimmed);
         await load();
       });
     },
     [load, run],
   );
 
-  /** 在指定题组下以文字新建题目；成功后关闭添加弹窗并选中新题目 */
+  const renamePaperGroup = useCallback(
+    (paperGroupId: string, title: string) => {
+      const trimmed = title.trim();
+      if (!trimmed) return;
+      void run(async () => {
+        await api.renamePaperGroup(paperGroupId, trimmed);
+        await load();
+      });
+    },
+    [load, run],
+  );
+
+  const deletePaperGroup = useCallback(
+    (paperGroupId: string) => {
+      void run(async () => {
+        await api.deletePaperGroup(paperGroupId);
+        const ui = useUiStore.getState();
+        if (ui.selectedPaperGroupId === paperGroupId) ui.selectGroup(ui.selectedGroupId ?? "");
+        await load();
+      });
+    },
+    [load, run],
+  );
+
+  /** 在指定题组 + 试卷分组下以文字新建题目；成功后关闭添加弹窗并选中新题目 */
   const createQuestionIn = useCallback(
     (groupId: string, content: string) => {
       const trimmed = content.trim();
       if (!trimmed || !groupId) return;
       void run(async () => {
-        const created = await api.createQuestion(groupId, trimmed);
+        const created = await api.createQuestion(groupId, trimmed, imageImportPaperGroupId ?? undefined);
         setImageImportGroupId(null);
-        useUiStore.getState().selectGroup(groupId);
+        setImageImportPaperGroupId(null);
+        if (created.paperGroupId) {
+          useUiStore.getState().selectPaperGroup(groupId, created.paperGroupId);
+        } else {
+          useUiStore.getState().selectGroup(groupId);
+        }
         useUiStore.getState().selectQuestion(created.id);
         await load();
       });
     },
-    [load, run],
+    [imageImportPaperGroupId, load, run],
   );
 
   const openImageImport = useCallback(
-    (groupId: string, tab: "text" | "image" = "text") => {
+    (groupId: string, paperGroupId: string | null = null, tab: "text" | "image" = "text") => {
       setImageImportGroupId(groupId);
+      setImageImportPaperGroupId(paperGroupId);
       setImageImportTab(tab);
       setImageImportQuestions([]);
       setImageImportError(null);
@@ -686,6 +770,7 @@ export function useWorkspace() {
 
   const closeImageImport = useCallback(() => {
     setImageImportGroupId(null);
+    setImageImportPaperGroupId(null);
     setImageImportTab("text");
     setImageImportQuestions([]);
     setImageImportError(null);
@@ -727,7 +812,11 @@ export function useWorkspace() {
       try {
         const created: Question[] = [];
         for (const content of cleaned) {
-          const question = await api.createQuestion(groupId, content);
+          const question = await api.createQuestion(
+            groupId,
+            content,
+            imageImportPaperGroupId ?? undefined,
+          );
           // 截图随题目入库，后续解题与讨论可按题目图片策略进入 AI 上下文
           if (images.length > 0) {
             await api.uploadQuestionAssets(question.id, images);
@@ -737,9 +826,14 @@ export function useWorkspace() {
         // 先刷新数据再切换选择，避免选择恢复逻辑把焦点落回第一题
         await load();
         const ui = useUiStore.getState();
-        ui.selectGroup(groupId);
+        if (created[0].paperGroupId) {
+          ui.selectPaperGroup(groupId, created[0].paperGroupId);
+        } else {
+          ui.selectGroup(groupId);
+        }
         ui.selectQuestion(created[0].id);
         setImageImportGroupId(null);
+        setImageImportPaperGroupId(null);
         setImageImportQuestions([]);
         return null;
       } catch (createError) {
@@ -750,7 +844,7 @@ export function useWorkspace() {
         setImageImportCreating(false);
       }
     },
-    [imageImportGroupId, load, t, toMessage],
+    [imageImportGroupId, imageImportPaperGroupId, load, t, toMessage],
   );
 
   const openMobileLink = useCallback(async () => {
@@ -905,6 +999,9 @@ export function useWorkspace() {
   return {
     loading,
     groups,
+    paperGroups,
+    paperGroupsInSelectedGroup,
+    selectedPaperGroup,
     questionsInGroup,
     selectedGroup,
     question,
@@ -924,7 +1021,12 @@ export function useWorkspace() {
     retry,
     dismissError,
     createGroup,
+    createPaperGroup,
+    renameGroup,
+    renamePaperGroup,
+    deletePaperGroup,
     imageImportGroupId,
+    imageImportPaperGroupId,
     imageImportAnalyzing,
     imageImportCreating,
     imageImportError,

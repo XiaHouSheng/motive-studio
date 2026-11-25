@@ -8,6 +8,7 @@ import {
   type PromptSettings,
   type PromptSettingsView,
   type ProviderConfig,
+  type PaperGroup,
   type ProviderProfilesView,
   type ProviderSettingsUpdate,
   type ProviderSettingsView,
@@ -141,6 +142,20 @@ export const api = {
     request<{ ok: true }>(`/api/question-groups/${encodeURIComponent(id)}`, {
       method: "DELETE",
     }),
+  createPaperGroup: (groupId: string, title: string) =>
+    request<PaperGroup>(
+      `/api/question-groups/${encodeURIComponent(groupId)}/paper-groups`,
+      { method: "POST", body: JSON.stringify({ title }) },
+    ),
+  renamePaperGroup: (id: string, title: string) =>
+    request<PaperGroup>(`/api/paper-groups/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ title }),
+    }),
+  deletePaperGroup: (id: string) =>
+    request<{ ok: true }>(`/api/paper-groups/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
   importQuestionsFromImages: (
     groupId: string,
     images: Array<{ mediaType: string; data: string }>,
@@ -162,10 +177,12 @@ export const api = {
       { method: "POST", body: JSON.stringify({ key }) },
     ),
 
-  createQuestion: (groupId: string, content: string) =>
+  createQuestion: (groupId: string, content: string, paperGroupId?: string) =>
     request<Question>("/api/questions", {
       method: "POST",
-      body: JSON.stringify({ groupId, content }),
+      body: JSON.stringify(
+        paperGroupId ? { groupId, content, paperGroupId } : { groupId, content },
+      ),
     }),
   updateQuestion: (id: string, patch: { content?: string; groupId?: string }) =>
     request<Question>(`/api/questions/${encodeURIComponent(id)}`, {

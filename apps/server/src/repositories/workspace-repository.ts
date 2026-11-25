@@ -6,6 +6,7 @@ import type {
   ConversationView,
   ExplanationStatus,
   ImagePolicy,
+  PaperGroup,
   PromptLogEntry,
   Question,
   QuestionAsset,
@@ -51,9 +52,19 @@ interface GroupRow {
   updated_at: number;
 }
 
+interface PaperGroupRow {
+  id: string;
+  group_id: string;
+  title: string;
+  position: number;
+  created_at: number;
+  updated_at: number;
+}
+
 interface QuestionRow {
   id: string;
   group_id: string;
+  paper_group_id: string | null;
   content: string;
   position: number;
   image_policy: string;
@@ -256,6 +267,16 @@ function toGroup(row: GroupRow, questionIds: string[]): QuestionGroup {
   };
 }
 
+function toPaperGroup(row: PaperGroupRow): PaperGroup {
+  return {
+    id: row.id,
+    groupId: row.group_id,
+    title: row.title,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 function toQuestion(
   row: QuestionRow,
   solutionStepIds: string[],
@@ -264,6 +285,7 @@ function toQuestion(
   return {
     id: row.id,
     groupId: row.group_id,
+    paperGroupId: row.paper_group_id,
     content: row.content,
     solutionStepIds,
     imagePolicy: row.image_policy as ImagePolicy,
@@ -386,6 +408,9 @@ export class WorkspaceRepository {
     const groupRows = this.db
       .prepare("SELECT * FROM question_groups ORDER BY position, created_at")
       .all() as unknown as GroupRow[];
+    const paperGroupRows = this.db
+      .prepare("SELECT * FROM paper_groups ORDER BY group_id, position, created_at")
+      .all() as unknown as PaperGroupRow[];
     const questionRows = this.db
       .prepare("SELECT * FROM questions ORDER BY group_id, position, created_at")
       .all() as unknown as QuestionRow[];
@@ -462,6 +487,7 @@ export class WorkspaceRepository {
 
     return {
       groups: groupRows.map((row) => toGroup(row, questionIdsByGroup.get(row.id) ?? [])),
+      paperGroups: paperGroupRows.map(toPaperGroup),
       questions: questionRows.map((row) =>
         toQuestion(
           row,
@@ -493,7 +519,78 @@ export class WorkspaceRepository {
       )
       .run(id, title, next, now, now);
 
+    // 新建题组时默认带一个试卷分组，题目始终归属在试卷分组下
+    this.createPaperGroup(id, "默认试卷");
+
     return { id, title, questionIds: [], createdAt: now, updatedAt: now };
+  }
+
+  // ---------- 试卷分组 ----------
+
+  createPaperGroup(groupId: string, title: string): PaperGroup {
+    this.requireGroup(groupId);
+    const now = Date.now();
+    const id = randomUUID();
+    const { next } = this.db
+      .prepare(
+        "SELECT COALESCE(MAX(position), -1) + 1 AS next FROM paper_groups WHERE group_id = ?",
+      )
+      .get(groupId) as { next: number };
+
+    this.db
+      .prepare(
+        `INSERT INTO paper_groups (id, group_id, title, position, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(id, groupId, title, next, now, now);
+
+    return { id, groupId, title, createdAt: now, updatedAt: now };
+  }
+
+  renamePaperGroup(paperGroupId: string, title: string): PaperGroup {
+    const row = this.requirePaperGroup(paperGroupId);
+    const updatedAt = Date.now();
+    this.db
+      .prepare("UPDATE paper_groups SET title = ?, updated_at = ? WHERE id = ?")
+      .run(title, updatedAt, paperGroupId);
+    return toPaperGroup({ ...row, title, updated_at: updatedAt });
+  }
+
+  /**
+   * 删除试卷分组：其中的题目移入同题组剩余的第一个试卷分组；
+   * 题组最后一个试卷分组不允许删除。
+   */
+  deletePaperGroup(paperGroupId: string): void {
+    const row = this.requirePaperGroup(paperGroupId);
+    const siblings = this.db
+      .prepare(
+        "SELECT id FROM paper_groups WHERE group_id = ? AND id != ? ORDER BY position, created_at",
+      )
+      .all(row.group_id, paperGroupId) as unknown as Array<{ id: string }>;
+
+    if (siblings.length === 0) {
+      throw new HttpError(400, "LAST_PAPER_GROUP", "每个题组至少保留一个试卷分组");
+    }
+
+    withTransaction(this.db, () => {
+      this.db
+        .prepare("UPDATE questions SET paper_group_id = ? WHERE paper_group_id = ?")
+        .run(siblings[0].id, paperGroupId);
+      this.db.prepare("DELETE FROM paper_groups WHERE id = ?").run(paperGroupId);
+    });
+  }
+
+  /** 题组的首个试卷分组（题目未显式指定归属时的默认去向） */
+  private firstPaperGroupId(groupId: string): string {
+    const row = this.db
+      .prepare(
+        "SELECT id FROM paper_groups WHERE group_id = ? ORDER BY position, created_at LIMIT 1",
+      )
+      .get(groupId) as { id: string } | undefined;
+    if (!row) {
+      throw new HttpError(404, "NOT_FOUND", "题组下没有试卷分组");
+    }
+    return row.id;
   }
 
   renameGroup(groupId: string, title: string): QuestionGroup {
@@ -526,8 +623,16 @@ export class WorkspaceRepository {
     );
   }
 
-  createQuestion(groupId: string, content: string): Question {
+  createQuestion(groupId: string, content: string, paperGroupId?: string): Question {
     this.requireGroup(groupId);
+    // 未指定试卷分组时落入题组首个试卷分组（历史调用方与手机导入走此兜底）
+    const resolvedPaperGroupId = paperGroupId ?? this.firstPaperGroupId(groupId);
+    if (paperGroupId) {
+      const paperRow = this.requirePaperGroup(paperGroupId);
+      if (paperRow.group_id !== groupId) {
+        throw new HttpError(400, "INVALID_FIELD", "试卷分组不属于该题组");
+      }
+    }
     const now = Date.now();
     const id = randomUUID();
     const { next } = this.db
@@ -538,10 +643,10 @@ export class WorkspaceRepository {
 
     this.db
       .prepare(
-        `INSERT INTO questions (id, group_id, content, position, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO questions (id, group_id, paper_group_id, content, position, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(id, groupId, content, next, now, now);
+      .run(id, groupId, resolvedPaperGroupId, content, next, now, now);
     this.db
       .prepare("UPDATE question_groups SET updated_at = ? WHERE id = ?")
       .run(now, groupId);
@@ -549,6 +654,7 @@ export class WorkspaceRepository {
     return {
       id,
       groupId,
+      paperGroupId: resolvedPaperGroupId,
       content,
       solutionStepIds: [],
       imagePolicy: "auto",
@@ -1241,6 +1347,7 @@ export class WorkspaceRepository {
         DELETE FROM question_assets;
         DELETE FROM assets;
         DELETE FROM questions;
+        DELETE FROM paper_groups;
         DELETE FROM question_groups;
       `);
       insertWorkspaceData(this.db, data);
@@ -1547,6 +1654,14 @@ export class WorkspaceRepository {
       .prepare("SELECT * FROM question_groups WHERE id = ?")
       .get(groupId) as unknown as GroupRow | undefined;
     if (!row) throw new HttpError(404, "NOT_FOUND", "题组不存在");
+    return row;
+  }
+
+  private requirePaperGroup(paperGroupId: string): PaperGroupRow {
+    const row = this.db
+      .prepare("SELECT * FROM paper_groups WHERE id = ?")
+      .get(paperGroupId) as unknown as PaperGroupRow | undefined;
+    if (!row) throw new HttpError(404, "NOT_FOUND", "试卷分组不存在");
     return row;
   }
 

@@ -1,6 +1,7 @@
 import type {
   ConversationTurn,
   ID,
+  PaperGroup,
   Question,
   QuestionGroup,
   SolutionExplanation,
@@ -11,6 +12,8 @@ import type {
 
 export interface WorkspaceData {
   groups: QuestionGroup[];
+  /** 试卷分组（题组之下的二级分组）；旧备份无此字段 */
+  paperGroups?: PaperGroup[];
   questions: Question[];
   steps: SolutionStep[];
   subs: SubConversation[];

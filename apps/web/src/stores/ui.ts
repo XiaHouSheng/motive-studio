@@ -56,6 +56,8 @@ function persistFlag(key: string, value: boolean) {
 
 interface UiState {
   selectedGroupId: string | null;
+  /** 选中的试卷分组（题组之下的二级分组）；null 表示跟随题组首个试卷分组 */
+  selectedPaperGroupId: string | null;
   selectedQuestionId: string | null;
   activeStepId: string | null;
   /** 中栏题解视图：分步题解 / 题目详解 双 Tab */
@@ -71,6 +73,7 @@ interface UiState {
   backupIncludeImages: boolean;
   setBackupIncludeImages: (value: boolean) => void;
   selectGroup: (groupId: string) => void;
+  selectPaperGroup: (groupId: string, paperGroupId: string) => void;
   selectQuestion: (questionId: string) => void;
   initializeSelection: (groupId: string, questionId: string | null) => void;
   resetSelection: () => void;
@@ -90,6 +93,7 @@ interface UiState {
 
 export const useUiStore = create<UiState>((set) => ({
   selectedGroupId: null,
+  selectedPaperGroupId: null,
   selectedQuestionId: null,
   activeStepId: null,
   solutionView: "steps",
@@ -108,6 +112,17 @@ export const useUiStore = create<UiState>((set) => ({
   selectGroup: (groupId) =>
     set({
       selectedGroupId: groupId,
+      selectedPaperGroupId: null,
+      selectedQuestionId: null,
+      activeStepId: null,
+      solutionView: "steps",
+      mobileNavOpen: false,
+      mobileChatOpen: false,
+    }),
+  selectPaperGroup: (groupId, paperGroupId) =>
+    set({
+      selectedGroupId: groupId,
+      selectedPaperGroupId: paperGroupId,
       selectedQuestionId: null,
       activeStepId: null,
       solutionView: "steps",
@@ -125,6 +140,7 @@ export const useUiStore = create<UiState>((set) => ({
   initializeSelection: (groupId, questionId) =>
     set({
       selectedGroupId: groupId,
+      selectedPaperGroupId: null,
       selectedQuestionId: questionId,
       activeStepId: null,
       solutionView: "steps",
@@ -132,6 +148,7 @@ export const useUiStore = create<UiState>((set) => ({
   resetSelection: () =>
     set({
       selectedGroupId: null,
+      selectedPaperGroupId: null,
       selectedQuestionId: null,
       activeStepId: null,
       solutionView: "steps",

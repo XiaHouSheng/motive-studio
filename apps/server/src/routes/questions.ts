@@ -26,7 +26,11 @@ export function createQuestionsRouter(repository: WorkspaceRepository): Router {
     const body = readBody(req.body);
     const groupId = readString(body, "groupId", { max: 200, label: "题组 ID" });
     const content = readString(body, "content", { max: 40_000, label: "题目内容" });
-    res.status(201).json(repository.createQuestion(groupId, content));
+    const paperGroupId = readOptionalString(body, "paperGroupId", {
+      max: 200,
+      label: "试卷分组 ID",
+    });
+    res.status(201).json(repository.createQuestion(groupId, content, paperGroupId));
   });
 
   router.patch("/questions/:id", (req: Request, res: Response) => {

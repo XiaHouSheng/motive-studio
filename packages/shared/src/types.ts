@@ -8,6 +8,15 @@ export interface QuestionGroup {
   updatedAt: number;
 }
 
+/** 试卷分组：题组之下的二级分组，题目实际归属在这一层 */
+export interface PaperGroup {
+  id: ID;
+  groupId: ID;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 /** 题目图片策略：auto 按模型能力决定，always 强制附带，never 不附带 */
 export type ImagePolicy = "auto" | "always" | "never";
 
@@ -23,6 +32,8 @@ export interface QuestionAsset {
 export interface Question {
   id: ID;
   groupId: ID;
+  /** 所属试卷分组：历史数据可能为 null，展示时按题组首个试卷分组兜底 */
+  paperGroupId?: ID | null;
   content: string;
   solutionStepIds: ID[];
   imagePolicy: ImagePolicy;

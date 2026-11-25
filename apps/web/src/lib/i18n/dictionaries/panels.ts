@@ -28,6 +28,22 @@ export const panelsZh = {
   "groups.tabText": "文字添加",
   "groups.tabImage": "图片导入",
 
+  // ── 试卷分组 paper-groups ──
+  "groups.addPaperGroup": "新建试卷分组",
+  "groups.addPaperAria": "在「{title}」下新建试卷分组",
+  "groups.paperNamePlaceholder": "试卷分组名称，回车创建",
+  "groups.renameTitle": "重命名",
+  "groups.renameGroupAria": "重命名题组 {title}",
+  "groups.renamePaperAria": "重命名试卷分组 {title}",
+  "groups.deletePaperAria": "删除试卷分组 {title}",
+  "groups.deletePaperConfirm": "删除试卷分组「{title}」？其中的题目会移入同题组的其他试卷分组。该操作不可恢复。",
+  "groups.toggleExpandAria": "展开或收起题组",
+
+  // ── 题目搜索 ──
+  "groups.searchPlaceholder": "搜索题目…",
+  "groups.searchAria": "搜索题目",
+  "groups.noSearchResults": "没有匹配的题目",
+
   // ── 图片导入 image-import-dialog ──
   "import.readFailed": "读取图片失败",
   "import.decodeFailed": "图片解析失败",
@@ -347,6 +363,23 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "groups.addQuestionHint": "Questions will be added to group “{group}”. Switch between text and image import.",
   "groups.tabText": "Text",
   "groups.tabImage": "Images",
+
+  // ── Paper groups ──
+  "groups.addPaperGroup": "New paper group",
+  "groups.addPaperAria": "Add a paper group under “{title}”",
+  "groups.paperNamePlaceholder": "Paper group name, press Enter to create",
+  "groups.renameTitle": "Rename",
+  "groups.renameGroupAria": "Rename group {title}",
+  "groups.renamePaperAria": "Rename paper group {title}",
+  "groups.deletePaperAria": "Delete paper group {title}",
+  "groups.deletePaperConfirm":
+    "Delete paper group “{title}”? Its questions will move to another paper group in the same group. This cannot be undone.",
+  "groups.toggleExpandAria": "Expand or collapse group",
+
+  // ── Question search ──
+  "groups.searchPlaceholder": "Search questions…",
+  "groups.searchAria": "Search questions",
+  "groups.noSearchResults": "No matching questions",
 
   // ── Image import dialog ──
   "import.readFailed": "Failed to read the image",

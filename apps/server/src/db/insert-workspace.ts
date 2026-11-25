@@ -13,6 +13,36 @@ export function insertWorkspaceData(db: DatabaseSync, data: WorkspaceData): void
     groupStmt.run(group.id, group.title, index, group.createdAt, group.updatedAt);
   });
 
+  // 试卷分组：旧备份没有该字段时按题组各补一个默认试卷分组
+  const paperGroups = data.paperGroups ?? [];
+  if (paperGroups.length === 0) {
+    const paperStmt = db.prepare(
+      `INSERT INTO paper_groups (id, group_id, title, position, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    );
+    data.groups.forEach((group) => {
+      paperStmt.run(
+        `${group.id}-paper-0`,
+        group.id,
+        "默认试卷",
+        0,
+        group.createdAt,
+        group.updatedAt,
+      );
+    });
+  }
+  const paperStmt = db.prepare(
+    `INSERT INTO paper_groups (id, group_id, title, position, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  );
+  paperGroups.forEach((paper, index) => {
+    paperStmt.run(paper.id, paper.groupId, paper.title, index, paper.createdAt, paper.updatedAt);
+  });
+  const paperIdsByGroup = new Map<string, string>();
+  for (const paper of paperGroups) {
+    if (!paperIdsByGroup.has(paper.groupId)) paperIdsByGroup.set(paper.groupId, paper.id);
+  }
+
   const questionPosition = new Map<string, number>();
   for (const group of data.groups) {
     group.questionIds.forEach((questionId, index) => {
@@ -22,13 +52,19 @@ export function insertWorkspaceData(db: DatabaseSync, data: WorkspaceData): void
 
   const questionStmt = db.prepare(
     `INSERT INTO questions (
-       id, group_id, content, position, image_policy, created_at, updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       id, group_id, paper_group_id, content, position, image_policy, created_at, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const question of data.questions) {
+    // 试卷分组归属：备份里显式给定的优先，其次按题组首个试卷分组兜底
+    const paperGroupId =
+      question.paperGroupId ??
+      paperIdsByGroup.get(question.groupId) ??
+      `${question.groupId}-paper-0`;
     questionStmt.run(
       question.id,
       question.groupId,
+      paperGroupId,
       question.content,
       questionPosition.get(question.id) ?? 0,
       question.imagePolicy ?? "auto",

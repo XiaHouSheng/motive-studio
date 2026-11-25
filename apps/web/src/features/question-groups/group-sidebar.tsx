@@ -1,5 +1,16 @@
 import { useState, memo } from "react";
-import { Download, FolderOpen, ImagePlus, Plus, Trash2, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Download,
+  FileText,
+  FolderOpen,
+  ImagePlus,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useUiStore } from "@/stores/ui";
 import { excerpt } from "@/lib/format";
 import { useT } from "@/lib/i18n/use-i18n";
@@ -12,14 +23,27 @@ interface GroupSidebarProps {
   onNavigate?: () => void;
 }
 
+/** 行内改名编辑目标：题组或试卷分组 */
+interface RenameTarget {
+  kind: "group" | "paper";
+  id: string;
+  draft: string;
+}
+
 export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
   const {
     loading,
     groups,
+    paperGroups,
     questionsInGroup,
     selectedGroup,
+    selectedPaperGroup,
     createGroup,
+    createPaperGroup,
+    renameGroup,
+    renamePaperGroup,
     deleteGroup,
+    deletePaperGroup,
     deleteQuestion,
     exportGroupMarkdown,
     openImageImport,
@@ -27,11 +51,19 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
   const selectedGroupId = useUiStore((state) => state.selectedGroupId);
   const selectedQuestionId = useUiStore((state) => state.selectedQuestionId);
   const selectGroup = useUiStore((state) => state.selectGroup);
+  const selectPaperGroup = useUiStore((state) => state.selectPaperGroup);
   const selectQuestion = useUiStore((state) => state.selectQuestion);
   const t = useT();
 
   const [groupDraft, setGroupDraft] = useState("");
   const [addingGroup, setAddingGroup] = useState(false);
+  /** 每个题组的试卷分组列表展开状态（默认展开） */
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  /** 正在行内改名的题组 / 试卷分组 */
+  const [renaming, setRenaming] = useState<RenameTarget | null>(null);
+  /** 正在添加试卷分组的题组 id */
+  const [addingPaperFor, setAddingPaperFor] = useState<string | null>(null);
+  const [paperDraft, setPaperDraft] = useState("");
 
   const submitGroup = () => {
     if (!groupDraft.trim()) return;
@@ -39,6 +71,31 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
     setGroupDraft("");
     setAddingGroup(false);
   };
+
+  const submitPaper = (groupId: string) => {
+    if (!paperDraft.trim()) return;
+    createPaperGroup(groupId, paperDraft);
+    setPaperDraft("");
+    setAddingPaperFor(null);
+  };
+
+  const commitRename = () => {
+    if (!renaming) return;
+    const title = renaming.draft.trim();
+    if (title) {
+      if (renaming.kind === "group") renameGroup(renaming.id, title);
+      else renamePaperGroup(renaming.id, title);
+    }
+    setRenaming(null);
+  };
+
+  const startRename = (kind: "group" | "paper", id: string, currentTitle: string) => {
+    setAddingPaperFor(null);
+    setRenaming({ kind, id, draft: currentTitle });
+  };
+
+  const paperGroupsOf = (groupId: string) =>
+    paperGroups.filter((paper) => paper.groupId === groupId);
 
   if (loading) {
     return (
@@ -88,7 +145,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
         </div>
       ) : null}
 
-      <div className="max-h-[38%] min-h-0 shrink-0 overflow-y-auto px-2 pb-2">
+      <div className="max-h-[42%] min-h-0 shrink-0 overflow-y-auto px-2 pb-2">
         {groups.length === 0 ? (
           <p className="px-2 py-3 text-[12px] leading-relaxed text-ink-faint">
             {t("groups.empty")}
@@ -97,67 +154,259 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
           <div className="space-y-0.5">
             {groups.map((group) => {
               const active = group.id === selectedGroupId;
+              const collapsed = collapsedGroups[group.id] ?? false;
+              const papers = paperGroupsOf(group.id);
+              const isRenaming = renaming?.kind === "group" && renaming.id === group.id;
               return (
-                <div key={group.id} className="group/row relative">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      selectGroup(group.id);
-                      onNavigate?.();
-                    }}
-                    title={group.title}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-md py-1.5 pr-16 pl-2 text-left transition-colors",
-                      active
-                        ? "bg-selection text-ink"
-                        : "text-ink-soft hover:bg-selection/60 hover:text-ink",
+                <div key={group.id}>
+                  {/* 题组行 */}
+                  <div className="group/row relative">
+                    {isRenaming ? (
+                      <div className="px-1 py-0.5">
+                        <input
+                          autoFocus
+                          value={renaming.draft}
+                          onChange={(event) =>
+                            setRenaming({ ...renaming, draft: event.target.value })
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") commitRename();
+                            if (event.key === "Escape") setRenaming(null);
+                          }}
+                          onBlur={commitRename}
+                          aria-label={t("groups.renameGroupAria", { title: group.title })}
+                          className="h-7 w-full rounded-md border border-brand/50 bg-field px-2 text-[12.5px] text-ink outline-none"
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            selectGroup(group.id);
+                            onNavigate?.();
+                          }}
+                          title={group.title}
+                          className={cn(
+                            "flex w-full items-center gap-1.5 rounded-md py-1.5 pr-20 pl-1 text-left transition-colors",
+                            active
+                              ? "bg-selection text-ink"
+                              : "text-ink-soft hover:bg-selection/60 hover:text-ink",
+                          )}
+                        >
+                          <span
+                            role="button"
+                            tabIndex={-1}
+                            aria-label={t("groups.toggleExpandAria")}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setCollapsedGroups((current) => ({
+                                ...current,
+                                [group.id]: !collapsed,
+                              }));
+                            }}
+                            className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-ink-faint hover:text-ink"
+                          >
+                            {collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                          </span>
+                          <FolderOpen
+                            size={14}
+                            strokeWidth={1.8}
+                            className={cn("shrink-0", active ? "text-brand" : "text-ink-faint")}
+                          />
+                          <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium">
+                            {group.title}
+                          </span>
+                        </button>
+                        <div className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5">
+                          <div className="flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover/row:opacity-100">
+                            <button
+                              type="button"
+                              aria-label={t("groups.renameGroupAria", { title: group.title })}
+                              title={t("groups.renameTitle")}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                startRename("group", group.id, group.title);
+                              }}
+                              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-brand"
+                            >
+                              <Pencil size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={t("groups.addPaperAria", { title: group.title })}
+                              title={t("groups.addPaperGroup")}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setRenaming(null);
+                                setAddingPaperFor(group.id);
+                                setPaperDraft("");
+                              }}
+                              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-brand"
+                            >
+                              <Plus size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={t("groups.exportAria", { title: group.title })}
+                              title={t("groups.exportTitle")}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                exportGroupMarkdown(group.id);
+                              }}
+                              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-brand"
+                            >
+                              <Download size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={t("groups.deleteAria", { title: group.title })}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                const ok = window.confirm(
+                                  t("groups.deleteConfirm", {
+                                    title: group.title,
+                                    count: group.questionIds.length,
+                                  }),
+                                );
+                                if (ok) deleteGroup(group.id);
+                              }}
+                              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-danger/10 hover:text-danger"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                          <span className="w-6 shrink-0 text-right text-[10.5px] tabular-nums text-ink-faint">
+                            {group.questionIds.length}
+                          </span>
+                        </div>
+                      </>
                     )}
-                  >
-                    <FolderOpen
-                      size={14}
-                      strokeWidth={1.8}
-                      className={cn("shrink-0", active ? "text-brand" : "text-ink-faint")}
-                    />
-                    <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium">
-                      {group.title}
-                    </span>
-                  </button>
-                  <div className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-1.5">
-                    <div className="flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover/row:opacity-100">
-                      <button
-                        type="button"
-                        aria-label={t("groups.exportAria", { title: group.title })}
-                        title={t("groups.exportTitle")}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          exportGroupMarkdown(group.id);
-                        }}
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-brand"
-                      >
-                        <Download size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={t("groups.deleteAria", { title: group.title })}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          const ok = window.confirm(
-                            t("groups.deleteConfirm", {
-                              title: group.title,
-                              count: group.questionIds.length,
-                            }),
-                          );
-                          if (ok) deleteGroup(group.id);
-                        }}
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-danger/10 hover:text-danger"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                    <span className="shrink-0 text-[10.5px] tabular-nums text-ink-faint">
-                      {group.questionIds.length}
-                    </span>
                   </div>
+
+                  {/* 试卷分组行（题组之下的二级分组） */}
+                  {!collapsed ? (
+                    <div className="ml-4 border-l border-line/70 pl-1.5">
+                      {papers.map((paper) => {
+                        const paperActive =
+                          active && paper.id === selectedPaperGroup?.id;
+                        const isPaperRenaming =
+                          renaming?.kind === "paper" && renaming.id === paper.id;
+                        return (
+                          <div key={paper.id} className="group/paper relative">
+                            {isPaperRenaming ? (
+                              <div className="px-1 py-0.5">
+                                <input
+                                  autoFocus
+                                  value={renaming.draft}
+                                  onChange={(event) =>
+                                    setRenaming({ ...renaming, draft: event.target.value })
+                                  }
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter") commitRename();
+                                    if (event.key === "Escape") setRenaming(null);
+                                  }}
+                                  onBlur={commitRename}
+                                  aria-label={t("groups.renamePaperAria", { title: paper.title })}
+                                  className="h-7 w-full rounded-md border border-brand/50 bg-field px-2 text-[12px] text-ink outline-none"
+                                />
+                              </div>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    selectPaperGroup(group.id, paper.id);
+                                    onNavigate?.();
+                                  }}
+                                  title={paper.title}
+                                  className={cn(
+                                    "flex w-full items-center gap-1.5 rounded-md py-1 pr-14 pl-1.5 text-left transition-colors",
+                                    paperActive
+                                      ? "bg-selection text-ink"
+                                      : "text-ink-soft hover:bg-selection/60 hover:text-ink",
+                                  )}
+                                >
+                                  <FileText
+                                    size={13}
+                                    strokeWidth={1.8}
+                                    className={cn(
+                                      "shrink-0",
+                                      paperActive ? "text-brand" : "text-ink-faint",
+                                    )}
+                                  />
+                                  <span className="min-w-0 flex-1 truncate text-[12px]">
+                                    {paper.title}
+                                  </span>
+                                </button>
+                                <div className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5">
+                                  <div className="flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover/paper:opacity-100">
+                                    <button
+                                      type="button"
+                                      aria-label={t("groups.renamePaperAria", {
+                                        title: paper.title,
+                                      })}
+                                      title={t("groups.renameTitle")}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        startRename("paper", paper.id, paper.title);
+                                      }}
+                                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-brand"
+                                    >
+                                      <Pencil size={11} />
+                                    </button>
+                                    {papers.length > 1 ? (
+                                      <button
+                                        type="button"
+                                        aria-label={t("groups.deletePaperAria", {
+                                          title: paper.title,
+                                        })}
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          const ok = window.confirm(
+                                            t("groups.deletePaperConfirm", {
+                                              title: paper.title,
+                                            }),
+                                          );
+                                          if (ok) deletePaperGroup(paper.id);
+                                        }}
+                                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-danger/10 hover:text-danger"
+                                      >
+                                        <Trash2 size={11} />
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {addingPaperFor === group.id ? (
+                        <div className="animate-fade-in px-1 py-0.5">
+                          <input
+                            autoFocus
+                            value={paperDraft}
+                            onChange={(event) => setPaperDraft(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") submitPaper(group.id);
+                              if (event.key === "Escape") {
+                                setAddingPaperFor(null);
+                                setPaperDraft("");
+                              }
+                            }}
+                            onBlur={() => {
+                              if (paperDraft.trim()) submitPaper(group.id);
+                              else setAddingPaperFor(null);
+                            }}
+                            placeholder={t("groups.paperNamePlaceholder")}
+                            className="h-7 w-full rounded-md border border-line bg-field px-2 text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-brand/50"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
@@ -174,7 +423,9 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
         </span>
         <button
           type="button"
-          onClick={() => selectedGroup && openImageImport(selectedGroup.id)}
+          onClick={() =>
+            selectedGroup && openImageImport(selectedGroup.id, selectedPaperGroup?.id ?? null)
+          }
           disabled={!selectedGroup}
           className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
           aria-label={t("groups.addQuestionTitle")}
@@ -192,7 +443,9 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
             <p className="text-[12px] leading-relaxed text-ink-faint">{t("groups.noQuestions")}</p>
             <button
               type="button"
-              onClick={() => openImageImport(selectedGroup.id, "image")}
+              onClick={() =>
+                openImageImport(selectedGroup.id, selectedPaperGroup?.id ?? null, "image")
+              }
               className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-line px-2 py-1.5 text-[12px] text-ink-soft transition-colors hover:border-line-strong hover:bg-selection/50 hover:text-ink"
             >
               <ImagePlus size={13} />

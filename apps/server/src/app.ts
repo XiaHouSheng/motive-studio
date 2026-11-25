@@ -18,6 +18,7 @@ import { createExportRouter } from "./routes/exports.js";
 import { healthRouter } from "./routes/health.js";
 import { createImageImportRouter } from "./routes/image-import.js";
 import { createMobileRouter } from "./routes/mobile.js";
+import { createPaperGroupsRouter } from "./routes/paper-groups.js";
 import { createQuestionAssetsRouter } from "./routes/question-assets.js";
 import { createQuestionGroupsRouter } from "./routes/question-groups.js";
 import { createQuestionsRouter } from "./routes/questions.js";
@@ -72,6 +73,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use("/api/health", healthRouter);
   app.use("/api", createBootstrapRouter(repository));
   app.use("/api", createQuestionGroupsRouter(repository));
+  app.use("/api", createPaperGroupsRouter(repository));
   app.use("/api", createImageImportRouter(repository, settingsStore, promptSettingsStore));
   app.use("/api", createQuestionsRouter(repository));
   app.use("/api", createQuestionAssetsRouter(repository, assetStore));
