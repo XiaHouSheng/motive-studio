@@ -186,6 +186,8 @@ export const api = {
         filename,
       }),
     }),
+  getRagStatus: () =>
+    request<{ enabled: boolean; stage: string }>("/api/rag/status"),
   getMobileLink: (key: string) =>
     request<{ token: string; urls: string[]; preferred: string | null }>(
       "/api/mobile/link",

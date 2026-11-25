@@ -23,6 +23,7 @@ import { createPdfImportRouter } from "./routes/pdf-import.js";
 import { createQuestionAssetsRouter } from "./routes/question-assets.js";
 import { createQuestionGroupsRouter } from "./routes/question-groups.js";
 import { createQuestionsRouter } from "./routes/questions.js";
+import { createRagRouter } from "./routes/rag.js";
 import { createSettingsRouter } from "./routes/settings.js";
 import { createSolutionRouter } from "./routes/solution.js";
 import { createStepsRouter } from "./routes/steps.js";
@@ -78,6 +79,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use("/api", createPdfImportRouter(repository));
   app.use("/api", createImageImportRouter(repository, settingsStore, promptSettingsStore));
   app.use("/api", createQuestionsRouter(repository));
+  app.use("/api", createRagRouter());
   app.use("/api", createQuestionAssetsRouter(repository, assetStore));
   app.use("/api", createSolutionRouter(repository, settingsStore, assetStore, promptSettingsStore, uiPreferencesStore));
   app.use("/api", createStepsRouter(repository, settingsStore, promptSettingsStore, assetStore));

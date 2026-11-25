@@ -40,6 +40,15 @@ export const panelsZh = {
   "import.pdfParseFailed": "PDF 解析失败，可能是扫描版或文件已损坏",
   "import.pdfEmpty": "PDF 中未提取到文本，扫描版 PDF 请改用图片导入",
 
+  // ── RAG 检索问答（预留入口） ──
+  "rag.openAria": "RAG 检索问答",
+  "rag.title": "RAG 检索问答",
+  "rag.description": "基于本地题目库的检索增强问答：用自然语言找题、查相似题、问知识点。",
+  "rag.preparing": "该功能正在准备中。后续将为全部题目与题解建立本地索引，支持自然语言搜题、相似题推荐与知识点问答。",
+  "rag.statusPreparing": "当前状态：功能准备中",
+  "rag.statusReady": "当前状态：已就绪",
+  "rag.statusUnavailable": "当前状态：无法获取（服务未连接）",
+
   // ── 试卷分组 paper-groups ──
   "groups.addPaperGroup": "新建试卷分组",
   "groups.addPaperAria": "在「{title}」下新建试卷分组",
@@ -389,6 +398,17 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "import.pdfUnsupported": "“{name}” is not a PDF file",
   "import.pdfParseFailed": "Failed to parse the PDF. It may be a scanned copy or corrupted.",
   "import.pdfEmpty": "No text extracted from the PDF. Use image import for scanned papers.",
+
+  // ── RAG entry (placeholder) ──
+  "rag.openAria": "RAG retrieval Q&A",
+  "rag.title": "RAG retrieval Q&A",
+  "rag.description":
+    "Retrieval-augmented Q&A over your local question bank: find questions in natural language, search similar ones, ask about concepts.",
+  "rag.preparing":
+    "This feature is in preparation. Local indexes over all questions and solutions will enable natural-language search, similar-question lookup and concept Q&A.",
+  "rag.statusPreparing": "Status: preparing",
+  "rag.statusReady": "Status: ready",
+  "rag.statusUnavailable": "Status: unavailable (service not connected)",
 
   // ── Paper groups ──
   "groups.addPaperGroup": "New paper group",
