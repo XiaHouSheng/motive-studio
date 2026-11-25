@@ -221,7 +221,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                           }}
                           title={group.title}
                           className={cn(
-                            "flex w-full items-center gap-1.5 rounded-md py-1.5 pr-[76px] pl-1 text-left transition-colors",
+                            "flex w-full items-center gap-1.5 rounded-md py-1.5 pr-[56px] pl-1 text-left transition-colors",
                             active
                               ? "bg-selection text-ink"
                               : "text-ink-soft hover:bg-selection/60 hover:text-ink",
@@ -283,9 +283,6 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                               <Trash2 size={13} />
                             </button>
                           </div>
-                          <span className="w-6 shrink-0 text-right text-[10.5px] tabular-nums text-ink-faint">
-                            {group.questionIds.length}
-                          </span>
                         </div>
                       </>
                     )}
@@ -299,6 +296,11 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                           active && paper.id === selectedPaperGroup?.id;
                         const isPaperRenaming =
                           renaming?.kind === "paper" && renaming.id === paper.id;
+                        // 试卷题目数：历史数据 paperGroupId 为空时按首个试卷分组兜底
+                        const fallbackPaperId = papers[0]?.id ?? null;
+                        const paperQuestionCount = questions.filter(
+                          (question) => (question.paperGroupId ?? fallbackPaperId) === paper.id,
+                        ).length;
                         return (
                           <div key={paper.id} className="group/paper relative">
                             {isPaperRenaming ? (
@@ -328,7 +330,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                                   }}
                                   title={paper.title}
                                   className={cn(
-                                    "flex w-full items-center gap-1.5 rounded-md py-1 pr-[80px] pl-1.5 text-left transition-colors",
+                                    "flex w-full items-center gap-1.5 rounded-md py-1 pr-[100px] pl-1.5 text-left transition-colors",
                                     paperActive
                                       ? "bg-selection text-ink"
                                       : "text-ink-soft hover:bg-selection/60 hover:text-ink",
@@ -397,6 +399,9 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                                       </button>
                                     ) : null}
                                   </div>
+                                  <span className="w-6 shrink-0 text-right text-[10.5px] tabular-nums text-ink-faint">
+                                    {paperQuestionCount}
+                                  </span>
                                 </div>
                               </>
                             )}
