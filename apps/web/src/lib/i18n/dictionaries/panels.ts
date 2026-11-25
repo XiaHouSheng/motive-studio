@@ -41,9 +41,6 @@ export const panelsZh = {
   "import.pdfEmpty": "PDF 中未提取到文本，扫描版 PDF 请改用图片导入",
 
   // ── RAG 检索问答（预留入口） ──
-  "rag.openAria": "RAG 检索问答",
-  "rag.title": "RAG 检索问答",
-  "rag.description": "基于本地题目库的检索增强问答：用自然语言找题、查相似题、问知识点。",
   "rag.preparing": "该功能正在准备中。后续将为全部题目与题解建立本地索引，支持自然语言搜题、相似题推荐与知识点问答。",
   "rag.statusPreparing": "当前状态：功能准备中",
   "rag.statusReady": "当前状态：已就绪",
@@ -236,6 +233,10 @@ export const panelsZh = {
   "settings.sectionProvider": "模型服务",
   "settings.sectionUsage": "用量统计",
   "settings.sectionRemote": "远程访问",
+  "settings.sectionKnowledge": "知识库",
+  "settings.knowledgeTitle": "RAG 检索问答",
+  "settings.knowledgeSubtitle": "基于本地题目库的检索增强问答（准备中）",
+  "settings.knowledgeStatusLabel": "功能状态",
   "settings.sectionAbout": "关于",
   "settings.aboutTagline": "本地优先的 AI 结构化思考工作台",
   "settings.aboutDesc": "数据完全保存在本地（SQLite + 文件），不依赖云端；支持手机拍照导入、远程访问与完整备份。",
@@ -425,10 +426,6 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "import.pdfEmpty": "No text extracted from the PDF. Use image import for scanned papers.",
 
   // ── RAG entry (placeholder) ──
-  "rag.openAria": "RAG retrieval Q&A",
-  "rag.title": "RAG retrieval Q&A",
-  "rag.description":
-    "Retrieval-augmented Q&A over your local question bank: find questions in natural language, search similar ones, ask about concepts.",
   "rag.preparing":
     "This feature is in preparation. Local indexes over all questions and solutions will enable natural-language search, similar-question lookup and concept Q&A.",
   "rag.statusPreparing": "Status: preparing",
@@ -630,6 +627,10 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "settings.sectionProvider": "Model service",
   "settings.sectionUsage": "Usage",
   "settings.sectionRemote": "Remote access",
+  "settings.sectionKnowledge": "Knowledge base",
+  "settings.knowledgeTitle": "RAG retrieval Q&A",
+  "settings.knowledgeSubtitle": "Retrieval-augmented Q&A over your local question bank (in preparation)",
+  "settings.knowledgeStatusLabel": "Status",
   "settings.sectionAbout": "About",
   "settings.aboutTagline": "Local-first AI structured thinking workspace",
   "settings.aboutDesc":

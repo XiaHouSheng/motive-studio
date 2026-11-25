@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   ArrowLeft,
   BarChart3,
+  BookMarked,
   Globe,
   Info,
   Languages,
@@ -29,12 +30,13 @@ import { isFrameless } from "@/lib/desktop";
 import { WindowControls, onAppDragDoubleClick } from "@/components/shared/window-controls";
 import { Markdown } from "@/components/shared/markdown";
 import { AboutSection } from "./about-section";
+import { KnowledgeSection } from "./knowledge-section";
 import { PromptsSettings } from "./prompts-settings";
 import { ProviderSettingsSection } from "./provider-settings-form";
 import { RemoteAccessPanel } from "./remote-access-panel";
 import { UsageSection } from "./usage-section";
 
-type SectionId = "general" | "prompts" | "provider" | "usage" | "remote" | "about";
+type SectionId = "general" | "prompts" | "provider" | "usage" | "remote" | "knowledge" | "about";
 
 const SECTIONS: Array<{
   id: SectionId;
@@ -46,6 +48,7 @@ const SECTIONS: Array<{
   { id: "provider", labelKey: "settings.sectionProvider", icon: Server },
   { id: "usage", labelKey: "settings.sectionUsage", icon: BarChart3 },
   { id: "remote", labelKey: "settings.sectionRemote", icon: Globe },
+  { id: "knowledge", labelKey: "settings.sectionKnowledge", icon: BookMarked },
   { id: "about", labelKey: "settings.sectionAbout", icon: Info },
 ];
 
@@ -346,6 +349,7 @@ export function SettingsPage({ onCheckUpdate }: { onCheckUpdate?: () => void }) 
               {section === "provider" ? <ProviderSettingsSection /> : null}
               {section === "usage" ? <UsageSection /> : null}
               {section === "remote" ? <RemoteAccessPanel /> : null}
+              {section === "knowledge" ? <KnowledgeSection /> : null}
               {section === "about" ? <AboutSection onUpdateCheck={onCheckUpdate} /> : null}
             </div>
           </main>

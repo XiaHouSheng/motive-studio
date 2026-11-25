@@ -1,6 +1,5 @@
 import { useState, useMemo, memo } from "react";
 import {
-  BookMarked,
   ChevronDown,
   ChevronRight,
   Download,
@@ -18,7 +17,6 @@ import { excerpt } from "@/lib/format";
 import { useT } from "@/lib/i18n/use-i18n";
 import { cn } from "@/lib/utils";
 import type { WorkspaceApi } from "@/features/workspace/use-workspace";
-import { RagDialog } from "./rag-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface GroupSidebarProps {
@@ -70,7 +68,6 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
   const [paperDraft, setPaperDraft] = useState("");
   /** 题目搜索词：非空时跨全部题组/试卷分组搜索 */
   const [searchDraft, setSearchDraft] = useState("");
-  const [ragOpen, setRagOpen] = useState(false);
 
   const submitGroup = () => {
     if (!groupDraft.trim()) return;
@@ -448,42 +445,15 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
 
       <div className="mx-3 border-t border-line" />
 
-      {/* 「题目」行：唯一的添加入口（弹窗支持文字 / 图片两种方式），不再显示题目总数 */}
-      <div className="flex items-center justify-between px-3 pt-3 pb-2">
-        <span className="text-[10.5px] font-semibold tracking-[0.1em] text-ink-faint uppercase">
+      {/* 「题目」行：搜索内嵌标题行，"+" 为唯一添加入口（弹窗支持文字 / 图片 / PDF） */}
+      <div className="flex items-center gap-1.5 px-3 pt-3 pb-2">
+        <span className="shrink-0 text-[10.5px] font-semibold tracking-[0.1em] text-ink-faint uppercase">
           {t("groups.questionsTitle")}
         </span>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setRagOpen(true)}
-            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-ink"
-            aria-label={t("rag.openAria")}
-            title={t("rag.openAria")}
-          >
-            <BookMarked size={14} strokeWidth={1.8} />
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              selectedGroup && openImageImport(selectedGroup.id, selectedPaperGroup?.id ?? null)
-            }
-            disabled={!selectedGroup}
-            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label={t("groups.addQuestionTitle")}
-            title={t("groups.addQuestionTitle")}
-          >
-            <Plus size={14} />
-          </button>
-        </div>
-      </div>
-
-      {/* 题目搜索：非空时跨全部题组/试卷分组搜索 */}
-      <div className="px-2 pb-2">
-        <div className="relative">
+        <div className="relative min-w-0 flex-1">
           <Search
-            size={13}
-            className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-faint"
+            size={12}
+            className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-ink-faint"
           />
           <input
             value={searchDraft}
@@ -493,19 +463,31 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
             }}
             placeholder={t("groups.searchPlaceholder")}
             aria-label={t("groups.searchAria")}
-            className="h-7 w-full rounded-md border border-line bg-field pl-7.5 pr-7 text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-brand/50"
+            className="h-6.5 w-full rounded-md border border-line bg-field pr-5 pl-6 text-[11.5px] text-ink outline-none placeholder:text-ink-faint focus:border-brand/50"
           />
           {searchDraft ? (
             <button
               type="button"
               onClick={() => setSearchDraft("")}
               aria-label={t("groups.searchAria")}
-              className="absolute top-1/2 right-1.5 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-ink-faint hover:text-ink"
+              className="absolute top-1/2 right-1 inline-flex h-4.5 w-4.5 -translate-y-1/2 items-center justify-center rounded text-ink-faint hover:text-ink"
             >
-              <X size={12} />
+              <X size={11} />
             </button>
           ) : null}
         </div>
+        <button
+          type="button"
+          onClick={() =>
+            selectedGroup && openImageImport(selectedGroup.id, selectedPaperGroup?.id ?? null)
+          }
+          disabled={!selectedGroup}
+          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-selection hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label={t("groups.addQuestionTitle")}
+          title={t("groups.addQuestionTitle")}
+        >
+          <Plus size={14} />
+        </button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
@@ -612,7 +594,6 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
         )}
       </div>
 
-      <RagDialog open={ragOpen} onClose={() => setRagOpen(false)} />
     </div>
   );
 }
