@@ -117,7 +117,9 @@ interface AddQuestionDialogProps {
 export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
   const {
     groups,
+    paperGroups,
     imageImportGroupId,
+    imageImportPaperGroupId,
     imageImportTab,
     imageImportAnalyzing,
     imageImportCreating,
@@ -145,6 +147,12 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
   const open = imageImportGroupId !== null;
   const groupTitle =
     groups.find((group) => group.id === imageImportGroupId)?.title ?? t("groups.title");
+  // 目标试卷分组：显式指定优先，否则回落到题组首个试卷分组（与后端兜底一致）
+  const paperTitle = (() => {
+    const list = paperGroups.filter((paper) => paper.groupId === imageImportGroupId);
+    const target = list.find((paper) => paper.id === imageImportPaperGroupId) ?? list[0];
+    return target?.title ?? t("groups.paperDefaultFallback");
+  })();
 
   // 打开时按入口指定的页签复位全部状态
   useEffect(() => {
@@ -306,7 +314,7 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
           if (!busy) closeImageImport();
         }}
         title={t("groups.addQuestionTitle")}
-        description={t("groups.addQuestionHint", { group: groupTitle })}
+        description={t("groups.addQuestionHint", { group: `${groupTitle} / ${paperTitle}` })}
         className="max-w-[640px]"
       >
         {/* 内容区定高：两个页签高度一致，切换不引起弹窗尺寸变化 */}

@@ -24,7 +24,7 @@ export const panelsZh = {
   "groups.add": "添加",
   "groups.newQuestion": "新建题目",
   "groups.addQuestionTitle": "添加题目",
-  "groups.addQuestionHint": "将添加到题组「{group}」，可切换文字添加或图片导入。",
+  "groups.addQuestionHint": "将添加到「{group}」（题组 / 试卷分组），可切换文字添加或图片导入。",
   "groups.tabText": "文字添加",
   "groups.tabImage": "图片导入",
 
@@ -38,6 +38,7 @@ export const panelsZh = {
   "groups.deletePaperAria": "删除试卷分组 {title}",
   "groups.deletePaperConfirm": "删除试卷分组「{title}」？其中的题目会移入同题组的其他试卷分组。该操作不可恢复。",
   "groups.toggleExpandAria": "展开或收起题组",
+  "groups.paperDefaultFallback": "默认试卷",
 
   // ── 题目搜索 ──
   "groups.searchPlaceholder": "搜索题目…",
@@ -360,7 +361,8 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "groups.add": "Add",
   "groups.newQuestion": "New question",
   "groups.addQuestionTitle": "Add questions",
-  "groups.addQuestionHint": "Questions will be added to group “{group}”. Switch between text and image import.",
+  "groups.addQuestionHint":
+    "Questions will be added to “{group}” (group / paper). Switch between text and image import.",
   "groups.tabText": "Text",
   "groups.tabImage": "Images",
 
@@ -375,6 +377,7 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "groups.deletePaperConfirm":
     "Delete paper group “{title}”? Its questions will move to another paper group in the same group. This cannot be undone.",
   "groups.toggleExpandAria": "Expand or collapse group",
+  "groups.paperDefaultFallback": "Default paper",
 
   // ── Question search ──
   "groups.searchPlaceholder": "Search questions…",
