@@ -100,20 +100,25 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
   const paperGroupsOf = (groupId: string) =>
     paperGroups.filter((paper) => paper.groupId === groupId);
 
-  /** 跨全部题组/试卷分组的题目搜索；返回 null 表示未启用搜索 */
+  /**
+   * 题目搜索：仅在当前题组内搜索（覆盖该题组全部试卷分组）；
+   * 返回 null 表示未启用搜索（无关键词或未选择题组）。
+   */
   const searchResults = useMemo(() => {
     const keyword = searchDraft.trim().toLowerCase();
-    if (!keyword) return null;
-    const groupTitleById = new Map(groups.map((group) => [group.id, group.title] as const));
+    if (!keyword || !selectedGroupId) return null;
     const paperTitleById = new Map(paperGroups.map((paper) => [paper.id, paper.title] as const));
     return questions
-      .filter((question) => question.content.toLowerCase().includes(keyword))
+      .filter(
+        (question) =>
+          question.groupId === selectedGroupId &&
+          question.content.toLowerCase().includes(keyword),
+      )
       .map((question) => ({
         question,
-        groupTitle: groupTitleById.get(question.groupId) ?? "",
         paperTitle: paperTitleById.get(question.paperGroupId ?? "") ?? "",
       }));
-  }, [searchDraft, questions, groups, paperGroups]);
+  }, [searchDraft, questions, selectedGroupId, paperGroups]);
 
   const openQuestionInSearch = (question: (typeof questions)[number]) => {
     if (question.paperGroupId) {
@@ -464,7 +469,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
             }}
             placeholder={t("groups.searchPlaceholder")}
             aria-label={t("groups.searchAria")}
-            className="h-6.5 w-full rounded-md border border-line bg-field pr-5 pl-6 text-[11.5px] text-ink outline-none placeholder:text-ink-faint focus:border-brand/50"
+            className="h-6.5 w-full rounded-md border border-line bg-field pr-5 pl-6 text-[11.5px] text-ink transition-[border-color,box-shadow] duration-200 outline-none placeholder:text-ink-faint focus:border-brand/50 focus:ring-2 focus:ring-brand/15"
           />
           {searchDraft ? (
             <button
@@ -497,7 +502,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
             <p className="px-2 py-3 text-[12px] text-ink-faint">{t("groups.noSearchResults")}</p>
           ) : (
             <div className="space-y-0.5">
-              {searchResults.map(({ question, groupTitle, paperTitle }) => (
+              {searchResults.map(({ question, paperTitle }) => (
                 <button
                   key={question.id}
                   type="button"
@@ -514,9 +519,6 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                     {excerpt(question.content, 46)}
                   </span>
                   <span className="flex min-w-0 items-center gap-1 text-[10.5px] text-ink-faint">
-                    <FolderOpen size={10} className="shrink-0" />
-                    <span className="truncate">{groupTitle}</span>
-                    <span className="shrink-0 text-ink-faint">/</span>
                     <FileText size={10} className="shrink-0" />
                     <span className="truncate">{paperTitle}</span>
                   </span>
