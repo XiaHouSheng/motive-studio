@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   BarChart3,
   Globe,
+  Info,
   Languages,
   Monitor,
   Moon,
@@ -27,12 +28,13 @@ import { cn } from "@/lib/utils";
 import { isFrameless } from "@/lib/desktop";
 import { WindowControls, onAppDragDoubleClick } from "@/components/shared/window-controls";
 import { Markdown } from "@/components/shared/markdown";
+import { AboutSection } from "./about-section";
 import { PromptsSettings } from "./prompts-settings";
 import { ProviderSettingsSection } from "./provider-settings-form";
 import { RemoteAccessPanel } from "./remote-access-panel";
 import { UsageSection } from "./usage-section";
 
-type SectionId = "general" | "prompts" | "provider" | "usage" | "remote";
+type SectionId = "general" | "prompts" | "provider" | "usage" | "remote" | "about";
 
 const SECTIONS: Array<{
   id: SectionId;
@@ -44,6 +46,7 @@ const SECTIONS: Array<{
   { id: "provider", labelKey: "settings.sectionProvider", icon: Server },
   { id: "usage", labelKey: "settings.sectionUsage", icon: BarChart3 },
   { id: "remote", labelKey: "settings.sectionRemote", icon: Globe },
+  { id: "about", labelKey: "settings.sectionAbout", icon: Info },
 ];
 
 const LANGUAGE_OPTIONS: Array<{ value: UiLanguage; labelKey: DictionaryKey }> = [
@@ -343,6 +346,7 @@ export function SettingsPage() {
               {section === "provider" ? <ProviderSettingsSection /> : null}
               {section === "usage" ? <UsageSection /> : null}
               {section === "remote" ? <RemoteAccessPanel /> : null}
+              {section === "about" ? <AboutSection /> : null}
             </div>
           </main>
         </div>

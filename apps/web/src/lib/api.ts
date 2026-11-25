@@ -186,6 +186,8 @@ export const api = {
         filename,
       }),
     }),
+  getAppInfo: () =>
+    request<{ name: string; version: string; repoUrl: string }>("/api/app/info"),
   getRagStatus: () =>
     request<{ enabled: boolean; stage: string }>("/api/rag/status"),
   getMobileLink: (key: string) =>

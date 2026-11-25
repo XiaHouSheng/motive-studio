@@ -20,8 +20,10 @@ import { useUiStore } from "@/stores/ui";
 import { useThemeStore } from "@/stores/theme";
 import { useT } from "@/lib/i18n/use-i18n";
 import { cn } from "@/lib/utils";
+import { GITHUB_REPO_URL, openExternal } from "@/lib/app";
 import { isFrameless } from "@/lib/desktop";
 import { WindowControls, onAppDragDoubleClick } from "@/components/shared/window-controls";
+import { GithubIcon } from "@/components/shared/github-icon";
 import { ThemeMenu } from "@/features/theme/theme-menu";
 import { ProviderQuickSwitch } from "@/features/settings/provider-switch-menu";
 import type { WorkspaceApi } from "./use-workspace";
@@ -169,6 +171,15 @@ export function TopBar({ workspace }: TopBarProps) {
               ? t("topbar.serverChecking")
               : t("topbar.serverOffline")}
         </span>
+        <button
+          type="button"
+          onClick={() => openExternal(GITHUB_REPO_URL)}
+          aria-label={t("topbar.github")}
+          title={t("topbar.github")}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-selection hover:text-ink"
+        >
+          <GithubIcon size={16} />
+        </button>
         <button
           type="button"
           onClick={() => void openMobileLink()}
