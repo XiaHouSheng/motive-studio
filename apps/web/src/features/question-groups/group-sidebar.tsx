@@ -1,4 +1,4 @@
-import { useState, memo } from "react";
+import { useState, useMemo, memo } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -8,6 +8,7 @@ import {
   ImagePlus,
   Pencil,
   Plus,
+  Search,
   Trash2,
   X,
 } from "lucide-react";
@@ -35,6 +36,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
     loading,
     groups,
     paperGroups,
+    questions,
     questionsInGroup,
     selectedGroup,
     selectedPaperGroup,
@@ -64,6 +66,8 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
   /** 正在添加试卷分组的题组 id */
   const [addingPaperFor, setAddingPaperFor] = useState<string | null>(null);
   const [paperDraft, setPaperDraft] = useState("");
+  /** 题目搜索词：非空时跨全部题组/试卷分组搜索 */
+  const [searchDraft, setSearchDraft] = useState("");
 
   const submitGroup = () => {
     if (!groupDraft.trim()) return;
@@ -96,6 +100,31 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
 
   const paperGroupsOf = (groupId: string) =>
     paperGroups.filter((paper) => paper.groupId === groupId);
+
+  /** 跨全部题组/试卷分组的题目搜索；返回 null 表示未启用搜索 */
+  const searchResults = useMemo(() => {
+    const keyword = searchDraft.trim().toLowerCase();
+    if (!keyword) return null;
+    const groupTitleById = new Map(groups.map((group) => [group.id, group.title] as const));
+    const paperTitleById = new Map(paperGroups.map((paper) => [paper.id, paper.title] as const));
+    return questions
+      .filter((question) => question.content.toLowerCase().includes(keyword))
+      .map((question) => ({
+        question,
+        groupTitle: groupTitleById.get(question.groupId) ?? "",
+        paperTitle: paperTitleById.get(question.paperGroupId ?? "") ?? "",
+      }));
+  }, [searchDraft, questions, groups, paperGroups]);
+
+  const openQuestionInSearch = (question: (typeof questions)[number]) => {
+    if (question.paperGroupId) {
+      selectPaperGroup(question.groupId, question.paperGroupId);
+    } else {
+      selectGroup(question.groupId);
+    }
+    selectQuestion(question.id);
+    onNavigate?.();
+  };
 
   if (loading) {
     return (
@@ -435,8 +464,70 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
         </button>
       </div>
 
+      {/* 题目搜索：非空时跨全部题组/试卷分组搜索 */}
+      <div className="px-2 pb-2">
+        <div className="relative">
+          <Search
+            size={13}
+            className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-faint"
+          />
+          <input
+            value={searchDraft}
+            onChange={(event) => setSearchDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setSearchDraft("");
+            }}
+            placeholder={t("groups.searchPlaceholder")}
+            aria-label={t("groups.searchAria")}
+            className="h-7 w-full rounded-md border border-line bg-field pl-7.5 pr-7 text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-brand/50"
+          />
+          {searchDraft ? (
+            <button
+              type="button"
+              onClick={() => setSearchDraft("")}
+              aria-label={t("groups.searchAria")}
+              className="absolute top-1/2 right-1.5 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-ink-faint hover:text-ink"
+            >
+              <X size={12} />
+            </button>
+          ) : null}
+        </div>
+      </div>
+
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-        {!selectedGroup ? (
+        {searchResults ? (
+          searchResults.length === 0 ? (
+            <p className="px-2 py-3 text-[12px] text-ink-faint">{t("groups.noSearchResults")}</p>
+          ) : (
+            <div className="space-y-0.5">
+              {searchResults.map(({ question, groupTitle, paperTitle }) => (
+                <button
+                  key={question.id}
+                  type="button"
+                  onClick={() => openQuestionInSearch(question)}
+                  title={question.content}
+                  className={cn(
+                    "flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors",
+                    question.id === selectedQuestionId
+                      ? "bg-selection text-ink"
+                      : "text-ink-soft hover:bg-selection/60 hover:text-ink",
+                  )}
+                >
+                  <span className="line-clamp-2 min-w-0 text-[12.5px] leading-[1.55]">
+                    {excerpt(question.content, 46)}
+                  </span>
+                  <span className="flex min-w-0 items-center gap-1 text-[10.5px] text-ink-faint">
+                    <FolderOpen size={10} className="shrink-0" />
+                    <span className="truncate">{groupTitle}</span>
+                    <span className="shrink-0 text-ink-faint">/</span>
+                    <FileText size={10} className="shrink-0" />
+                    <span className="truncate">{paperTitle}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )
+        ) : !selectedGroup ? (
           <p className="px-2 py-3 text-[12px] text-ink-faint">{t("groups.selectFirst")}</p>
         ) : questionsInGroup.length === 0 ? (
           <div className="space-y-2 px-2 py-3">

@@ -1003,6 +1003,8 @@ export function useWorkspace() {
     paperGroupsInSelectedGroup,
     selectedPaperGroup,
     questionsInGroup,
+    /** 全量题目：题目搜索等跨试卷分组场景使用 */
+    questions: data.questions,
     selectedGroup,
     question,
     steps,
