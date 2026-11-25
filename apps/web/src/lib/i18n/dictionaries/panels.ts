@@ -39,14 +39,6 @@ export const panelsZh = {
   "import.pdfUnsupported": "「{name}」不是 PDF 文件",
   "import.pdfParseFailed": "PDF 解析失败，可能是扫描版或文件已损坏",
   "import.pdfEmpty": "PDF 中未提取到文本，扫描版 PDF 请改用图片导入",
-  "import.pdfPageRange": "页码范围",
-  "import.pdfRangePlaceholder": "页码，如 1-4",
-  "import.pdfRangeInvalid": "页码范围无效，例如 1-4",
-  "import.pdfRangeTooMany": "每批最多 {count} 页，可分批导入",
-  "import.pdfToImages": "转为图片识别",
-  "import.pdfToImagesHint": "扫描版 / 公式排版适用：把所选页渲染为图片走识图流程，会消耗模型 token",
-  "import.pdfRendering": "渲染中…",
-  "import.pdfRenderFailed": "页面渲染失败，请重试",
 
   // ── RAG 检索问答（预留入口） ──
   "rag.preparing": "该功能正在准备中。后续将为全部题目与题解建立本地索引，支持自然语言搜题、相似题推荐与知识点问答。",
@@ -435,15 +427,6 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "import.pdfUnsupported": "“{name}” is not a PDF file",
   "import.pdfParseFailed": "Failed to parse the PDF. It may be a scanned copy or corrupted.",
   "import.pdfEmpty": "No text extracted from the PDF. Use image import for scanned papers.",
-  "import.pdfPageRange": "Page range",
-  "import.pdfRangePlaceholder": "Pages, e.g. 1-4",
-  "import.pdfRangeInvalid": "Invalid page range, e.g. 1-4",
-  "import.pdfRangeTooMany": "Up to {count} pages per batch; import in batches",
-  "import.pdfToImages": "Render pages for vision",
-  "import.pdfToImagesHint":
-    "For scanned or formula-heavy PDFs: renders the selected pages as images for the vision model (consumes tokens)",
-  "import.pdfRendering": "Rendering…",
-  "import.pdfRenderFailed": "Failed to render the pages, please retry",
 
   // ── RAG entry (placeholder) ──
   "rag.preparing":

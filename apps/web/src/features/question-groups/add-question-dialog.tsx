@@ -150,9 +150,6 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfParsing, setPdfParsing] = useState(false);
   const [pdfDragging, setPdfDragging] = useState(false);
-  /** 转图片识别：页码范围（如 1-4）与渲染中状态 */
-  const [pdfRange, setPdfRange] = useState("1-4");
-  const [pdfRendering, setPdfRendering] = useState(false);
 
   const open = imageImportGroupId !== null;
   const groupTitle =
@@ -179,8 +176,6 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
     setPdfFile(null);
     setPdfParsing(false);
     setPdfDragging(false);
-    setPdfRange("1-4");
-    setPdfRendering(false);
   }, [open, imageImportTab]);
 
   useEffect(() => {
@@ -362,74 +357,6 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
       );
     } finally {
       setPdfParsing(false);
-    }
-  };
-
-  /**
-   * 把所选页渲染为图片并切到图片导入页签（扫描版 / 公式版 PDF 走视觉模型）。
-   * pdfjs-dist 懒加载，长边缩放到 1400px；单批最多 MAX_IMAGES 页。
-   */
-  const renderPdfPagesToImages = async () => {
-    if (!pdfFile) return;
-
-    const rangeMatch = /^(\d+)(?:\s*[-–—~～至到]\s*(\d+))?$/.exec(pdfRange.trim());
-    const startInput = rangeMatch ? Number(rangeMatch[1]) : Number.NaN;
-    const endInput = rangeMatch ? Number(rangeMatch[2] ?? rangeMatch[1]) : Number.NaN;
-    if (!Number.isInteger(startInput) || !Number.isInteger(endInput) || startInput < 1) {
-      setLocalError(t("import.pdfRangeInvalid"));
-      return;
-    }
-
-    setPdfRendering(true);
-    setLocalError(null);
-    let doc: import("pdfjs-dist").PDFDocumentProxy | null = null;
-    try {
-      const [pdfjs, workerModule] = await Promise.all([
-        import("pdfjs-dist"),
-        import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
-      ]);
-      pdfjs.GlobalWorkerOptions.workerSrc = workerModule.default;
-
-      const loaded = await pdfjs.getDocument({ data: await pdfFile.arrayBuffer() }).promise;
-      doc = loaded;
-      const start = Math.min(Math.max(1, startInput), loaded.numPages);
-      const end = Math.min(Math.max(start, endInput), loaded.numPages);
-      if (end - start + 1 > MAX_IMAGES) {
-        setLocalError(t("import.pdfRangeTooMany", { count: MAX_IMAGES }));
-        return;
-      }
-
-      const rendered: PreparedImage[] = [];
-      for (let pageNumber = start; pageNumber <= end; pageNumber++) {
-        const page = await loaded.getPage(pageNumber);
-        const base = page.getViewport({ scale: 1 });
-        const scale = Math.min(3, Math.max(1, 1400 / Math.max(base.width, base.height)));
-        const viewport = page.getViewport({ scale });
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.floor(viewport.width);
-        canvas.height = Math.floor(viewport.height);
-        await page.render({ canvas, viewport }).promise;
-        rendered.push({
-          id: `pdf-page-${pageNumber}-${Date.now()}`,
-          filename: `${pdfFile.name} · 第 ${pageNumber} 页`,
-          mediaType: "image/jpeg",
-          dataUrl: canvas.toDataURL("image/jpeg", 0.92),
-        });
-      }
-      setImages(rendered);
-      setDrafts([]);
-      setTab("image");
-    } catch (renderError) {
-      setLocalError(
-        renderError instanceof Error ? renderError.message : t("import.pdfRenderFailed"),
-      );
-    } finally {
-      try {
-        await doc?.destroy();
-      } catch {
-        // 已销毁时忽略
-      }
-      setPdfRendering(false);
     }
   };
 
@@ -736,41 +663,9 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
                   {t("import.pdfChoose")}
                 </Button>
                 {pdfFile ? (
-                  <>
-                    <p
-                      className="max-w-full truncate text-[11px] text-ink-soft"
-                      title={pdfFile.name}
-                    >
-                      {pdfFile.name}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <input
-                        value={pdfRange}
-                        onChange={(event) => setPdfRange(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") void renderPdfPagesToImages();
-                        }}
-                        placeholder={t("import.pdfRangePlaceholder")}
-                        aria-label={t("import.pdfPageRange")}
-                        disabled={pdfRendering}
-                        className="h-7 w-24 rounded-md border border-line bg-field px-2 text-center text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-brand/50"
-                      />
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => void renderPdfPagesToImages()}
-                        disabled={pdfRendering}
-                      >
-                        {pdfRendering ? (
-                          <Loader2 size={13} className="animate-spin" />
-                        ) : (
-                          <Images size={13} />
-                        )}
-                        {pdfRendering ? t("import.pdfRendering") : t("import.pdfToImages")}
-                      </Button>
-                    </div>
-                    <p className="text-[11px] text-ink-faint">{t("import.pdfToImagesHint")}</p>
-                  </>
+                  <p className="max-w-full truncate text-[11px] text-ink-soft" title={pdfFile.name}>
+                    {pdfFile.name}
+                  </p>
                 ) : null}
               </div>
 
