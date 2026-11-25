@@ -249,11 +249,15 @@ export function useWorkspace() {
       });
   }, [data.groups, data.questions, selectedGroupId, paperGroupsInSelectedGroup, selectedPaperGroup]);
 
-  // 数据变化后恢复选择：题组/题目被删除或导入后自动落到第一个可用项
+  // 数据变化后恢复选择：题组/题目被删除或导入后自动落到可用项。
+  // 题组未切换时不打扰试卷分组选择——新建试卷分组后的显式选中不会被此 effect 覆盖。
+  const prevGroupIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (loading || fatalError) return;
 
     const currentGroup = groups.find((group) => group.id === selectedGroupId);
+    const groupChanged = prevGroupIdRef.current !== selectedGroupId;
+    prevGroupIdRef.current = selectedGroupId;
 
     if (!currentGroup) {
       const firstGroup = groups[0];
@@ -265,8 +269,15 @@ export function useWorkspace() {
       return;
     }
 
-    if (selectedQuestionId && currentGroup.questionIds.includes(selectedQuestionId)) return;
-    initializeSelection(currentGroup.id, currentGroup.questionIds[0] ?? null);
+    // 选中题目已不存在（被删除/移动）：回落到当前题组第一题
+    if (selectedQuestionId && !currentGroup.questionIds.includes(selectedQuestionId)) {
+      useUiStore.getState().selectQuestion(currentGroup.questionIds[0] ?? null);
+      return;
+    }
+    // 刚切换题组且未选题目：自动选中第一题（保留试卷分组选择）
+    if (!selectedQuestionId && groupChanged) {
+      useUiStore.getState().selectQuestion(currentGroup.questionIds[0] ?? null);
+    }
   }, [
     loading,
     fatalError,
