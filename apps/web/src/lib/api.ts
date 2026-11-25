@@ -171,6 +171,21 @@ export const api = {
       },
     );
   },
+  importQuestionsFromPdf: (
+    groupId: string,
+    paperGroupId: string | null,
+    data: string,
+    filename: string,
+  ) =>
+    request<{ pages: number; blocks: string[] }>("/api/pdf-import", {
+      method: "POST",
+      body: JSON.stringify({
+        groupId,
+        ...(paperGroupId ? { paperGroupId } : {}),
+        data,
+        filename,
+      }),
+    }),
   getMobileLink: (key: string) =>
     request<{ token: string; urls: string[]; preferred: string | null }>(
       "/api/mobile/link",

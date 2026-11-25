@@ -27,6 +27,18 @@ export const panelsZh = {
   "groups.addQuestionHint": "将添加到「{group}」（题组 / 试卷分组），可切换文字添加或图片导入。",
   "groups.tabText": "文字添加",
   "groups.tabImage": "图片导入",
+  "groups.tabPdf": "PDF 导入",
+
+  // ── PDF 导入 ──
+  "import.pdfDropHint": "拖入或选择 PDF 试卷文件",
+  "import.pdfSupportHint": "支持文字版 PDF，单文件最大 20MB",
+  "import.pdfChoose": "选择 PDF",
+  "import.pdfParse": "提取题目",
+  "import.pdfParsing": "解析中…",
+  "import.pdfTooLarge": "PDF 文件超过 20MB",
+  "import.pdfUnsupported": "「{name}」不是 PDF 文件",
+  "import.pdfParseFailed": "PDF 解析失败，可能是扫描版或文件已损坏",
+  "import.pdfEmpty": "PDF 中未提取到文本，扫描版 PDF 请改用图片导入",
 
   // ── 试卷分组 paper-groups ──
   "groups.addPaperGroup": "新建试卷分组",
@@ -365,6 +377,18 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
     "Questions will be added to “{group}” (group / paper). Switch between text and image import.",
   "groups.tabText": "Text",
   "groups.tabImage": "Images",
+  "groups.tabPdf": "PDF import",
+
+  // ── PDF import ──
+  "import.pdfDropHint": "Drop or choose a PDF file",
+  "import.pdfSupportHint": "Text-based PDF only, up to 20 MB per file",
+  "import.pdfChoose": "Choose PDF",
+  "import.pdfParse": "Extract questions",
+  "import.pdfParsing": "Parsing…",
+  "import.pdfTooLarge": "The PDF exceeds 20 MB",
+  "import.pdfUnsupported": "“{name}” is not a PDF file",
+  "import.pdfParseFailed": "Failed to parse the PDF. It may be a scanned copy or corrupted.",
+  "import.pdfEmpty": "No text extracted from the PDF. Use image import for scanned papers.",
 
   // ── Paper groups ──
   "groups.addPaperGroup": "New paper group",

@@ -11,6 +11,7 @@ import {
   Upload,
 } from "lucide-react";
 import type { WorkspaceApi } from "@/features/workspace/use-workspace";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { ImageCropEditor } from "./image-crop-editor";
@@ -21,6 +22,7 @@ import { cn } from "@/lib/utils";
 const MAX_IMAGES = 4;
 const MAX_EDGE = 1600;
 const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
+const MAX_PDF_BYTES = 20 * 1024 * 1024;
 const SUPPORTED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const MAX_EXTRA_PROMPT_LENGTH = 2000;
 
@@ -134,7 +136,8 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
   const t = useT();
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [tab, setTab] = useState<"text" | "image">("text");
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const [tab, setTab] = useState<"text" | "image" | "pdf">("text");
   const [textDraft, setTextDraft] = useState("");
   const [images, setImages] = useState<PreparedImage[]>([]);
   const [drafts, setDrafts] = useState<QuestionDraft[]>([]);
@@ -143,6 +146,10 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
   const [croppingId, setCroppingId] = useState<string | null>(null);
   const [attachImages, setAttachImages] = useState(true);
   const [extraPrompt, setExtraPrompt] = useState("");
+  // PDF 导入页签状态
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfParsing, setPdfParsing] = useState(false);
+  const [pdfDragging, setPdfDragging] = useState(false);
 
   const open = imageImportGroupId !== null;
   const groupTitle =
@@ -166,6 +173,9 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
     setCroppingId(null);
     setAttachImages(true);
     setExtraPrompt("");
+    setPdfFile(null);
+    setPdfParsing(false);
+    setPdfDragging(false);
   }, [open, imageImportTab]);
 
   useEffect(() => {
@@ -288,7 +298,7 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
     setLocalError(null);
     const message = await createQuestionsFromImages(
       contents,
-      attachImages
+      attachImages && tab === "image"
         ? images.map((image) => ({
             mediaType: image.mediaType,
             data: image.dataUrl.split(",")[1] ?? "",
@@ -296,6 +306,58 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
         : [],
     );
     if (message) setLocalError(message);
+  };
+
+  // ---------- PDF 导入 ----------
+
+  const isPdfFile = (file: File) =>
+    file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+
+  const acceptPdfFile = (file: File) => {
+    setLocalError(null);
+    if (!isPdfFile(file)) {
+      setLocalError(t("import.pdfUnsupported", { name: file.name }));
+      return;
+    }
+    if (file.size > MAX_PDF_BYTES) {
+      setLocalError(t("import.pdfTooLarge"));
+      return;
+    }
+    setPdfFile(file);
+    setDrafts([]);
+  };
+
+  const handleParsePdf = async () => {
+    if (!pdfFile || !imageImportGroupId) return;
+    setPdfParsing(true);
+    setLocalError(null);
+    try {
+      const dataUrl = await readAsDataUrl(pdfFile);
+      const result = await api.importQuestionsFromPdf(
+        imageImportGroupId,
+        imageImportPaperGroupId,
+        dataUrl.split(",")[1] ?? "",
+        pdfFile.name,
+      );
+      if (result.blocks.length === 0) {
+        setLocalError(t("import.pdfEmpty"));
+        setDrafts([]);
+        return;
+      }
+      setDrafts(
+        result.blocks.map((content, index) => ({
+          id: `pdf-${index}-${content.slice(0, 8)}`,
+          content,
+          include: true,
+        })),
+      );
+    } catch (parseError) {
+      setLocalError(
+        parseError instanceof Error ? parseError.message : t("import.pdfParseFailed"),
+      );
+    } finally {
+      setPdfParsing(false);
+    }
   };
 
   const tabButtonClass = (active: boolean) =>
@@ -340,6 +402,16 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
             <Images size={13} />
             {t("groups.tabImage")}
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "pdf"}
+            onClick={() => setTab("pdf")}
+            className={tabButtonClass(tab === "pdf")}
+          >
+            <FileText size={13} />
+            {t("groups.tabPdf")}
+          </button>
         </div>
 
         {tab === "text" ? (
@@ -376,7 +448,9 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
               </Button>
             </div>
           </div>
-        ) : (
+        ) : null}
+
+        {tab === "image" ? (
           <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3">
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
             <div
@@ -532,53 +606,7 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
                     {t("import.reanalyze")}
                   </button>
                 </div>
-                <div className="space-y-2">
-                  {drafts.map((draft, index) => (
-                    <div
-                      key={draft.id}
-                      className={cn(
-                        "rounded-md border border-line bg-field px-3 py-2",
-                        !draft.include && "opacity-55",
-                      )}
-                    >
-                      <div className="mb-1.5 flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={draft.include}
-                          aria-label={t("import.draftIncludeAria", { index: index + 1 })}
-                          onChange={(event) =>
-                            setDrafts((current) =>
-                              current.map((item) =>
-                                item.id === draft.id
-                                  ? { ...item, include: event.target.checked }
-                                  : item,
-                              ),
-                            )
-                          }
-                          className="h-3.5 w-3.5 accent-[var(--color-brand)]"
-                        />
-                        <span className="text-[11px] text-ink-faint">
-                          {t("import.draftIndex", { index: index + 1 })}
-                        </span>
-                      </div>
-                      <textarea
-                        value={draft.content}
-                        rows={3}
-                        onChange={(event) =>
-                          setDrafts((current) =>
-                            current.map((item) =>
-                              item.id === draft.id
-                                ? { ...item, content: event.target.value }
-                                : item,
-                            ),
-                          )
-                        }
-                        aria-label={t("import.draftContentAria", { index: index + 1 })}
-                        className="w-full resize-y rounded border border-line bg-panel px-2 py-1.5 text-[12.5px] leading-relaxed text-ink outline-none focus:border-brand/50"
-                      />
-                    </div>
-                  ))}
-                </div>
+                <DraftsList drafts={drafts} onChange={setDrafts} disabled={busy} />
               </div>
             ) : null}
           </div>
@@ -589,7 +617,115 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
             </div>
           ) : null}
           </div>
-        )}
+        ) : null}
+
+        {tab === "pdf" ? (
+          <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+              <div
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setPdfDragging(true);
+                }}
+                onDragLeave={() => setPdfDragging(false)}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  setPdfDragging(false);
+                  const file = event.dataTransfer.files?.[0];
+                  if (file) acceptPdfFile(file);
+                }}
+                className={cn(
+                  "flex flex-col items-center gap-2 rounded-lg border border-dashed border-line bg-elevated/40 px-4 py-6 text-center transition-colors",
+                  pdfDragging && "border-brand/60 bg-brand/5",
+                )}
+              >
+                <FileText size={22} strokeWidth={1.6} className="text-ink-faint" />
+                <p className="text-[12.5px] text-ink-soft">{t("import.pdfDropHint")}</p>
+                <p className="text-[11px] text-ink-faint">{t("import.pdfSupportHint")}</p>
+                <input
+                  ref={pdfInputRef}
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) acceptPdfFile(file);
+                    event.target.value = "";
+                  }}
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={pdfParsing}
+                  onClick={() => pdfInputRef.current?.click()}
+                >
+                  <Upload size={13} />
+                  {t("import.pdfChoose")}
+                </Button>
+                {pdfFile ? (
+                  <p className="max-w-full truncate text-[11px] text-ink-soft" title={pdfFile.name}>
+                    {pdfFile.name}
+                  </p>
+                ) : null}
+              </div>
+
+              {drafts.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11.5px] font-medium text-ink-soft">
+                      {t("import.resultCount", { count: drafts.length })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDrafts([]);
+                        setLocalError(null);
+                      }}
+                      className="text-[11.5px] text-ink-faint transition-colors hover:text-ink"
+                    >
+                      {t("import.reanalyze")}
+                    </button>
+                  </div>
+                  <DraftsList drafts={drafts} onChange={setDrafts} disabled={pdfParsing} />
+                </div>
+              ) : null}
+            </div>
+            {error ? (
+              <div className="flex shrink-0 items-start gap-2 rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-[11.5px] leading-relaxed text-danger">
+                <AlertCircle size={13} className="mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            ) : null}
+            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line pt-3">
+              <Button variant="ghost" size="sm" onClick={closeImageImport} disabled={pdfParsing}>
+                {t("import.cancel")}
+              </Button>
+              {drafts.length > 0 ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleCreate}
+                  disabled={pdfParsing || selectedCount === 0}
+                >
+                  {imageImportCreating ? <Loader2 size={13} className="animate-spin" /> : null}
+                  {imageImportCreating
+                    ? t("import.creating")
+                    : t("import.createCount", { count: selectedCount })}
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => void handleParsePdf()}
+                  disabled={pdfParsing || !pdfFile}
+                >
+                  {pdfParsing ? <Loader2 size={13} className="animate-spin" /> : null}
+                  {pdfParsing ? t("import.pdfParsing") : t("import.pdfParse")}
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : null}
         {tab === "image" ? (
           <>
             <p className="shrink-0 pb-1 text-[11px] text-ink-faint">{t("import.modelHint")}</p>
@@ -640,5 +776,65 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
         />
       ) : null}
     </>
+  );
+}
+
+/** 可编辑的候选题目块列表：图片导入与 PDF 导入共用 */
+function DraftsList({
+  drafts,
+  onChange,
+  disabled,
+}: {
+  drafts: QuestionDraft[];
+  onChange: (updater: (current: QuestionDraft[]) => QuestionDraft[]) => void;
+  disabled?: boolean;
+}) {
+  const t = useT();
+  return (
+    <div className="space-y-2">
+      {drafts.map((draft, index) => (
+        <div
+          key={draft.id}
+          className={cn(
+            "rounded-md border border-line bg-field px-3 py-2",
+            !draft.include && "opacity-55",
+          )}
+        >
+          <div className="mb-1.5 flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={draft.include}
+              disabled={disabled}
+              aria-label={t("import.draftIncludeAria", { index: index + 1 })}
+              onChange={(event) =>
+                onChange((current) =>
+                  current.map((item) =>
+                    item.id === draft.id ? { ...item, include: event.target.checked } : item,
+                  ),
+                )
+              }
+              className="h-3.5 w-3.5 accent-[var(--color-brand)]"
+            />
+            <span className="text-[11px] text-ink-faint">
+              {t("import.draftIndex", { index: index + 1 })}
+            </span>
+          </div>
+          <textarea
+            value={draft.content}
+            rows={3}
+            disabled={disabled}
+            onChange={(event) =>
+              onChange((current) =>
+                current.map((item) =>
+                  item.id === draft.id ? { ...item, content: event.target.value } : item,
+                ),
+              )
+            }
+            aria-label={t("import.draftContentAria", { index: index + 1 })}
+            className="w-full resize-y rounded border border-line bg-panel px-2 py-1.5 text-[12.5px] leading-relaxed text-ink outline-none focus:border-brand/50"
+          />
+        </div>
+      ))}
+    </div>
   );
 }
