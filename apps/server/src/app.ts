@@ -11,7 +11,7 @@ import { PromptSettingsStore } from "./services/settings/prompt-settings-store.j
 import { RemoteAccessStore } from "./services/remote-access-store.js";
 import { UiPreferencesStore } from "./services/settings/ui-preferences-store.js";
 import { createAccessGate } from "./middleware/access-gate.js";
-import { createAppInfoRouter } from "./routes/app-info.js";
+import { createAppInfoRouter, createAppReleasesRouter } from "./routes/app-info.js";
 import { createBackupRouter } from "./routes/backup.js";
 import { createBootstrapRouter } from "./routes/bootstrap.js";
 import { createExplanationsRouter } from "./routes/explanations.js";
@@ -75,6 +75,7 @@ export function createApp(options: CreateAppOptions = {}) {
 
   app.use("/api/health", healthRouter);
   app.use("/api", createAppInfoRouter());
+  app.use("/api", createAppReleasesRouter());
   app.use("/api", createBootstrapRouter(repository));
   app.use("/api", createQuestionGroupsRouter(repository));
   app.use("/api", createPaperGroupsRouter(repository));

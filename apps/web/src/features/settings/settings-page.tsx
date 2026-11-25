@@ -248,7 +248,7 @@ function GeneralSettings() {
   );
 }
 
-export function SettingsPage() {
+export function SettingsPage({ onCheckUpdate }: { onCheckUpdate?: () => void }) {
   const t = useT();
   const closeSettings = useUiStore((state) => state.closeSettings);
   const [section, setSection] = useState<SectionId>("general");
@@ -346,7 +346,7 @@ export function SettingsPage() {
               {section === "provider" ? <ProviderSettingsSection /> : null}
               {section === "usage" ? <UsageSection /> : null}
               {section === "remote" ? <RemoteAccessPanel /> : null}
-              {section === "about" ? <AboutSection /> : null}
+              {section === "about" ? <AboutSection onUpdateCheck={onCheckUpdate} /> : null}
             </div>
           </main>
         </div>

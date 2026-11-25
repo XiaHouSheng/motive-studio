@@ -17,9 +17,11 @@ import { TopBarMemo as TopBar } from "./top-bar";
 
 interface WorkspaceShellProps {
   workspace: WorkspaceApi;
+  /** 打开「检查更新」模态框（由 App 级 useUpdateCheck 提供） */
+  onCheckUpdate?: () => void;
 }
 
-export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
+export function WorkspaceShell({ workspace, onCheckUpdate }: WorkspaceShellProps) {
   const t = useT();
   const settingsOpen = useUiStore((state) => state.settingsOpen);
   const closeSettings = useUiStore((state) => state.closeSettings);
@@ -102,7 +104,7 @@ export function WorkspaceShell({ workspace }: WorkspaceShellProps) {
   // 设置页：整页视图替代工作台内容（顶栏齿轮进入，返回/Escape 离开）。
   // 工作台数据保存在 useWorkspace 中（父组件），进入设置页不会重置。
   if (settingsOpen) {
-    return <SettingsPage />;
+    return <SettingsPage onCheckUpdate={onCheckUpdate} />;
   }
 
   return (

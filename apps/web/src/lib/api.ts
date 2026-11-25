@@ -188,6 +188,16 @@ export const api = {
     }),
   getAppInfo: () =>
     request<{ name: string; version: string; repoUrl: string }>("/api/app/info"),
+  getLatestRelease: () =>
+    request<{
+      release: {
+        tagName: string;
+        name: string | null;
+        htmlUrl: string;
+        publishedAt: string | null;
+        body: string;
+      } | null;
+    }>("/api/app/releases/latest"),
   getRagStatus: () =>
     request<{ enabled: boolean; stage: string }>("/api/rag/status"),
   getMobileLink: (key: string) =>

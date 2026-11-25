@@ -4,10 +4,14 @@ import { usePreferencesStore } from "@/stores/preferences";
 import { useThemeStore } from "@/stores/theme";
 import { useWorkspace } from "@/features/workspace/use-workspace";
 import { WorkspaceShell } from "@/features/workspace/workspace-shell";
+import { useUpdateCheck } from "@/features/settings/use-update-check";
+import { UpdateDialog } from "@/features/settings/update-dialog";
 
 export function App() {
   const workspace = useWorkspace();
   const syncSystemPreference = useThemeStore((state) => state.syncSystemPreference);
+  // 启动静默检查更新：发现新版本时弹出更新模态框（应用级，设置页打开时也能展示）
+  const updateCheck = useUpdateCheck({ auto: true });
 
   useEffect(() => {
     const query = window.matchMedia("(prefers-color-scheme: dark)");
@@ -43,5 +47,14 @@ export function App() {
     };
   }, []);
 
-  return <WorkspaceShell workspace={workspace} />;
+  return (
+    <>
+      <WorkspaceShell workspace={workspace} onCheckUpdate={() => void updateCheck.check(true)} />
+      <UpdateDialog
+        open={updateCheck.open}
+        state={updateCheck.state}
+        onClose={() => updateCheck.setOpen(false)}
+      />
+    </>
+  );
 }

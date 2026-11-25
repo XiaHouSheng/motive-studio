@@ -249,6 +249,18 @@ export const panelsZh = {
   "settings.checkUpdate": "检查更新",
   "settings.checkUpdateHint": "从 GitHub Releases 获取最新发行版，发现新版本时会提供下载链接。",
   "topbar.github": "GitHub 仓库",
+
+  // ── 更新检查 ──
+  "update.title": "检查更新",
+  "update.checking": "正在检查更新…",
+  "update.upToDate": "当前已是最新版本。",
+  "update.availableVersion": "发现新版本 {version}",
+  "update.download": "前往下载",
+  "update.later": "稍后再说",
+  "update.failed": "检查更新失败：可能未联网或 GitHub 不可达，可稍后重试或直接前往 GitHub Releases。",
+  "update.publishedAt": "发布于 {date}",
+  "update.notes": "更新说明",
+  "update.viewRelease": "在 GitHub 查看该发行版",
   "settings.usage.requestsMetric": "请求数",
   "settings.usage.tokensMetric": "Token 用量",
   "settings.usage.metricAria": "用量指标切换",
@@ -633,6 +645,19 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "settings.checkUpdateHint":
     "Fetches the latest release from GitHub Releases and offers a download link when a newer version is available.",
   "topbar.github": "GitHub repository",
+
+  // ── Update check ──
+  "update.title": "Check for updates",
+  "update.checking": "Checking for updates…",
+  "update.upToDate": "You are on the latest version.",
+  "update.availableVersion": "New version available: {version}",
+  "update.download": "Go to download",
+  "update.later": "Later",
+  "update.failed":
+    "Update check failed: you may be offline or GitHub is unreachable. Try again later or visit GitHub Releases directly.",
+  "update.publishedAt": "Released {date}",
+  "update.notes": "Release notes",
+  "update.viewRelease": "View this release on GitHub",
   "settings.usage.requestsMetric": "Requests",
   "settings.usage.tokensMetric": "Tokens",
   "settings.usage.metricAria": "Usage metric",
