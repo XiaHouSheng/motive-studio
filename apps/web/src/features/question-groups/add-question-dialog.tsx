@@ -390,7 +390,15 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
       ]);
       pdfjs.GlobalWorkerOptions.workerSrc = workerModule.default;
 
-      const loaded = await pdfjs.getDocument({ data: await pdfFile.arrayBuffer() }).promise;
+      // 未内嵌字体的中文 PDF 需要 CMap（CID 字体）与标准 14 字体（Helvetica 等），
+      // 缺失时渲染出的图片会整段丢字；wasm 目录供 JBIG2/JPEG2000 扫描图解码兜底
+      const loaded = await pdfjs.getDocument({
+        data: await pdfFile.arrayBuffer(),
+        cMapUrl: `${import.meta.env.BASE_URL}pdfjs/cmaps/`,
+        cMapPacked: true,
+        standardFontDataUrl: `${import.meta.env.BASE_URL}pdfjs/standard_fonts/`,
+        wasmUrl: `${import.meta.env.BASE_URL}pdfjs/wasm/`,
+      }).promise;
       doc = loaded;
       const start = Math.min(Math.max(1, startInput), loaded.numPages);
       const end = Math.min(Math.max(start, endInput), loaded.numPages);
