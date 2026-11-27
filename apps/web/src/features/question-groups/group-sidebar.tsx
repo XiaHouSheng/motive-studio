@@ -1,7 +1,6 @@
 import { useState, useMemo, memo } from "react";
 import {
   ChevronDown,
-  ChevronRight,
   Download,
   FileText,
   FolderOpen,
@@ -58,8 +57,8 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
 
   const [groupDraft, setGroupDraft] = useState("");
   const [addingGroup, setAddingGroup] = useState(false);
-  /** 每个题组的试卷分组列表展开状态（默认展开） */
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  /** 手风琴展开：同一时间只展开一个题组（默认展开当前选中的题组） */
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(selectedGroupId);
   /** 正在行内改名的题组 / 试卷分组 */
   const [renaming, setRenaming] = useState<RenameTarget | null>(null);
   /** 正在添加试卷分组的题组 id */
@@ -144,7 +143,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-col [container-type:size]">
       <div className="flex items-center justify-between px-3 pt-3 pb-2">
         <span className="text-[10.5px] font-semibold tracking-[0.1em] text-ink-faint uppercase">
           {t("groups.title")}
@@ -187,7 +186,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
           <div className="space-y-0.5">
             {groups.map((group) => {
               const active = group.id === selectedGroupId;
-              const collapsed = collapsedGroups[group.id] ?? false;
+              const collapsed = expandedGroupId !== group.id;
               const papers = paperGroupsOf(group.id);
               const isRenaming = renaming?.kind === "group" && renaming.id === group.id;
               return (
@@ -217,6 +216,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                           type="button"
                           onClick={() => {
                             selectGroup(group.id);
+                            setExpandedGroupId(group.id);
                             onNavigate?.();
                           }}
                           title={group.title}
@@ -233,14 +233,19 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                             aria-label={t("groups.toggleExpandAria")}
                             onClick={(event) => {
                               event.stopPropagation();
-                              setCollapsedGroups((current) => ({
-                                ...current,
-                                [group.id]: !collapsed,
-                              }));
+                              setExpandedGroupId((current) =>
+                                current === group.id ? null : group.id,
+                              );
                             }}
                             className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-ink-faint hover:text-ink"
                           >
-                            {collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                            <ChevronDown
+                              size={12}
+                              className={cn(
+                                "transition-transform duration-200",
+                                collapsed && "-rotate-90",
+                              )}
+                            />
                           </span>
                           <FolderOpen
                             size={14}
@@ -288,9 +293,16 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                     )}
                   </div>
 
-                  {/* 试卷分组行（题组之下的二级分组）：与题组行留出垂直间隔 */}
-                  {!collapsed ? (
-                    <div className="mt-1 mb-0.5 ml-4 space-y-0.5 border-l border-line/70 pl-1.5">
+                  {/* 试卷分组行（题组之下的二级分组）：与题组行留出垂直间隔；展开/收起带高度过渡动效，超高时内部滚动 */}
+                  <div
+                    className={cn(
+                      "grid transition-[grid-template-rows] duration-200 ease-out",
+                      collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
+                    )}
+                  >
+                    <div className="min-h-0 overflow-hidden">
+                      {/* 高度阈值 = 题组列表容器(≤侧栏42%)高度的30%，即 42% × 30% ≈ 12.6cqh，超出内部滚动 */}
+                      <div className="mt-1 mb-0.5 ml-4 max-h-[12.6cqh] space-y-0.5 overflow-y-auto border-l border-line/70 pl-1.5">
                       {papers.map((paper) => {
                         const paperActive =
                           active && paper.id === selectedPaperGroup?.id;
@@ -317,7 +329,7 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                                   }}
                                   onBlur={commitRename}
                                   aria-label={t("groups.renamePaperAria", { title: paper.title })}
-                                  className="h-7 w-full rounded-md border border-brand/50 bg-field px-2 text-[12px] text-ink outline-none"
+                                  className="h-7 w-full rounded-md border border-brand/50 bg-field px-2 text-[12.5px] text-ink outline-none"
                                 />
                               </div>
                             ) : (
@@ -330,21 +342,21 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                                   }}
                                   title={paper.title}
                                   className={cn(
-                                    "flex w-full items-center gap-1.5 rounded-md py-1 pr-[100px] pl-1.5 text-left transition-colors",
+                                    "flex w-full items-center gap-1.5 rounded-md py-1.5 pr-[100px] pl-1 text-left transition-colors",
                                     paperActive
                                       ? "bg-selection text-ink"
                                       : "text-ink-soft hover:bg-selection/60 hover:text-ink",
                                   )}
                                 >
                                   <FileText
-                                    size={13}
+                                    size={14}
                                     strokeWidth={1.8}
                                     className={cn(
                                       "shrink-0",
                                       paperActive ? "text-brand" : "text-ink-faint",
                                     )}
                                   />
-                                  <span className="min-w-0 flex-1 truncate text-[12px]">
+                                  <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium">
                                     {paper.title}
                                   </span>
                                 </button>
@@ -445,8 +457,9 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                           <span className="min-w-0 truncate">{t("groups.addPaperGroup")}</span>
                         </button>
                       )}
+                      </div>
                     </div>
-                  ) : null}
+                  </div>
                 </div>
               );
             })}

@@ -1,6 +1,8 @@
 /**
  * 版本比较：兼容本项目多种 tag 风格（v0.4.0b2 / v0.4.0-beta.2 / desktop-v0.4.0）。
- * 规则：主版本数字大者新；数字相同时正式版 > 预发布；同为 beta 时编号大者新。
+ * 规则：主版本数字大者新；数字相同时仅「同为 beta 且编号更大」视为更新——
+ * beta（如 0.4.0b1）表示基于 0.4.0 的后续构建，已包含同号正式版内容，
+ * 因此 0.4.0 正式版对 0.4.0b1 用户不算更新，需等 0.5.0 等更高数字版本。
  * 无法解析的输入一律视为不更新。
  */
 function normalizeVersion(raw: string): string {
@@ -40,9 +42,9 @@ export function isNewerVersion(latestRaw: string, currentRaw: string): boolean {
   if (numberOf(latest) !== numberOf(current)) {
     return numberOf(latest) > numberOf(current);
   }
-  // 数字版本相同：正式版 > 预发布；同为预发布时比较编号
-  if (latest.preLabel === null) return current.preLabel !== null;
-  if (current.preLabel === null) return false;
+  // 数字版本相同：beta 是基于该正式版的后续构建，视为已是最新；
+  // 仅同为 beta 时比较构建编号（如 0.4.0b2 > 0.4.0b1）
+  if (latest.preLabel === null || current.preLabel === null) return false;
   return latest.preNumber > current.preNumber;
 }
 
