@@ -46,7 +46,24 @@ try {
     // ESM 输出中 CJS 依赖（express 等）运行时 require 外置的 node 内置模块，
     // 通过 createRequire 提供真实的 require，避免 "Dynamic require of ..." 报错
     banner: {
-      js: `import { createRequire as __createRequire } from "node:module";\nconst require = __createRequire(import.meta.url);`,
+      js: [
+        `import { createRequire as __createRequire } from "node:module";`,
+        `const require = __createRequire(import.meta.url);`,
+        // pdf-parse→pdfjs-dist 的 display/canvas 顶层执行 new DOMMatrix()，
+        // Utility Process（纯 Node）无此浏览器全局；服务端仅做文本提取，
+        // 不会触达 canvas 渲染路径，恒等矩阵桩足够通过模块求值
+        `const __MotiveDOMMatrix = globalThis.DOMMatrix ?? class DOMMatrix {`,
+        `  constructor() {`,
+        `    this.is2D = true;`,
+        `    this.a = 1; this.b = 0; this.c = 0; this.d = 1; this.e = 0; this.f = 0;`,
+        `  }`,
+        `};`,
+      ].join("\n"),
+    },
+    define: {
+      __APP_VERSION__: JSON.stringify(appVersion),
+      // 把 bundle 内所有裸 DOMMatrix 引用替换为上述桩（属性访问不受影响）
+      DOMMatrix: "__MotiveDOMMatrix",
     },
   });
 } catch {
