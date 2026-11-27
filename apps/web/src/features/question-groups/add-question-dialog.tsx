@@ -367,14 +367,24 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
 
   /**
    * 把所选页渲染为图片并切到图片导入页签（扫描版 / 公式版 PDF 走视觉模型）。
-   * pdfjs-dist 懒加载，长边缩放到 1400px；单批最多 MAX_IMAGES 页。
+   * pdfjs-dist 懒加载，长边缩放到 1400px；页数不限，留空或「全部」渲染整份 PDF。
    */
-  const renderPdfPagesToImages = async () => {
+  const renderPdfPagesToImages = async (rangeOverride?: string) => {
     if (!pdfFile) return;
 
-    const rangeMatch = /^(\d+)(?:\s*[-–—~～至到]\s*(\d+))?$/.exec(pdfRange.trim());
-    const startInput = rangeMatch ? Number(rangeMatch[1]) : Number.NaN;
-    const endInput = rangeMatch ? Number(rangeMatch[2] ?? rangeMatch[1]) : Number.NaN;
+    const rangeText = (rangeOverride ?? pdfRange).trim();
+    const isAllPages = rangeText === "" || /^(all|全部)$/i.test(rangeText);
+    const rangeMatch = /^(\d+)(?:\s*[-–—~～至到]\s*(\d+))?$/.exec(rangeText);
+    const startInput = isAllPages
+      ? 1
+      : rangeMatch
+        ? Number(rangeMatch[1])
+        : Number.NaN;
+    const endInput = isAllPages
+      ? Number.MAX_SAFE_INTEGER
+      : rangeMatch
+        ? Number(rangeMatch[2] ?? rangeMatch[1])
+        : Number.NaN;
     if (!Number.isInteger(startInput) || !Number.isInteger(endInput) || startInput < 1) {
       setLocalError(t("import.pdfRangeInvalid"));
       return;
@@ -402,10 +412,6 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
       doc = loaded;
       const start = Math.min(Math.max(1, startInput), loaded.numPages);
       const end = Math.min(Math.max(start, endInput), loaded.numPages);
-      if (end - start + 1 > MAX_IMAGES) {
-        setLocalError(t("import.pdfRangeTooMany", { count: MAX_IMAGES }));
-        return;
-      }
 
       const rendered: PreparedImage[] = [];
       for (let pageNumber = start; pageNumber <= end; pageNumber++) {
@@ -761,8 +767,16 @@ export function AddQuestionDialog({ workspace }: AddQuestionDialogProps) {
                         placeholder={t("import.pdfRangePlaceholder")}
                         aria-label={t("import.pdfPageRange")}
                         disabled={pdfRendering}
-                        className="h-7 w-24 rounded-md border border-line bg-field px-2 text-center text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-brand/50"
+                        className="h-7 w-28 rounded-md border border-line bg-field px-2 text-center text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-brand/50"
                       />
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => void renderPdfPagesToImages("")}
+                        disabled={pdfRendering}
+                      >
+                        {t("import.pdfRangeAll")}
+                      </Button>
                       <Button
                         variant="secondary"
                         size="sm"
