@@ -557,40 +557,29 @@ export class WorkspaceRepository {
   }
 
   /**
-   * 删除试卷分组：其中的题目移入同题组剩余的第一个试卷分组；
-   * 题组最后一个试卷分组不允许删除。
+   * 删除试卷分组：其中的题目连同解题步骤、讨论等一并级联删除；
+   * 题组允许删掉最后一个试卷分组（题组可为空，之后新建题目时自动补建默认试卷）。
    */
   deletePaperGroup(paperGroupId: string): void {
-    const row = this.requirePaperGroup(paperGroupId);
-    const siblings = this.db
-      .prepare(
-        "SELECT id FROM paper_groups WHERE group_id = ? AND id != ? ORDER BY position, created_at",
-      )
-      .all(row.group_id, paperGroupId) as unknown as Array<{ id: string }>;
-
-    if (siblings.length === 0) {
-      throw new HttpError(400, "LAST_PAPER_GROUP", "每个题组至少保留一个试卷分组");
-    }
-
+    this.requirePaperGroup(paperGroupId);
     withTransaction(this.db, () => {
+      // questions 的外键级联负责清理解题步骤、讨论、讲解等关联数据
       this.db
-        .prepare("UPDATE questions SET paper_group_id = ? WHERE paper_group_id = ?")
-        .run(siblings[0].id, paperGroupId);
+        .prepare("DELETE FROM questions WHERE paper_group_id = ?")
+        .run(paperGroupId);
       this.db.prepare("DELETE FROM paper_groups WHERE id = ?").run(paperGroupId);
     });
   }
 
-  /** 题组的首个试卷分组（题目未显式指定归属时的默认去向） */
+  /** 题组的首个试卷分组（题目未显式指定归属时的默认去向）；题组没有试卷分组时自动补建默认试卷 */
   private firstPaperGroupId(groupId: string): string {
     const row = this.db
       .prepare(
         "SELECT id FROM paper_groups WHERE group_id = ? ORDER BY position, created_at LIMIT 1",
       )
       .get(groupId) as { id: string } | undefined;
-    if (!row) {
-      throw new HttpError(404, "NOT_FOUND", "题组下没有试卷分组");
-    }
-    return row.id;
+    if (row) return row.id;
+    return this.createPaperGroup(groupId, "默认试卷").id;
   }
 
   renameGroup(groupId: string, title: string): QuestionGroup {

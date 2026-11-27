@@ -390,26 +390,25 @@ export function GroupSidebar({ workspace, onNavigate }: GroupSidebarProps) {
                                     >
                                       <Pencil size={11} />
                                     </button>
-                                    {papers.length > 1 ? (
-                                      <button
-                                        type="button"
-                                        aria-label={t("groups.deletePaperAria", {
-                                          title: paper.title,
-                                        })}
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          const ok = window.confirm(
-                                            t("groups.deletePaperConfirm", {
-                                              title: paper.title,
-                                            }),
-                                          );
-                                          if (ok) deletePaperGroup(paper.id);
-                                        }}
-                                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-danger/10 hover:text-danger"
-                                      >
-                                        <Trash2 size={11} />
-                                      </button>
-                                    ) : null}
+                                    <button
+                                      type="button"
+                                      aria-label={t("groups.deletePaperAria", {
+                                        title: paper.title,
+                                      })}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        const ok = window.confirm(
+                                          t("groups.deletePaperConfirm", {
+                                            title: paper.title,
+                                            count: paperQuestionCount,
+                                          }),
+                                        );
+                                        if (ok) deletePaperGroup(paper.id);
+                                      }}
+                                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-danger/10 hover:text-danger"
+                                    >
+                                      <Trash2 size={11} />
+                                    </button>
                                   </div>
                                   <span className="w-6 shrink-0 text-right text-[10.5px] tabular-nums text-ink-faint">
                                     {paperQuestionCount}

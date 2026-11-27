@@ -5,6 +5,8 @@ import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import type {
   BackupPayload,
+  PaperGroup,
+  Question,
   QuestionGroup,
   SolutionGenerationResult,
   SolutionRevision,
@@ -413,5 +415,74 @@ describe("Motive Studio 数据层", () => {
       "/api/steps/not-exists/conversation",
     );
     expect(missingStep.status).toBe(404);
+  });
+
+  it("删除试卷分组时其中的题目一并删除，题组允许没有试卷分组", async () => {
+    const group = await call<QuestionGroup>(running, "POST", "/api/question-groups", {
+      title: "试卷删除测试",
+    });
+    expect(group.status).toBe(201);
+    const papersOfGroup = (data: WorkspaceData) =>
+      (data.paperGroups ?? []).filter((paper) => paper.groupId === group.body.id);
+
+    // 新建题组自带一个默认试卷；再建一张试卷并各放一道题
+    const bootstrap = await call<WorkspaceData>(running, "GET", "/api/bootstrap");
+    const defaultPaper = papersOfGroup(bootstrap.body)[0];
+    expect(defaultPaper).toBeDefined();
+    const second = await call<PaperGroup>(
+      running,
+      "POST",
+      `/api/question-groups/${group.body.id}/paper-groups`,
+      { title: "第二张试卷" },
+    );
+    expect(second.status).toBe(201);
+    const q1 = await call<Question>(running, "POST", "/api/questions", {
+      groupId: group.body.id,
+      content: "默认试卷的题目",
+      paperGroupId: defaultPaper.id,
+    });
+    const q2 = await call<Question>(running, "POST", "/api/questions", {
+      groupId: group.body.id,
+      content: "第二张试卷的题目",
+      paperGroupId: second.body.id,
+    });
+    expect(q1.status).toBe(201);
+    expect(q2.status).toBe(201);
+
+    // 删除默认试卷：题目不转移，随试卷一起删除
+    const removed = await call<{ ok: true }>(
+      running,
+      "DELETE",
+      `/api/paper-groups/${defaultPaper.id}`,
+    );
+    expect(removed.status).toBe(200);
+    let data = (await call<WorkspaceData>(running, "GET", "/api/bootstrap")).body;
+    expect(papersOfGroup(data).map((paper) => paper.id)).toEqual([second.body.id]);
+    const questionIds = data.questions.map((question) => question.id);
+    expect(questionIds).not.toContain(q1.body.id);
+    expect(questionIds).toContain(q2.body.id);
+
+    // 只剩一张试卷也允许删除：题组保留但没有任何试卷分组
+    const removedLast = await call<{ ok: true }>(
+      running,
+      "DELETE",
+      `/api/paper-groups/${second.body.id}`,
+    );
+    expect(removedLast.status).toBe(200);
+    data = (await call<WorkspaceData>(running, "GET", "/api/bootstrap")).body;
+    expect(papersOfGroup(data)).toHaveLength(0);
+    expect(data.groups.find((item) => item.id === group.body.id)).toBeDefined();
+
+    // 之后在空题组新建题目时自动补建默认试卷
+    const q3 = await call<Question>(running, "POST", "/api/questions", {
+      groupId: group.body.id,
+      content: "空题组新题目",
+    });
+    expect(q3.status).toBe(201);
+    data = (await call<WorkspaceData>(running, "GET", "/api/bootstrap")).body;
+    const rebuilt = papersOfGroup(data);
+    expect(rebuilt).toHaveLength(1);
+    expect(rebuilt[0].title).toBe("默认试卷");
+    expect(q3.body.paperGroupId).toBe(rebuilt[0].id);
   });
 });

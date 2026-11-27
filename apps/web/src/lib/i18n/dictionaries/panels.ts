@@ -62,7 +62,7 @@ export const panelsZh = {
   "groups.renameGroupAria": "重命名题组 {title}",
   "groups.renamePaperAria": "重命名试卷分组 {title}",
   "groups.deletePaperAria": "删除试卷分组 {title}",
-  "groups.deletePaperConfirm": "删除试卷分组「{title}」？其中的题目会移入同题组的其他试卷分组。该操作不可恢复。",
+  "groups.deletePaperConfirm": "删除试卷分组「{title}」及其 {count} 道题目？该操作不可恢复。",
   "groups.toggleExpandAria": "展开或收起题组",
   "groups.paperDefaultFallback": "默认试卷",
 
@@ -461,7 +461,7 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "groups.renamePaperAria": "Rename paper group {title}",
   "groups.deletePaperAria": "Delete paper group {title}",
   "groups.deletePaperConfirm":
-    "Delete paper group “{title}”? Its questions will move to another paper group in the same group. This cannot be undone.",
+    "Delete paper group “{title}” and its {count} questions? This cannot be undone.",
   "groups.toggleExpandAria": "Expand or collapse group",
   "groups.paperDefaultFallback": "Default paper",
 

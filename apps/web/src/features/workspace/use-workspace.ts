@@ -238,14 +238,16 @@ export function useWorkspace() {
     if (!selectedGroupId) return [];
     const group = data.groups.find((item) => item.id === selectedGroupId);
     if (!group) return [];
-    // 题目展示范围跟随生效的试卷分组；历史数据 paperGroupId 为空时按首个试卷分组兜底
+    // 题目展示范围跟随生效的试卷分组；历史数据 paperGroupId 为空时按首个试卷分组兜底；
+    // 题组没有试卷分组时（题组允许为空）不再按试卷过滤，直接展示全部题目
     const fallbackPaperId = paperGroupsInSelectedGroup[0]?.id ?? null;
     return group.questionIds
       .map((id) => data.questions.find((question) => question.id === id))
       .filter((question): question is Question => {
         if (!question) return false;
+        if (!selectedPaperGroup) return true;
         const paperId = question.paperGroupId ?? fallbackPaperId;
-        return paperId === selectedPaperGroup?.id;
+        return paperId === selectedPaperGroup.id;
       });
   }, [data.groups, data.questions, selectedGroupId, paperGroupsInSelectedGroup, selectedPaperGroup]);
 
