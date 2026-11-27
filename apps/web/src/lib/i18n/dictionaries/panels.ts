@@ -289,7 +289,7 @@ export const panelsZh = {
   "settings.usage.weekdayFri": "五",
   "settings.usage.cellTitle": "{date} · {requests} 次请求 · {tokens} tokens",
   "settings.usage.emptyHint":
-    "暂无请求记录。生成题解、生成详解、发送讨论或图片导入后，这里会出现最近 12 周的用量热力图。",
+    "暂无请求记录。生成题解、生成详解、发送讨论或图片导入后，这里会出现最近半年的用量热力图。",
   "settings.usage.modelColumn": "模型",
   "settings.usage.requestsColumn": "请求数",
   "settings.usage.categoryAria": "用量分类筛选",
@@ -301,7 +301,7 @@ export const panelsZh = {
   "settings.usage.byCategoryTitle": "按分类汇总",
   "settings.usage.byModelTitle": "按模型汇总",
   "settings.usage.hint":
-    "统计近 12 周的全部 AI 调用（题解生成、详解生成、讨论、图片导入），按本地时区的自然日聚合；失败请求也计入请求数，连接测试不计入。",
+    "统计近半年的全部 AI 调用（题解生成、详解生成、讨论、图片导入），按本地时区的自然日聚合；失败请求也计入请求数，连接测试不计入。",
   "settings.usage.loadError": "用量统计加载失败",
   "settings.remoteLoading": "正在加载远程访问设置…",
   "settings.remoteEnable": "开启广播",
@@ -700,7 +700,7 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "settings.usage.weekdayFri": "Fr",
   "settings.usage.cellTitle": "{date} · {requests} requests · {tokens} tokens",
   "settings.usage.emptyHint":
-    "No requests recorded yet. Once you generate solutions or explanations, chat, or import questions by image, a 12-week usage heatmap will appear here.",
+    "No requests recorded yet. Once you generate solutions or explanations, chat, or import questions by image, a six-month usage heatmap will appear here.",
   "settings.usage.modelColumn": "Model",
   "settings.usage.requestsColumn": "Requests",
   "settings.usage.categoryAria": "Usage category",
@@ -712,7 +712,7 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "settings.usage.byCategoryTitle": "By category",
   "settings.usage.byModelTitle": "By model",
   "settings.usage.hint":
-    "Covers all AI calls in the last 12 weeks (solution generation, explanation generation, chat, image import), aggregated per local calendar day. Failed requests count toward the request total; connection tests are excluded.",
+    "Covers all AI calls in the last six months (solution generation, explanation generation, chat, image import), aggregated per local calendar day. Failed requests count toward the request total; connection tests are excluded.",
   "settings.usage.loadError": "Failed to load usage statistics",
   "settings.remoteLoading": "Loading remote access settings…",
   "settings.remoteEnable": "Start broadcasting",

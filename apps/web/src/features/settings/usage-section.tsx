@@ -6,8 +6,8 @@ import { useT } from "@/lib/i18n/use-i18n";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
-/** 热力图统计窗口（自然日，约 12 周） */
-const RANGE_DAYS = 84;
+/** 热力图统计窗口（自然日，约 29 周 ≈ 半年；窗口拉长后格子尺寸与设置页 640px 版心匹配，网格可水平填满） */
+const RANGE_DAYS = 203;
 
 type Metric = "requests" | "tokens";
 
@@ -308,7 +308,7 @@ export function UsageSection() {
       ) : (
         <div className="rounded-xl border border-line bg-panel p-4">
           <div className="overflow-x-auto pb-1">
-            <div className="inline-flex flex-col gap-1.5">
+            <div className="flex w-full min-w-[520px] flex-col gap-1.5">
               {/* 月份标签行：按列首格月份变化标注 */}
               <div className="flex gap-[3px] pl-7">
                 {weeks.map((column, weekIndex) => {
@@ -320,7 +320,7 @@ export function UsageSection() {
                     ? Number(previousFirst.date.slice(5, 7))
                     : null;
                   return (
-                    <div key={`month-${weekIndex}`} className="w-[15px] text-[9.5px] leading-none text-ink-faint">
+                    <div key={`month-${weekIndex}`} className="min-w-0 flex-1 whitespace-nowrap text-[9.5px] leading-none text-ink-faint">
                       {month !== null && month !== previousMonth ? `${month}月` : ""}
                     </div>
                   );
@@ -332,7 +332,7 @@ export function UsageSection() {
                   {[0, 1, 2, 3, 4, 5, 6].map((row) => (
                     <div
                       key={row}
-                      className="flex h-[15px] items-center text-[9.5px] leading-none text-ink-faint"
+                      className="flex min-h-[15px] flex-1 items-center text-[9.5px] leading-none text-ink-faint"
                     >
                       {row === 0
                         ? t("settings.usage.weekdayMon")
@@ -345,7 +345,7 @@ export function UsageSection() {
                   ))}
                 </div>
                 {weeks.map((column, weekIndex) => (
-                  <div key={`week-${weekIndex}`} className="flex flex-col gap-[3px]">
+                  <div key={`week-${weekIndex}`} className="flex min-w-0 flex-1 flex-col gap-[3px]">
                     {column.map((cell) => (
                       <div
                         key={cell.date}
@@ -359,7 +359,7 @@ export function UsageSection() {
                             : undefined
                         }
                         className={cn(
-                          "h-[15px] w-[15px] rounded-[3px] transition-colors",
+                          "aspect-square w-full rounded-[3px] transition-colors",
                           cell.value === null ? "invisible" : LEVEL_CLASSES[levelOf(cell.value)],
                         )}
                       />
